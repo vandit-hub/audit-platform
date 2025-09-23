@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AUDITOR
+  AUDITEE
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum EntityType {
+  USER
+  AUDIT
+  OBSERVATION
+  ATTACHMENT
+  APPROVAL
+  ACTION_PLAN
+  PLANT
+  INVITE
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  SUBMITTED
+  SIGNED_OFF
+}
+
+enum Process {
+  O2C
+  P2P
+  R2R
+  INVENTORY
+}
+
+enum RiskCategory {
+  A
+  B
+  C
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  DONE
+}
+
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String?
+  passwordHash    String
+  role            Role            @default(AUDITOR)
+  status          UserStatus      @default(ACTIVE)
+  lastLoginAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  invited         GuestInvite[]   @relation("InvitedBy")
+  redeemedInvites GuestInvite[]   @relation("RedeemedBy")
+  events          AuditEvent[]
+  // Phase 2
+  createdAudits   Audit[]         @relation("AuditCreatedBy")
+  assignments     AuditAssignment[]
+}
+
+model Plant {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  // Phase 2
+  applicableChecklist ChecklistApplicability[]
+  audits              Audit[]
+}
+
+model AuditEvent {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  action     String
+  diff       Json?
+  actorId    String?
+  actor      User?      @relation(fields: [actorId], references: [id])
+  createdAt  DateTime   @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model GuestInvite {
+  id           String    @id @default(cuid())
+  email        String
+  role         Role      @default(GUEST)
+  token        String    @unique
+  scope        Json?
+  expiresAt    DateTime
+  invitedById  String?
+  invitedBy    User?     @relation("InvitedBy", fields: [invitedById], references: [id])
+  redeemedById String?
+  redeemedBy   User?     @relation("RedeemedBy", fields: [redeemedById], references: [id])
+  redeemedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+/* =========================
+   Phase 2: Audit Management
+   ========================= */
+
+model Audit {
+  id               String        @id @default(cuid())
+  plantId          String
+  plant            Plant         @relation(fields: [plantId], references: [id])
+  startDate        DateTime?
+  endDate          DateTime?
+  visitDetails     String?
+  reportSubmittedAt DateTime?
+  signOffAt        DateTime?
+  status           AuditStatus   @default(PLANNED)
+  createdById      String
+  createdBy        User          @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  assignments      AuditAssignment[]
+  auditChecklists  AuditChecklist[]
+}
+
+model AuditAssignment {
+  id         String  @id @default(cuid())
+  auditId    String
+  audit      Audit   @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditorId  String
+  auditor    User    @relation(fields: [auditorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([auditId, auditorId])
+}
+
+model Checklist {
+  id            String           @id @default(cuid())
+  name          String
+  description   String?
+  createdAt     DateTime         @default(now())
+
+  items         ChecklistItem[]
+  applicable    ChecklistApplicability[]
+  auditLinks    AuditChecklist[]
+}
+
+model ChecklistItem {
+  id            String        @id @default(cuid())
+  checklistId   String
+  checklist     Checklist     @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  riskCategory  RiskCategory?
+  process       Process?
+  isMandatory   Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+}
+
+model ChecklistApplicability {
+  id           String     @id @default(cuid())
+  checklistId  String
+  plantId      String
+  checklist    Checklist  @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  plant        Plant      @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@unique([checklistId, plantId])
+}
+
+model AuditChecklist {
+  id           String      @id @default(cuid())
+  auditId      String
+  checklistId  String
+  audit        Audit       @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  checklist    Checklist   @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  items        AuditChecklistItem[]
+
+  @@unique([auditId, checklistId])
+}
+
+model AuditChecklistItem {
+  id                 String               @id @default(cuid())
+  auditChecklistId   String
+  auditChecklist     AuditChecklist       @relation(fields: [auditChecklistId], references: [id], onDelete: Cascade)
+  checklistItemId    String
+  title              String
+  status             ChecklistItemStatus  @default(PENDING)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([auditChecklistId])
+}
