@@ -56,6 +56,36 @@ enum ChecklistItemStatus {
   DONE
 }
 
+/* ===== Phase 3 enums ===== */
+
+enum LikelyImpact {
+  LOCAL
+  ORG_WIDE
+}
+
+enum ObservationStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum ReTestResult {
+  PASS
+  FAIL
+}
+
+enum ApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum AttachmentKind {
+  ANNEXURE
+  MGMT_DOC
+}
+
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
@@ -69,9 +99,12 @@ model User {
   invited         GuestInvite[]   @relation("InvitedBy")
   redeemedInvites GuestInvite[]   @relation("RedeemedBy")
   events          AuditEvent[]
-  // Phase 2
   createdAudits   Audit[]         @relation("AuditCreatedBy")
   assignments     AuditAssignment[]
+  // Phase 3
+  createdObservations Observation[] @relation("ObservationCreatedBy")
+  notes            RunningNote[]
+  approvals        Approval[]
 }
 
 model Plant {
@@ -79,9 +112,9 @@ model Plant {
   code      String   @unique
   name      String
   createdAt DateTime @default(now())
-  // Phase 2
   applicableChecklist ChecklistApplicability[]
   audits              Audit[]
+  observations        Observation[]
 }
 
 model AuditEvent {
@@ -116,9 +149,7 @@ model GuestInvite {
   @@index([expiresAt])
 }
 
-/* =========================
-   Phase 2: Audit Management
-   ========================= */
+/* ============ Phase 2 (existing) ============ */
 
 model Audit {
   id               String        @id @default(cuid())
@@ -137,6 +168,7 @@ model Audit {
 
   assignments      AuditAssignment[]
   auditChecklists  AuditChecklist[]
+  observations     Observation[]
 }
 
 model AuditAssignment {
@@ -207,4 +239,98 @@ model AuditChecklistItem {
   updatedAt          DateTime             @updatedAt
 
   @@index([auditChecklistId])
+}
+
+/* ============ Phase 3 ============ */
+
+model Observation {
+  id            String           @id @default(cuid())
+  auditId       String
+  audit         Audit            @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  plantId       String
+  plant         Plant            @relation(fields: [plantId], references: [id])
+  createdById   String
+  createdBy     User             @relation("ObservationCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  observationText  String
+  risksInvolved    String?
+  riskCategory     RiskCategory?
+  likelyImpact     LikelyImpact?
+  concernedProcess Process?
+
+  auditorPerson        String?
+  auditeePersonTier1   String?
+  auditeePersonTier2   String?
+
+  auditeeFeedback             String?
+  hodActionPlan               String?
+  targetDate                  DateTime?
+  personResponsibleToImplement String?
+  currentStatus               ObservationStatus @default(PENDING)
+
+  implementationDate DateTime?
+  reTestResult       ReTestResult?
+
+  approvalStatus   ApprovalStatus @default(DRAFT)
+  isPublished      Boolean        @default(false)
+
+  lockedFields     Json? // array of field names to lock (["observationText", "riskCategory", ...])
+
+  attachments      ObservationAttachment[]
+  approvals        Approval[]
+  notes            RunningNote[]
+  actionPlans      ActionPlan[]
+
+  @@index([plantId])
+  @@index([approvalStatus, isPublished])
+}
+
+model ObservationAttachment {
+  id            String          @id @default(cuid())
+  observationId String
+  observation   Observation     @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  kind          AttachmentKind
+  key           String
+  fileName      String
+  contentType   String?
+  size          Int?
+  createdAt     DateTime        @default(now())
+}
+
+model Approval {
+  id            String          @id @default(cuid())
+  observationId String
+  observation   Observation     @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  status        ApprovalStatus
+  comment       String?
+  actorId       String
+  actor         User            @relation(fields: [actorId], references: [id])
+  createdAt     DateTime        @default(now())
+
+  @@index([observationId, status])
+}
+
+model RunningNote {
+  id            String      @id @default(cuid())
+  observationId String
+  observation   Observation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  actorId       String
+  actor         User        @relation(fields: [actorId], references: [id])
+  text          String
+  createdAt     DateTime    @default(now())
+
+  @@index([observationId, createdAt])
+}
+
+model ActionPlan {
+  id            String      @id @default(cuid())
+  observationId String
+  observation   Observation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  plan          String
+  owner         String?
+  targetDate    DateTime?
+  status        String?     // simple text status for MVP
+  createdAt     DateTime    @default(now())
 }

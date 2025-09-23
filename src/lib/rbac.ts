@@ -4,8 +4,16 @@ export function isAdmin(role?: Role | string | null) {
   return role === "ADMIN" || role === Role.ADMIN;
 }
 
+export function isAuditor(role?: Role | string | null) {
+  return role === "AUDITOR" || role === Role.AUDITOR;
+}
+
+export function isAuditee(role?: Role | string | null) {
+  return role === "AUDITEE" || role === Role.AUDITEE;
+}
+
 export function isAdminOrAuditor(role?: Role | string | null) {
-  return isAdmin(role) || role === "AUDITOR" || role === Role.AUDITOR;
+  return isAdmin(role) || isAuditor(role);
 }
 
 export function assertAdmin(role?: Role | string | null) {
