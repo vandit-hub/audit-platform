@@ -10,7 +10,6 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* @ts-expect-error Server Component passing session via fetch on client navbar */}
       <NavBar />
       <main className="max-w-6xl mx-auto p-4">{children}</main>
     </div>

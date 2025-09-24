@@ -3,9 +3,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { isAdminOrAuditor } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
-import { Prisma } from "@prisma/client";
+import { Prisma, RiskCategory, Process, ObservationStatus } from "@prisma/client";
 
-function csvEscape(v: any) {
+function csvEscape(v: unknown) {
   const s = v === null || v === undefined ? "" : String(v);
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
@@ -26,9 +26,9 @@ export async function GET(req: NextRequest) {
   // Base filters
   const filters: Prisma.ObservationWhereInput[] = [];
   if (plantId) filters.push({ plantId });
-  if (risk) filters.push({ riskCategory: risk as any });
-  if (process) filters.push({ concernedProcess: process as any });
-  if (status) filters.push({ currentStatus: status as any });
+  if (risk && isRiskCategory(risk)) filters.push({ riskCategory: risk });
+  if (process && isProcess(process)) filters.push({ concernedProcess: process });
+  if (status && isObservationStatus(status)) filters.push({ currentStatus: status });
   if (q) {
     filters.push({
       OR: [
@@ -92,4 +92,16 @@ export async function GET(req: NextRequest) {
       "content-disposition": 'attachment; filename="observations.csv"'
     }
   });
+}
+
+function isRiskCategory(value: string): value is RiskCategory {
+  return (Object.values(RiskCategory) as string[]).includes(value);
+}
+
+function isProcess(value: string): value is Process {
+  return (Object.values(Process) as string[]).includes(value);
+}
+
+function isObservationStatus(value: string): value is ObservationStatus {
+  return (Object.values(ObservationStatus) as string[]).includes(value);
 }

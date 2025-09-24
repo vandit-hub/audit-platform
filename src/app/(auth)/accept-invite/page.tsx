@@ -26,8 +26,9 @@ export default function AcceptInvitePage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed");
       router.push("/login?accepted=1");
-    } catch (err: any) {
-      setError(err.message || "Failed to accept invite");
+    } catch (err: unknown) {
+      const message = err instanceof Error && err.message ? err.message : "Failed to accept invite";
+      setError(message);
     } finally {
       setBusy(false);
     }

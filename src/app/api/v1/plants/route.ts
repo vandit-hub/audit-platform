@@ -14,6 +14,9 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   assertAdmin(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const body = await req.json();
   const input = createSchema.parse(body);
 
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
     entityType: "PLANT",
     entityId: plant.id,
     action: "CREATE_PLANT",
-    actorId: session?.user.id,
+    actorId: userId,
     diff: input
   });
 

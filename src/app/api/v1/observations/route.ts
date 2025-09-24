@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { assertAdminOrAuditor, isAdminOrAuditor } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
-import { Prisma } from "@prisma/client";
+import { Prisma, RiskCategory, Process, ObservationStatus } from "@prisma/client";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 
 const createSchema = z.object({
@@ -34,9 +34,9 @@ export async function GET(req: NextRequest) {
   // Build base filters
   const filters: Prisma.ObservationWhereInput[] = [];
   if (plantId) filters.push({ plantId });
-  if (risk) filters.push({ riskCategory: risk as any });
-  if (process) filters.push({ concernedProcess: process as any });
-  if (status) filters.push({ currentStatus: status as any });
+  if (risk && isRiskCategory(risk)) filters.push({ riskCategory: risk });
+  if (process && isProcess(process)) filters.push({ concernedProcess: process });
+  if (status && isObservationStatus(status)) filters.push({ currentStatus: status });
   if (q) {
     filters.push({
       OR: [
@@ -99,6 +99,9 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const body = await req.json();
   const input = createSchema.parse(body);
 
@@ -109,12 +112,12 @@ export async function POST(req: NextRequest) {
     data: {
       auditId: input.auditId,
       plantId: audit.plantId,
-      createdById: session!.user.id,
+      createdById: userId,
       observationText: input.observationText,
       risksInvolved: input.risksInvolved ?? null,
-      riskCategory: input.riskCategory as any,
-      likelyImpact: input.likelyImpact as any,
-      concernedProcess: input.concernedProcess as any,
+      riskCategory: input.riskCategory ?? null,
+      likelyImpact: input.likelyImpact ?? null,
+      concernedProcess: input.concernedProcess ?? null,
       auditorPerson: input.auditorPerson ?? null,
       auditeePersonTier1: input.auditeePersonTier1 ?? null,
       auditeePersonTier2: input.auditeePersonTier2 ?? null
@@ -125,9 +128,21 @@ export async function POST(req: NextRequest) {
     entityType: "OBSERVATION",
     entityId: obs.id,
     action: "CREATE",
-    actorId: session!.user.id,
+    actorId: userId,
     diff: input
   });
 
   return NextResponse.json({ ok: true, observation: obs });
+}
+
+function isRiskCategory(value: string): value is RiskCategory {
+  return (Object.values(RiskCategory) as string[]).includes(value);
+}
+
+function isProcess(value: string): value is Process {
+  return (Object.values(Process) as string[]).includes(value);
+}
+
+function isObservationStatus(value: string): value is ObservationStatus {
+  return (Object.values(ObservationStatus) as string[]).includes(value);
 }

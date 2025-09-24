@@ -5,6 +5,7 @@ import { z } from "zod";
 import { isAdmin, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
+import { Prisma } from "@prisma/client";
 
 const updateSchema = z.object({
   // Auditor-editable
@@ -51,8 +52,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const role = session.user.role;
 
-  const noteWhere =
-    isAuditee(role) || isGuest(role) ? { visibility: "ALL" as const } : undefined;
+  const noteWhere: Prisma.RunningNoteWhereInput | undefined =
+    isAuditee(role) || isGuest(role) ? { visibility: "ALL" } : undefined;
 
   const o = await prisma.observation.findUnique({
     where: { id },
@@ -65,7 +66,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         orderBy: { createdAt: "desc" }
       },
       notes: {
-        where: noteWhere as any,
+        where: noteWhere,
         include: { actor: { select: { id: true, email: true, name: true } } },
         orderBy: { createdAt: "asc" }
       },
@@ -107,29 +108,70 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ? AUDITOR_FIELDS
     : AUDITEE_FIELDS;
 
-  const data: any = {};
-  for (const [k, v] of Object.entries(input)) {
-    if (allowed.has(k)) {
-      if (k === "targetDate") data[k] = v === null ? null : v ? new Date(v as string) : undefined;
-      else data[k] = v;
-    }
+  const updates: Prisma.ObservationUpdateInput = {};
+
+  if (allowed.has("observationText") && input.observationText !== undefined) {
+    updates.observationText = input.observationText;
+  }
+  if (allowed.has("risksInvolved") && input.risksInvolved !== undefined) {
+    updates.risksInvolved = input.risksInvolved;
+  }
+  if (allowed.has("riskCategory") && input.riskCategory !== undefined) {
+    updates.riskCategory = input.riskCategory;
+  }
+  if (allowed.has("likelyImpact") && input.likelyImpact !== undefined) {
+    updates.likelyImpact = input.likelyImpact;
+  }
+  if (allowed.has("concernedProcess") && input.concernedProcess !== undefined) {
+    updates.concernedProcess = input.concernedProcess;
+  }
+  if (allowed.has("auditorPerson") && input.auditorPerson !== undefined) {
+    updates.auditorPerson = input.auditorPerson;
+  }
+  if (allowed.has("auditeePersonTier1") && input.auditeePersonTier1 !== undefined) {
+    updates.auditeePersonTier1 = input.auditeePersonTier1;
+  }
+  if (allowed.has("auditeePersonTier2") && input.auditeePersonTier2 !== undefined) {
+    updates.auditeePersonTier2 = input.auditeePersonTier2;
+  }
+  if (allowed.has("auditeeFeedback") && input.auditeeFeedback !== undefined) {
+    updates.auditeeFeedback = input.auditeeFeedback;
+  }
+  if (allowed.has("hodActionPlan") && input.hodActionPlan !== undefined) {
+    updates.hodActionPlan = input.hodActionPlan;
+  }
+  if (allowed.has("targetDate") && input.targetDate !== undefined) {
+    updates.targetDate = input.targetDate === null ? null : new Date(input.targetDate);
+  }
+  if (allowed.has("personResponsibleToImplement") && input.personResponsibleToImplement !== undefined) {
+    updates.personResponsibleToImplement = input.personResponsibleToImplement;
+  }
+  if (allowed.has("currentStatus") && input.currentStatus !== undefined) {
+    updates.currentStatus = input.currentStatus;
   }
 
-  if (Object.keys(data).length === 0) {
+  if (Object.keys(updates).length === 0) {
     return NextResponse.json({ ok: false, error: "No permitted fields to update" }, { status: 400 });
   }
 
   const updated = await prisma.observation.update({
     where: { id },
-    data
+    data: updates
   });
+
+  const diffPayload = Object.fromEntries(
+    Object.entries(updates).map(([key, value]) => [
+      key,
+      value instanceof Date ? value.toISOString() : value
+    ])
+  );
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
     entityId: id,
     action: "FIELD_UPDATE",
     actorId: session.user.id,
-    diff: { before: orig, after: updated }
+    diff: diffPayload
   });
 
   return NextResponse.json({ ok: true, observation: updated });

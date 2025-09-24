@@ -15,11 +15,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   assertAdmin(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const { fields, lock } = schema.parse(await req.json());
   const o = await prisma.observation.findUnique({ where: { id } });
   if (!o) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  const curr = Array.isArray((o.lockedFields as any) ?? []) ? ((o.lockedFields as any) as string[]) : [];
+  const rawLocked = o.lockedFields;
+  const curr = Array.isArray(rawLocked)
+    ? rawLocked.filter((value): value is string => typeof value === "string")
+    : [];
   const set = new Set(curr);
 
   if (lock) fields.forEach((f) => set.add(f));
@@ -29,14 +35,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   await prisma.observation.update({
     where: { id },
-    data: { lockedFields: next as any }
+    data: { lockedFields: next }
   });
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
     entityId: id,
     action: "LOCK_FIELD",
-    actorId: session!.user.id,
+    actorId: userId,
     diff: { fields, lock }
   });
 

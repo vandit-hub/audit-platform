@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { presignPutUrl } from "@/lib/s3";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
 

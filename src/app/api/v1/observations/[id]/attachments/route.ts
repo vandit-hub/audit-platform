@@ -19,6 +19,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
+  const userId = session.user.id;
+
   const input = schema.parse(await req.json());
 
   const obs = await prisma.observation.findUnique({
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const rec = await prisma.observationAttachment.create({
     data: {
       observationId: id,
-      kind: input.kind as any,
+      kind: input.kind,
       key: input.key,
       fileName: input.fileName,
       contentType: input.contentType ?? null,
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     entityType: "ATTACHMENT",
     entityId: rec.id,
     action: "CREATE",
-    actorId: session!.user.id,
+    actorId: userId,
     diff: rec
   });
 

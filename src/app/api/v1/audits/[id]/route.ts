@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, assertAdmin } from "@/lib/rbac";
+import { assertAdminOrAuditor } from "@/lib/rbac";
 
 const updateSchema = z.object({
   startDate: z.string().datetime().nullable().optional(),

@@ -62,8 +62,9 @@ export default function AuditsPage() {
       setEndDate("");
       setVisitDetails("");
       await load();
-    } catch (err: any) {
-      setError(err.message || "Failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error && err.message ? err.message : "Failed";
+      setError(message);
     } finally {
       setBusy(false);
     }

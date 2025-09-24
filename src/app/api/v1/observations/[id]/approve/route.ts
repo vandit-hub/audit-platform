@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { ApprovalStatus } from "@prisma/client";
 
 const schema = z.object({
   approve: z.boolean(),
@@ -15,24 +16,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   assertAdmin(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const input = schema.parse(await req.json());
 
-  const status = input.approve ? "APPROVED" : "REJECTED";
+  const status = input.approve ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
 
   const o = await prisma.observation.update({
     where: { id },
-    data: { approvalStatus: status as any }
+    data: { approvalStatus: status }
   });
 
   await prisma.approval.create({
-    data: { observationId: o.id, status: status as any, comment: input.comment ?? null, actorId: session!.user.id }
+    data: {
+      observationId: o.id,
+      status,
+      comment: input.comment ?? null,
+      actorId: userId
+    }
   });
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
     entityId: o.id,
     action: input.approve ? "APPROVE" : "REJECT",
-    actorId: session!.user.id,
+    actorId: userId,
     diff: { comment: input.comment ?? null }
   });
 

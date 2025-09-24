@@ -19,7 +19,7 @@ export default function LoginPage() {
       password,
       callbackUrl: "/"
     });
-    if ((res as any)?.error) {
+    if (res?.error) {
       setError("Invalid email or password");
     }
   }
@@ -69,7 +69,7 @@ export default function LoginPage() {
           Sign in
         </button>
         <p className="text-xs text-gray-500">
-          Don't have an account? Ask an Admin to invite you.
+          Don&apos;t have an account? Ask an Admin to invite you.
         </p>
       </form>
     </div>

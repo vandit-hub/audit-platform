@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 
 type Plant = { id: string; code: string; name: string };
 type User = { id: string; name: string | null; email: string | null; role: string };
 type ChecklistLite = { id: string; name: string };
+type ChecklistSummary = ChecklistLite & { applicablePlantIds: string[] };
 type AuditChecklistItem = { id: string; title: string; status: "PENDING" | "DONE" };
 type AuditChecklist = { id: string; checklist: ChecklistLite; items: AuditChecklistItem[] };
 type Audit = {
@@ -19,18 +21,20 @@ type Audit = {
 };
 type Progress = { done: number; total: number };
 
-export default function AuditDetailPage({ params }: { params: { auditId: string } }) {
-  const { auditId } = params;
+export default function AuditDetailPage() {
+  const params = useParams<{ auditId: string }>();
+  const auditId = params.auditId;
 
   const [audit, setAudit] = useState<Audit | null>(null);
   const [progress, setProgress] = useState<Progress>({ done: 0, total: 0 });
   const [auditors, setAuditors] = useState<User[]>([]);
   const [selectedAuditor, setSelectedAuditor] = useState("");
-  const [checklists, setChecklists] = useState<{ id: string; name: string }[]>([]);
+  const [checklists, setChecklists] = useState<ChecklistLite[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
+    if (!auditId) return;
     const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
     const json = await res.json();
     if (res.ok) {
@@ -42,7 +46,12 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
       if (chkRes.ok) {
         // filter to those applicable to this plant
         const plantId = json.audit.plant.id;
-        const applicable = chkJson.checklists.filter((c: any) => c.applicablePlantIds.includes(plantId));
+        const fetched: ChecklistSummary[] = Array.isArray(chkJson.checklists)
+          ? (chkJson.checklists as ChecklistSummary[])
+          : [];
+        const applicable = fetched
+          .filter((c) => Array.isArray(c.applicablePlantIds) && c.applicablePlantIds.includes(plantId))
+          .map(({ id, name }) => ({ id, name }));
         setChecklists(applicable);
       }
       // load auditors list for assignment (admin-only endpoint; may 403)
@@ -52,15 +61,12 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
         setAuditors(audJson.users);
       }
     }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auditId]);
 
+  useEffect(() => { void load(); }, [load]);
+
   async function addAuditor() {
-    if (!selectedAuditor) return;
+    if (!auditId || !selectedAuditor) return;
     setError(null);
     const res = await fetch(`/api/v1/audits/${auditId}/assign`, {
       method: "POST",
@@ -78,6 +84,7 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
 
   async function removeAuditor(userId: string) {
     setError(null);
+    if (!auditId) return;
     const res = await fetch(`/api/v1/audits/${auditId}/assign?userId=${userId}`, {
       method: "DELETE"
     });
@@ -90,7 +97,7 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
   }
 
   async function addChecklist() {
-    if (!selectedChecklist) return;
+    if (!auditId || !selectedChecklist) return;
     setError(null);
     const res = await fetch(`/api/v1/audits/${auditId}/checklists`, {
       method: "POST",
@@ -108,6 +115,7 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
 
   async function removeChecklist(checklistId: string) {
     setError(null);
+    if (!auditId) return;
     const res = await fetch(`/api/v1/audits/${auditId}/checklists/${checklistId}`, {
       method: "DELETE"
     });
@@ -120,6 +128,7 @@ export default function AuditDetailPage({ params }: { params: { auditId: string 
   }
 
   async function toggleItem(itemId: string) {
+    if (!auditId) return;
     await fetch(`/api/v1/audits/${auditId}/items/${itemId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },

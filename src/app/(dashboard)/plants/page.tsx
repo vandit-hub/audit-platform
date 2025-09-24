@@ -34,8 +34,9 @@ export default function PlantsPage() {
       setCode("");
       setName("");
       await load();
-    } catch (err: any) {
-      setError(err.message || "Failed to create plant (Admin only)");
+    } catch (err: unknown) {
+      const message = err instanceof Error && err.message ? err.message : "Failed to create plant (Admin only)";
+      setError(message);
     }
   }
 

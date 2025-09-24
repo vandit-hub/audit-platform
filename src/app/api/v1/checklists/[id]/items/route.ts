@@ -38,8 +38,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       checklistId: id,
       title: input.title,
       description: input.description ?? null,
-      riskCategory: input.riskCategory as any,
-      process: input.process as any,
+      riskCategory: input.riskCategory ?? null,
+      process: input.process ?? null,
       isMandatory: input.isMandatory ?? false
     }
   });

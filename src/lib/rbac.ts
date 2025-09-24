@@ -22,16 +22,16 @@ export function isAdminOrAuditor(role?: Role | string | null) {
 
 export function assertAdmin(role?: Role | string | null) {
   if (!isAdmin(role)) {
-    const e: any = new Error("Forbidden");
-    e.status = 403;
-    throw e;
+    const error: Error & { status?: number } = new Error("Forbidden");
+    error.status = 403;
+    throw error;
   }
 }
 
 export function assertAdminOrAuditor(role?: Role | string | null) {
   if (!isAdminOrAuditor(role)) {
-    const e: any = new Error("Forbidden");
-    e.status = 403;
-    throw e;
+    const error: Error & { status?: number } = new Error("Forbidden");
+    error.status = 403;
+    throw error;
   }
 }

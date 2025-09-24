@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -71,27 +71,7 @@ export default function ObservationsPage() {
     localStorage.removeItem("obs.filters");
   }
 
-  async function load() {
-    const [pRes, aRes] = await Promise.all([
-      fetch("/api/v1/plants", { cache: "no-store" }),
-      fetch("/api/v1/audits", { cache: "no-store" })
-    ]);
-    const pJ = await pRes.json();
-    const aJ = await aRes.json();
-    if (pRes.ok) setPlants(pJ.plants);
-    if (aRes.ok) {
-      const auds = aJ.audits.map((x: any) => ({
-        id: x.id,
-        startDate: x.startDate,
-        endDate: x.endDate,
-        plant: x.plant
-      }));
-      setAudits(auds);
-    }
-    await loadRows();
-  }
-
-  async function loadRows() {
+  const loadRows = useCallback(async () => {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (risk) qs.set("risk", risk);
@@ -101,12 +81,37 @@ export default function ObservationsPage() {
     if (q) qs.set("q", q);
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json();
-    if (res.ok) setRows(j.observations);
-  }
+    if (res.ok) {
+      const observations = Array.isArray(j.observations) ? (j.observations as ObservationRow[]) : [];
+      setRows(observations);
+    }
+  }, [plantId, risk, proc, status, published, q]);
+
+  const load = useCallback(async () => {
+    const [pRes, aRes] = await Promise.all([
+      fetch("/api/v1/plants", { cache: "no-store" }),
+      fetch("/api/v1/audits", { cache: "no-store" })
+    ]);
+    const pJ = await pRes.json();
+    const aJ = await aRes.json();
+    if (pRes.ok) setPlants(pJ.plants);
+    if (aRes.ok) {
+      const audits = Array.isArray(aJ.audits) ? (aJ.audits as Audit[]) : [];
+      setAudits(
+        audits.map((x) => ({
+          id: x.id,
+          startDate: x.startDate,
+          endDate: x.endDate,
+          plant: x.plant
+        }))
+      );
+    }
+    await loadRows();
+  }, [loadRows]);
 
   useEffect(() => { loadPreset(); /* on first mount only */ }, []);
-  useEffect(() => { load(); }, []);
-  useEffect(() => { loadRows(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [plantId, risk, proc, status, published, q]);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadRows(); }, [loadRows]);
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -123,8 +128,9 @@ export default function ObservationsPage() {
       setAuditId("");
       setObservationText("");
       await loadRows();
-    } catch (err: any) {
-      setError(err.message || "Failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error && err.message ? err.message : "Failed";
+      setError(message);
     } finally {
       setBusy(false);
     }

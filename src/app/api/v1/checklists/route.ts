@@ -9,7 +9,7 @@ const createSchema = z.object({
   description: z.string().optional()
 });
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 

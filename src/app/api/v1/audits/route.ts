@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdminOrAuditor } from "@/lib/rbac";
+import { AuditStatus } from "@prisma/client";
 
 const createSchema = z.object({
   plantId: z.string().min(1),
@@ -17,12 +18,13 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const plantId = searchParams.get("plantId") || undefined;
-  const status = searchParams.get("status") || undefined;
+  const statusParam = searchParams.get("status");
+  const status = statusParam && isAuditStatus(statusParam) ? statusParam : undefined;
 
   const audits = await prisma.audit.findMany({
     where: {
       plantId,
-      status: status ? (status as any) : undefined
+      status
     },
     include: {
       plant: true,
@@ -55,9 +57,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, audits: shaped });
 }
 
+function isAuditStatus(value: string): value is AuditStatus {
+  return (Object.values(AuditStatus) as string[]).includes(value);
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
+
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = await req.json();
   const input = createSchema.parse(body);
@@ -68,7 +77,7 @@ export async function POST(req: NextRequest) {
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
       visitDetails: input.visitDetails ?? null,
-      createdById: session!.user.id
+      createdById: userId
     },
     include: { plant: true }
   });

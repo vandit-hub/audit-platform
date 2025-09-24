@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, FormEvent, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 type Plant = { id: string; code: string; name: string };
@@ -36,7 +36,43 @@ type Observation = {
   actionPlans: ActionPlan[];
 };
 
-export default function ObservationDetailPage({ params }: { params: { id: string } }) {
+type RiskOption = "A" | "B" | "C" | "";
+type ImpactOption = "LOCAL" | "ORG_WIDE" | "";
+type ProcessOption = "O2C" | "P2P" | "R2R" | "INVENTORY" | "";
+type ObservationDraft = {
+  observationText: string;
+  risksInvolved: string;
+  riskCategory: RiskOption;
+  likelyImpact: ImpactOption;
+  concernedProcess: ProcessOption;
+  auditorPerson: string;
+  auditeePersonTier1: string;
+  auditeePersonTier2: string;
+  auditeeFeedback: string;
+  hodActionPlan: string;
+  targetDate: string;
+  personResponsibleToImplement: string;
+  currentStatus: Observation["currentStatus"];
+};
+
+const EMPTY_DRAFT: ObservationDraft = {
+  observationText: "",
+  risksInvolved: "",
+  riskCategory: "",
+  likelyImpact: "",
+  concernedProcess: "",
+  auditorPerson: "",
+  auditeePersonTier1: "",
+  auditeePersonTier2: "",
+  auditeeFeedback: "",
+  hodActionPlan: "",
+  targetDate: "",
+  personResponsibleToImplement: "",
+  currentStatus: "PENDING"
+};
+
+export default function ObservationDetailPage() {
+  const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
   const { data: session } = useSession();
@@ -46,7 +82,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   const [error, setError] = useState<string | null>(null);
 
   // Editable fields (we'll send only what changed)
-  const [draft, setDraft] = useState<any>({});
+  const [draft, setDraft] = useState<ObservationDraft>(EMPTY_DRAFT);
 
   // Upload controls
   const [fileA, setFileA] = useState<File | null>(null);
@@ -62,7 +98,8 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   const [apDate, setApDate] = useState("");
   const [apStatus, setApStatus] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}`, { cache: "no-store" });
     const j = await res.json();
     if (res.ok) {
@@ -85,15 +122,18 @@ export default function ObservationDetailPage({ params }: { params: { id: string
     } else {
       setError(j.error || "Failed to load");
     }
-  }
+  }, [id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+  useEffect(() => { void load(); }, [load]);
 
-  function setField(k: string, v: any) { setDraft((d: any) => ({ ...d, [k]: v })); }
+  const setField = useCallback(<K extends keyof ObservationDraft>(key: K, value: ObservationDraft[K]) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   async function save(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -111,11 +151,13 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function submitForApproval() {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/submit`, { method: "POST" });
     if (res.ok) await load();
   }
 
   async function approve(approve: boolean) {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/approve`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -125,6 +167,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function publish(published: boolean) {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/publish`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -134,6 +177,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function retest(result: "PASS" | "FAIL") {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/retest`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -143,6 +187,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function upload(kind: "ANNEXURE" | "MGMT_DOC", file: File) {
+    if (!id) return;
     const pres = await fetch(`/api/v1/observations/${id}/attachments/presign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -162,6 +207,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
 
   async function addNote() {
     if (!note.trim()) return;
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/notes`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -174,6 +220,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function lock(fields: string[], lock: boolean) {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/locks`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -184,6 +231,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
 
   async function addAction() {
     if (!apPlan.trim()) return;
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/actions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -201,6 +249,7 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function updateAction(a: ActionPlan, patch: Partial<ActionPlan>) {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/actions/${a.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -215,11 +264,12 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function deleteAction(a: ActionPlan) {
+    if (!id) return;
     const res = await fetch(`/api/v1/observations/${id}/actions/${a.id}`, { method: "DELETE" });
     if (res.ok) await load();
   }
 
-  if (!o) return <div>Loading…</div>;
+  if (!id || !o) return <div>Loading…</div>;
 
   const isAdmin = role === "ADMIN";
   const isAuditor = role === "AUDITOR";
@@ -249,20 +299,32 @@ export default function ObservationDetailPage({ params }: { params: { id: string
 
           <div>
             <label className="block text-sm mb-1">Risk Category (A/B/C)</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.riskCategory} onChange={(e) => setField("riskCategory", e.target.value)}>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={draft.riskCategory}
+              onChange={(e) => setField("riskCategory", e.target.value as RiskOption)}
+            >
               <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
             </select>
           </div>
           <div>
             <label className="block text-sm mb-1">Likely Impact</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.likelyImpact} onChange={(e) => setField("likelyImpact", e.target.value)}>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={draft.likelyImpact}
+              onChange={(e) => setField("likelyImpact", e.target.value as ImpactOption)}
+            >
               <option value="">—</option><option value="LOCAL">Local</option><option value="ORG_WIDE">Organisation wide</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm mb-1">Process</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.concernedProcess} onChange={(e) => setField("concernedProcess", e.target.value)}>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={draft.concernedProcess}
+              onChange={(e) => setField("concernedProcess", e.target.value as ProcessOption)}
+            >
               <option value="">—</option><option value="O2C">O2C</option><option value="P2P">P2P</option><option value="R2R">R2R</option><option value="INVENTORY">Inventory</option>
             </select>
           </div>
@@ -301,7 +363,11 @@ export default function ObservationDetailPage({ params }: { params: { id: string
 
           <div>
             <label className="block text-sm mb-1">Current Status</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.currentStatus} onChange={(e) => setField("currentStatus", e.target.value)}>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={draft.currentStatus}
+              onChange={(e) => setField("currentStatus", e.target.value as Observation["currentStatus"])}
+            >
               <option value="PENDING">Pending</option>
               <option value="IN_PROGRESS">In progress</option>
               <option value="RESOLVED">Resolved</option>
@@ -366,7 +432,11 @@ export default function ObservationDetailPage({ params }: { params: { id: string
           <h2 className="font-medium">Running notes</h2>
           <div className="flex gap-2">
             <input className="border rounded px-3 py-2 flex-1" placeholder="Add note…" value={note} onChange={(e) => setNote(e.target.value)} />
-            <select className="border rounded px-3 py-2" value={noteVis} onChange={(e) => setNoteVis(e.target.value as any)}>
+            <select
+              className="border rounded px-3 py-2"
+              value={noteVis}
+              onChange={(e) => setNoteVis(e.target.value === "INTERNAL" ? "INTERNAL" : "ALL")}
+            >
               <option value="ALL">Visible to all</option>
               <option value="INTERNAL">Internal</option>
             </select>

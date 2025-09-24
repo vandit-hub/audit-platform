@@ -3,9 +3,14 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
 import { writeAuditEvent } from "@/server/auditTrail";
+import type { AdapterUser } from "next-auth/adapters";
+import type { Session, User } from "next-auth";
+import { Role, type UserStatus } from "@prisma/client";
 
 const ABSOLUTE_HOURS = parseInt(process.env.ABSOLUTE_SESSION_HOURS || "24", 10);
 const IDLE_MIN = parseInt(process.env.IDLE_TIMEOUT_MINUTES || "15", 10);
+
+type SessionRole = Session["user"] extends { role: infer R } ? R : Role;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
@@ -24,8 +29,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const password = credentials?.password || "";
+        const rawEmail = typeof credentials?.email === "string" ? credentials.email : "";
+        const email = rawEmail.toLowerCase().trim();
+        const password = typeof credentials?.password === "string" ? credentials.password : "";
 
         if (!email || !password) return null;
 
@@ -62,13 +68,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const now = Date.now();
       const idleMs = IDLE_MIN * 60 * 1000;
 
-      if (user) {
-        token.userId = (user as any).id;
-        token.role = (user as any).role;
-        token.status = (user as any).status;
+      if (user && hasRoleMetadata(user)) {
+        token.userId = user.id;
+        token.role = user.role;
+        token.status = user.status ?? undefined;
         token.lastActivity = now;
       } else {
-        const last = token.lastActivity ?? now;
+        const last = typeof token.lastActivity === "number" ? token.lastActivity : now;
         if (now - last > idleMs) {
           token.expired = true;
         } else {
@@ -80,17 +86,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async session({ session, token }) {
       if (token.expired) {
-        // returning null triggers no session on server components
-        // Client will get redirected by protected layout
-        // @ts-expect-error: allowed null
-        return null;
+        session.expired = true;
+        Reflect.deleteProperty(session, "user");
+        session.lastActivity = typeof token.lastActivity === "number" ? token.lastActivity : undefined;
+        return session;
       }
-      if (session.user) {
-        (session.user as any).id = token.userId!;
-        (session.user as any).role = token.role!;
-        (session as any).lastActivity = token.lastActivity;
+      const userId = typeof token.userId === "string" ? token.userId : undefined;
+      if (userId) {
+        const prevUser = session.user;
+        const role = (token.role ?? prevUser?.role ?? Role.GUEST) as SessionRole;
+        const nextUser = prevUser
+          ? { ...prevUser, id: userId, role }
+          : {
+              id: userId,
+              role,
+              email: "",
+              emailVerified: null
+            };
+        session.user = nextUser;
       }
+      session.lastActivity = typeof token.lastActivity === "number" ? token.lastActivity : undefined;
       return session;
     }
   }
 });
+
+type UserWithRole = (User | AdapterUser) & {
+  role: Role;
+  status?: UserStatus | null;
+};
+
+function hasRoleMetadata(user: User | AdapterUser): user is UserWithRole {
+  return (
+    typeof user.id === "string" &&
+    "role" in user &&
+    typeof (user as { role?: unknown }).role === "string" &&
+    (Object.values(Role) as string[]).includes((user as { role: string }).role)
+  );
+}

@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { z } from "zod";
 import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
+import { Prisma } from "@prisma/client";
 
 const schema = z.object({
   text: z.string().min(1),
@@ -15,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const where: any = { observationId: id };
+  const where: Prisma.RunningNoteWhereInput = { observationId: id };
   if (isAuditee(session.user.role) || isGuest(session.user.role)) {
     where.visibility = "ALL";
   }

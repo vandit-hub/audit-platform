@@ -9,20 +9,23 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const o = await prisma.observation.update({
     where: { id },
     data: { approvalStatus: "SUBMITTED" }
   });
 
   await prisma.approval.create({
-    data: { observationId: o.id, status: "SUBMITTED", actorId: session!.user.id }
+    data: { observationId: o.id, status: "SUBMITTED", actorId: userId }
   });
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
     entityId: o.id,
     action: "SUBMIT",
-    actorId: session!.user.id
+    actorId: userId
   });
 
   return NextResponse.json({ ok: true });

@@ -12,6 +12,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   assertAdmin(session?.user?.role);
 
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
+
   const { published } = schema.parse(await req.json());
 
   const o = await prisma.observation.findUnique({ where: { id } });
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     entityType: "OBSERVATION",
     entityId: id,
     action: published ? "PUBLISH" : "UNPUBLISH",
-    actorId: session!.user.id
+    actorId: userId
   });
 
   return NextResponse.json({ ok: true });

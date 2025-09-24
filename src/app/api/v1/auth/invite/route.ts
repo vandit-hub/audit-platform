@@ -5,17 +5,27 @@ import { prisma } from "@/server/db";
 import { assertAdmin } from "@/lib/rbac";
 import crypto from "crypto";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { Role, Prisma } from "@prisma/client";
 
 const schema = z.object({
   email: z.string().email(),
-  role: z.enum(["GUEST", "AUDITEE", "AUDITOR", "ADMIN"]).default("GUEST"),
+  role: z.nativeEnum(Role).default(Role.GUEST),
   expiresInDays: z.number().int().min(1).max(30).default(7),
-  scope: z.any().optional()
+  scope: z
+    .object({
+      observationIds: z.array(z.string()).optional(),
+      auditIds: z.array(z.string()).optional()
+    })
+    .partial()
+    .optional()
 });
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   assertAdmin(session?.user?.role);
+
+  const userId = session?.user?.id;
+  if (!userId) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = await req.json();
   const input = schema.parse(body);
@@ -31,7 +41,7 @@ export async function POST(req: NextRequest) {
         email: input.email,
         name: "",
         passwordHash: crypto.randomBytes(32).toString("hex"), // placeholder; will be replaced
-        role: input.role as any,
+        role: input.role,
         status: "INVITED"
       }
     });
@@ -40,11 +50,11 @@ export async function POST(req: NextRequest) {
   const invite = await prisma.guestInvite.create({
     data: {
       email: input.email,
-      role: input.role as any,
+      role: input.role,
       token,
       expiresAt,
-      scope: input.scope ?? {},
-      invitedById: session?.user.id
+      scope: (input.scope ?? {}) as Prisma.InputJsonValue,
+      invitedById: userId
     }
   });
 
@@ -52,7 +62,7 @@ export async function POST(req: NextRequest) {
     entityType: "INVITE",
     entityId: invite.id,
     action: "CREATE_INVITE",
-    actorId: session?.user.id,
+    actorId: userId,
     diff: { email: input.email, role: input.role, expiresAt }
   });
 

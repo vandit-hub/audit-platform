@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { isAdminOrAuditor } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 import { Prisma } from "@prisma/client";
 
