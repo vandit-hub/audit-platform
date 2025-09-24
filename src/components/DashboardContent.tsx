@@ -15,7 +15,7 @@ type ObservationMetrics = {
   due: { overdue: number; dueSoon: number };
 };
 
-export default function DashboardHome() {
+export default function DashboardContent() {
   const [auditMetrics, setAuditMetrics] = useState<AuditMetrics | null>(null);
   const [observationMetrics, setObservationMetrics] = useState<ObservationMetrics | null>(null);
   const [loading, setLoading] = useState(true);
