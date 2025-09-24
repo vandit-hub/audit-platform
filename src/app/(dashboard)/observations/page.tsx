@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
 type Audit = { id: string; startDate: string | null; endDate: string | null; plant: Plant };
@@ -24,6 +25,7 @@ type ObservationRow = {
 export default function ObservationsPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const { showSuccess, showError } = useToast();
 
   const [plants, setPlants] = useState<Plant[]>([]);
   const [audits, setAudits] = useState<Audit[]>([]);
@@ -44,11 +46,15 @@ export default function ObservationsPage() {
 
   const savePreset = useCallback(() => {
     localStorage.setItem("obs.filters", JSON.stringify({ plantId, risk, proc, status, published, q }));
-  }, [plantId, risk, proc, status, published, q]);
+    showSuccess("Filter preset saved successfully!");
+  }, [plantId, risk, proc, status, published, q, showSuccess]);
 
   const loadPreset = useCallback(() => {
     const raw = localStorage.getItem("obs.filters");
-    if (!raw) return;
+    if (!raw) {
+      showError("No saved filter preset found!");
+      return;
+    }
     try {
       const v = JSON.parse(raw);
       setPlantId(v.plantId || "");
@@ -57,8 +63,11 @@ export default function ObservationsPage() {
       setStatus(v.status || "");
       setPublished(v.published || "");
       setQ(v.q || "");
-    } catch {}
-  }, []);
+      showSuccess("Filter preset loaded successfully!");
+    } catch {
+      showError("Failed to load filter preset!");
+    }
+  }, [showSuccess, showError]);
 
   const resetFilters = useCallback(() => {
     setPlantId("");
@@ -68,7 +77,8 @@ export default function ObservationsPage() {
     setPublished("");
     setQ("");
     localStorage.removeItem("obs.filters");
-  }, []);
+    showSuccess("Filters reset successfully!");
+  }, [showSuccess]);
 
   const loadRows = useCallback(async () => {
     const qs = new URLSearchParams();
@@ -119,11 +129,15 @@ export default function ObservationsPage() {
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Failed");
+      const selectedAudit = audits.find(a => a.id === auditId);
       setAuditId("");
       setObservationText("");
       await loadRows();
+      showSuccess(`Observation created successfully for ${selectedAudit?.plant.name || "selected audit"}!`);
     } catch (err: any) {
-      setError(err.message || "Failed");
+      const errorMessage = err.message || "Failed to create observation";
+      setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setBusy(false);
     }
@@ -138,6 +152,7 @@ export default function ObservationsPage() {
     if (published) qs.set("published", published);
     if (q) qs.set("q", q);
     window.location.href = `/api/v1/observations/export?${qs.toString()}`;
+    showSuccess("CSV export started! Download will begin shortly.");
   }
 
   const canCreate = role === "ADMIN" || role === "AUDITOR";
@@ -238,6 +253,7 @@ export default function ObservationsPage() {
             <tr className="text-left text-gray-500">
               <th className="py-2">Plant</th>
               <th className="py-2">Audit</th>
+              <th className="py-2">Observation</th>
               <th className="py-2">Risk</th>
               <th className="py-2">Process</th>
               <th className="py-2">Status</th>
@@ -252,6 +268,11 @@ export default function ObservationsPage() {
               <tr key={r.id} className="border-t">
                 <td className="py-2">{r.plant.code}</td>
                 <td className="py-2">{r.audit.startDate ? new Date(r.audit.startDate).toLocaleDateString() : "—"}</td>
+                <td className="py-2 max-w-xs">
+                  <div className="truncate" title={r.title}>
+                    {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}
+                  </div>
+                </td>
                 <td className="py-2">{r.riskCategory ?? "—"}</td>
                 <td className="py-2">{r.concernedProcess ?? "—"}</td>
                 <td className="py-2">{r.currentStatus}</td>
@@ -264,7 +285,7 @@ export default function ObservationsPage() {
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td className="py-4 text-gray-500" colSpan={9}>No observations.</td></tr>
+              <tr><td className="py-4 text-gray-500" colSpan={10}>No observations.</td></tr>
             )}
           </tbody>
         </table>

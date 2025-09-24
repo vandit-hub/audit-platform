@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -12,6 +13,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   if (session?.user?.role !== "ADMIN") {
     redirect("/");
@@ -44,11 +46,16 @@ export default function AdminUsersPage() {
         setEmail("");
         setRole("GUEST");
         setExpiresInDays(7);
+        showSuccess(`Invitation created successfully for ${email}!`);
       } else {
-        setMessage({ type: "error", text: data.message || "Failed to create invitation" });
+        const errorMessage = data.message || "Failed to create invitation";
+        setMessage({ type: "error", text: errorMessage });
+        showError(errorMessage);
       }
     } catch (error) {
-      setMessage({ type: "error", text: "An error occurred while creating the invitation" });
+      const errorMessage = "An error occurred while creating the invitation";
+      setMessage({ type: "error", text: errorMessage });
+      showError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +66,7 @@ export default function AdminUsersPage() {
       const inviteUrl = `${window.location.origin}/accept-invite?token=${inviteToken}`;
       navigator.clipboard.writeText(inviteUrl);
       setMessage({ type: "success", text: "Invite link copied to clipboard!" });
+      showSuccess("Invite link copied to clipboard!");
     }
   };
 

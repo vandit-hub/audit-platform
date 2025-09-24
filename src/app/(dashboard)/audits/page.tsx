@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
+import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
 type AuditListItem = {
@@ -24,6 +25,7 @@ export default function AuditsPage() {
   const [visitDetails, setVisitDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   async function load() {
     const [plantsRes, auditsRes] = await Promise.all([
@@ -57,13 +59,17 @@ export default function AuditsPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create audit");
+      const selectedPlant = plants.find(p => p.id === plantId);
       setPlantId("");
       setStartDate("");
       setEndDate("");
       setVisitDetails("");
       await load();
+      showSuccess(`Audit created successfully for ${selectedPlant?.name || "selected plant"}!`);
     } catch (err: any) {
-      setError(err.message || "Failed");
+      const errorMessage = err.message || "Failed to create audit";
+      setError(errorMessage);
+      showError(errorMessage);
     } finally {
       setBusy(false);
     }

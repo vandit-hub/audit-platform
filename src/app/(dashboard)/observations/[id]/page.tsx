@@ -3,6 +3,7 @@
 import React, { useEffect, useState, FormEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
@@ -53,6 +54,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const { showSuccess, showError } = useToast();
 
   const [o, setO] = useState<Observation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,8 +122,14 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       })
     });
     const j = await res.json();
-    if (!res.ok) setError(j.error || "Failed to save");
-    else await load();
+    if (!res.ok) {
+      const errorMessage = j.error || "Failed to save";
+      setError(errorMessage);
+      showError(errorMessage);
+    } else {
+      await load();
+      showSuccess("Observation saved successfully!");
+    }
   }
 
   async function submitForApproval() {
@@ -129,7 +137,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       method: "POST",
       headers: { "content-type": "application/json" }
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess("Observation submitted for approval successfully!");
+    } else {
+      showError("Failed to submit observation for approval!");
+    }
   }
 
   async function approve(isApprove: boolean) {
@@ -139,7 +152,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ approve: isApprove, comment: comment || undefined })
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess(`Observation ${isApprove ? 'approved' : 'rejected'} successfully!`);
+    } else {
+      showError(`Failed to ${isApprove ? 'approve' : 'reject'} observation!`);
+    }
   }
 
   async function publish(shouldPublish: boolean) {
@@ -148,7 +166,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ published: shouldPublish })
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess(`Observation ${shouldPublish ? 'published' : 'unpublished'} successfully!`);
+    } else {
+      showError(`Failed to ${shouldPublish ? 'publish' : 'unpublish'} observation!`);
+    }
   }
 
   async function retest(result: "PASS" | "FAIL") {
@@ -157,7 +180,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result })
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess(`Retest result recorded: ${result}`);
+    } else {
+      showError("Failed to record retest result!");
+    }
   }
 
   async function upload(kind: "ANNEXURE" | "MGMT_DOC") {
@@ -181,26 +209,38 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     const upRes = await fetch(preJ.uploadUrl, { method: "POST", body: formData });
     if (upRes.ok) {
       // Create attachment record
-      await fetch(`/api/v1/observations/${id}/attachments`, {
+      const attachRes = await fetch(`/api/v1/observations/${id}/attachments`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ fileName: file.name, key: preJ.fields.key, kind })
       });
-      if (kind === "ANNEXURE") setFileA(null);
-      else setFileM(null);
-      await load();
+      if (attachRes.ok) {
+        if (kind === "ANNEXURE") setFileA(null);
+        else setFileM(null);
+        await load();
+        showSuccess(`${kind === "ANNEXURE" ? "Annexure" : "Management document"} uploaded successfully!`);
+      } else {
+        showError("Failed to upload file!");
+      }
+    } else {
+      showError("Failed to upload file!");
     }
   }
 
   async function addNote() {
     if (!note.trim()) return;
-    await fetch(`/api/v1/observations/${id}/notes`, {
+    const res = await fetch(`/api/v1/observations/${id}/notes`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text: note, visibility: noteVis })
     });
-    setNote("");
-    await load();
+    if (res.ok) {
+      setNote("");
+      await load();
+      showSuccess("Note added successfully!");
+    } else {
+      showError("Failed to add note!");
+    }
   }
 
   async function lock(fields: string[], shouldLock: boolean) {
@@ -209,7 +249,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ fields, lock: shouldLock })
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess(`Fields ${shouldLock ? 'locked' : 'unlocked'} successfully!`);
+    } else {
+      showError(`Failed to ${shouldLock ? 'lock' : 'unlock'} fields!`);
+    }
   }
 
   async function addActionPlan() {
@@ -230,6 +275,9 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       setApDate("");
       setApStatus("");
       await load();
+      showSuccess("Action plan added successfully!");
+    } else {
+      showError("Failed to add action plan!");
     }
   }
 
@@ -265,8 +313,14 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       body: JSON.stringify({ patch, comment: comment || undefined })
     });
     const j = await res.json();
-    if (!res.ok) setError(j.error || "Failed to submit change request");
-    else await load();
+    if (!res.ok) {
+      const errorMessage = j.error || "Failed to submit change request";
+      setError(errorMessage);
+      showError(errorMessage);
+    } else {
+      await load();
+      showSuccess("Change request submitted successfully!");
+    }
   }
 
   async function decideChange(cr: ChangeRequest, approve: boolean) {
@@ -275,7 +329,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ approve })
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      showSuccess(`Change request ${approve ? 'approved and applied' : 'denied'} successfully!`);
+    } else {
+      showError(`Failed to ${approve ? 'approve' : 'deny'} change request!`);
+    }
   }
 
   if (!o) return <div>Loading…</div>;

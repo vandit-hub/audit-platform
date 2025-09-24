@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string; createdAt: string };
 
@@ -9,6 +10,8 @@ export default function PlantsPage() {
   const [name, setName] = useState("");
   const [plants, setPlants] = useState<Plant[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   async function load() {
     const res = await fetch("/api/v1/plants", { cache: "no-store" });
@@ -23,6 +26,7 @@ export default function PlantsPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setLoading(true);
     try {
       const res = await fetch("/api/v1/plants", {
         method: "POST",
@@ -34,8 +38,13 @@ export default function PlantsPage() {
       setCode("");
       setName("");
       await load();
+      showSuccess(`Plant "${name}" created successfully!`);
     } catch (err: any) {
-      setError(err.message || "Failed to create plant (Admin only)");
+      const errorMessage = err.message || "Failed to create plant (Admin only)";
+      setError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -60,7 +69,9 @@ export default function PlantsPage() {
             onChange={(e) => setName(e.target.value)}
             required
           />
-          <button className="bg-black text-white px-4 rounded">Add</button>
+          <button className="bg-black text-white px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled={loading}>
+            {loading ? "Adding..." : "Add"}
+          </button>
         </div>
       </form>
 

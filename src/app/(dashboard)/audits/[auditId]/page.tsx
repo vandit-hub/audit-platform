@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
 type User = { id: string; name: string | null; email: string | null; role: string };
@@ -23,6 +24,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
   const [auditors, setAuditors] = useState<User[]>([]);
   const [selectedAuditor, setSelectedAuditor] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { showSuccess, showError } = useToast();
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
@@ -51,10 +53,14 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Failed to add auditor (Admin only).");
+      const errorMessage = j.error || "Failed to add auditor (Admin only).";
+      setError(errorMessage);
+      showError(errorMessage);
     } else {
+      const selectedUser = auditors.find(u => u.id === selectedAuditor);
       setSelectedAuditor("");
       await load();
+      showSuccess(`Auditor ${selectedUser?.email || selectedUser?.name || 'user'} added successfully!`);
     }
   }
 
@@ -63,9 +69,12 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     const res = await fetch(`/api/v1/audits/${auditId}/assign?userId=${userId}`, { method: "DELETE" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      setError(j.error || "Failed to remove auditor (Admin only).");
+      const errorMessage = j.error || "Failed to remove auditor (Admin only).";
+      setError(errorMessage);
+      showError(errorMessage);
     } else {
       await load();
+      showSuccess("Auditor removed successfully!");
     }
   }
 
