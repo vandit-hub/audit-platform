@@ -49,7 +49,27 @@ export default function ObservationsPage() {
     showSuccess("Filter preset saved successfully!");
   }, [plantId, risk, proc, status, published, q, showSuccess]);
 
-  const loadPreset = useCallback(() => {
+  const loadPreset = () => {
+    const raw = localStorage.getItem("obs.filters");
+    if (!raw) {
+      // Don't show error on initial load when no preset exists
+      return;
+    }
+    try {
+      const v = JSON.parse(raw);
+      setPlantId(v.plantId || "");
+      setRisk(v.risk || "");
+      setProc(v.proc || "");
+      setStatus(v.status || "");
+      setPublished(v.published || "");
+      setQ(v.q || "");
+      showSuccess("Filter preset loaded successfully!");
+    } catch {
+      showError("Failed to load filter preset!");
+    }
+  };
+
+  const loadPresetManual = () => {
     const raw = localStorage.getItem("obs.filters");
     if (!raw) {
       showError("No saved filter preset found!");
@@ -67,7 +87,7 @@ export default function ObservationsPage() {
     } catch {
       showError("Failed to load filter preset!");
     }
-  }, [showSuccess, showError]);
+  };
 
   const resetFilters = useCallback(() => {
     setPlantId("");
@@ -80,7 +100,7 @@ export default function ObservationsPage() {
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
 
-  const loadRows = useCallback(async () => {
+  const loadRows = async () => {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (risk) qs.set("risk", risk);
@@ -91,9 +111,9 @@ export default function ObservationsPage() {
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json();
     if (res.ok) setRows(j.observations);
-  }, [plantId, risk, proc, status, published, q]);
+  };
 
-  const load = useCallback(async () => {
+  const load = async () => {
     const [pRes, aRes] = await Promise.all([
       fetch("/api/v1/plants", { cache: "no-store" }),
       fetch("/api/v1/audits", { cache: "no-store" })
@@ -110,12 +130,19 @@ export default function ObservationsPage() {
       }));
       setAudits(auds);
     }
-    await loadRows();
-  }, [loadRows]);
+  };
 
-  useEffect(() => { loadPreset(); }, [loadPreset]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { loadRows(); }, [loadRows]);
+  useEffect(() => {
+    loadPreset();
+  }, []); // Run only once on mount
+
+  useEffect(() => {
+    load();
+  }, []); // Run only once on mount
+
+  useEffect(() => {
+    loadRows();
+  }, [plantId, risk, proc, status, published, q]); // Run when filters change
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -213,7 +240,7 @@ export default function ObservationsPage() {
         </div>
         <div className="flex gap-2">
           <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
-          <button className="border px-3 py-1 rounded" onClick={loadPreset}>Load preset</button>
+          <button className="border px-3 py-1 rounded" onClick={loadPresetManual}>Load preset</button>
           <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
           <button className="border px-3 py-1 rounded" onClick={exportCsv}>Export CSV</button>
         </div>
@@ -267,7 +294,7 @@ export default function ObservationsPage() {
             {rows.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="py-2">{r.plant.code}</td>
-                <td className="py-2">{r.audit.startDate ? new Date(r.audit.startDate).toLocaleDateString() : "—"}</td>
+                <td className="py-2">{r.audit.startDate ? r.audit.startDate.split('T')[0] : "—"}</td>
                 <td className="py-2 max-w-xs">
                   <div className="truncate" title={r.title}>
                     {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}

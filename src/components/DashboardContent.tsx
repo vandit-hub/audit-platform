@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type AuditMetrics = {
   total: number;
@@ -88,9 +89,9 @@ export default function DashboardContent() {
         <div className="p-6 bg-white rounded-lg shadow">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900">Audits</h2>
-            <a href="/audits" className="text-sm text-blue-600 hover:text-blue-800">
+            <Link href="/audits" className="text-sm text-blue-600 hover:text-blue-800">
               View all →
-            </a>
+            </Link>
           </div>
 
           <div className="space-y-4">
@@ -123,9 +124,9 @@ export default function DashboardContent() {
         <div className="p-6 bg-white rounded-lg shadow">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-900">Observations</h2>
-            <a href="/observations" className="text-sm text-blue-600 hover:text-blue-800">
+            <Link href="/observations" className="text-sm text-blue-600 hover:text-blue-800">
               View all →
-            </a>
+            </Link>
           </div>
 
           <div className="space-y-4">

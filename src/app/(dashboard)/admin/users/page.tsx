@@ -11,7 +11,6 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<"GUEST" | "AUDITEE" | "AUDITOR" | "ADMIN">("GUEST");
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
@@ -22,7 +21,6 @@ export default function AdminUsersPage() {
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setMessage(null);
     setInviteToken(null);
 
     try {
@@ -41,7 +39,6 @@ export default function AdminUsersPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage({ type: "success", text: "User invitation created successfully!" });
         setInviteToken(data.token);
         setEmail("");
         setRole("GUEST");
@@ -49,12 +46,10 @@ export default function AdminUsersPage() {
         showSuccess(`Invitation created successfully for ${email}!`);
       } else {
         const errorMessage = data.message || "Failed to create invitation";
-        setMessage({ type: "error", text: errorMessage });
-        showError(errorMessage);
+          showError(errorMessage);
       }
     } catch (error) {
       const errorMessage = "An error occurred while creating the invitation";
-      setMessage({ type: "error", text: errorMessage });
       showError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -65,7 +60,6 @@ export default function AdminUsersPage() {
     if (inviteToken) {
       const inviteUrl = `${window.location.origin}/accept-invite?token=${inviteToken}`;
       navigator.clipboard.writeText(inviteUrl);
-      setMessage({ type: "success", text: "Invite link copied to clipboard!" });
       showSuccess("Invite link copied to clipboard!");
     }
   };
@@ -137,17 +131,6 @@ export default function AdminUsersPage() {
           </button>
         </form>
 
-        {message && (
-          <div
-            className={`mt-4 p-4 rounded-md ${
-              message.type === "success"
-                ? "bg-green-50 text-green-800 border border-green-200"
-                : "bg-red-50 text-red-800 border border-red-200"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
 
         {inviteToken && (
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
