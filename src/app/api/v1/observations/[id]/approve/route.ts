@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/rbac";
@@ -11,8 +10,9 @@ const schema = z.object({
   comment: z.string().optional()
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   assertAdmin(session?.user?.role);
 
   const input = schema.parse(await req.json());
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const status = input.approve ? "APPROVED" : "REJECTED";
 
   const o = await prisma.observation.update({
-    where: { id: params.id },
+    where: { id },
     data: { approvalStatus: status as any }
   });
 

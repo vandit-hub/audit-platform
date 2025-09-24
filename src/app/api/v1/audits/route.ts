@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdminOrAuditor } from "@/lib/rbac";
@@ -13,7 +12,7 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -57,7 +56,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   const body = await req.json();

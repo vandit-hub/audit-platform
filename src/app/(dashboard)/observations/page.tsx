@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 type Plant = { id: string; code: string; name: string };
 type Audit = { id: string; startDate: string | null; endDate: string | null; plant: Plant };
@@ -21,6 +22,9 @@ type ObservationRow = {
 };
 
 export default function ObservationsPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+
   const [plants, setPlants] = useState<Plant[]>([]);
   const [audits, setAudits] = useState<Audit[]>([]);
   const [rows, setRows] = useState<ObservationRow[]>([]);
@@ -30,12 +34,42 @@ export default function ObservationsPage() {
   const [proc, setProc] = useState("");
   const [status, setStatus] = useState("");
   const [published, setPublished] = useState("");
+  const [q, setQ] = useState("");
 
   // create form
   const [auditId, setAuditId] = useState("");
   const [observationText, setObservationText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  function savePreset() {
+    localStorage.setItem(
+      "obs.filters",
+      JSON.stringify({ plantId, risk, proc, status, published, q })
+    );
+  }
+  function loadPreset() {
+    const raw = localStorage.getItem("obs.filters");
+    if (!raw) return;
+    try {
+      const v = JSON.parse(raw);
+      setPlantId(v.plantId || "");
+      setRisk(v.risk || "");
+      setProc(v.proc || "");
+      setStatus(v.status || "");
+      setPublished(v.published || "");
+      setQ(v.q || "");
+    } catch {}
+  }
+  function resetFilters() {
+    setPlantId("");
+    setRisk("");
+    setProc("");
+    setStatus("");
+    setPublished("");
+    setQ("");
+    localStorage.removeItem("obs.filters");
+  }
 
   async function load() {
     const [pRes, aRes] = await Promise.all([
@@ -64,13 +98,15 @@ export default function ObservationsPage() {
     if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
     if (published) qs.set("published", published);
+    if (q) qs.set("q", q);
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json();
     if (res.ok) setRows(j.observations);
   }
 
+  useEffect(() => { loadPreset(); /* on first mount only */ }, []);
   useEffect(() => { load(); }, []);
-  useEffect(() => { loadRows(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [plantId, risk, proc, status, published]);
+  useEffect(() => { loadRows(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [plantId, risk, proc, status, published, q]);
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -94,12 +130,25 @@ export default function ObservationsPage() {
     }
   }
 
+  function exportCsv() {
+    const qs = new URLSearchParams();
+    if (plantId) qs.set("plantId", plantId);
+    if (risk) qs.set("risk", risk);
+    if (proc) qs.set("process", proc);
+    if (status) qs.set("status", status);
+    if (published) qs.set("published", published);
+    if (q) qs.set("q", q);
+    window.location.href = `/api/v1/observations/export?${qs.toString()}`;
+  }
+
+  const canCreate = role === "ADMIN" || role === "AUDITOR";
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Observations</h1>
 
       <div className="bg-white rounded p-4 shadow space-y-3">
-        <div className="grid sm:grid-cols-5 gap-3">
+        <div className="grid sm:grid-cols-6 gap-3">
           <div>
             <label className="block text-xs mb-1">Plant</label>
             <select className="border rounded px-2 py-2 w-full" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
@@ -143,10 +192,21 @@ export default function ObservationsPage() {
               <option value="0">Unpublished</option>
             </select>
           </div>
+          <div>
+            <label className="block text-xs mb-1">Search</label>
+            <input className="border rounded px-2 py-2 w-full" placeholder="Search text…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
+          <button className="border px-3 py-1 rounded" onClick={loadPreset}>Load preset</button>
+          <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
+          <button className="border px-3 py-1 rounded" onClick={exportCsv}>Export CSV</button>
         </div>
       </div>
 
-      <form onSubmit={create} className="bg-white rounded p-4 shadow space-y-3">
+      {canCreate && (
+        <form onSubmit={create} className="bg-white rounded p-4 shadow space-y-3">
         <div className="text-sm text-gray-600">Create Observation (Admin/Auditor)</div>
         {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
         <div className="grid md:grid-cols-3 gap-3">
@@ -169,7 +229,8 @@ export default function ObservationsPage() {
             <button className="bg-black text-white px-4 py-2 rounded" disabled={busy}>{busy ? "Creating…" : "Create"}</button>
           </div>
         </div>
-      </form>
+        </form>
+      )}
 
       <div className="bg-white rounded p-4 shadow">
         <h2 className="font-medium mb-2">Results</h2>

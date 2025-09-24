@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { isAdmin, isAdminOrAuditor, isAuditee } from "@/lib/rbac";
+import { isAdmin, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { getUserScope, isObservationInScope } from "@/lib/scope";
 
 const updateSchema = z.object({
   // Auditor-editable
@@ -44,12 +44,18 @@ const AUDITEE_FIELDS = new Set([
   "currentStatus"
 ]);
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
+  const role = session.user.role;
+
+  const noteWhere =
+    isAuditee(role) || isGuest(role) ? { visibility: "ALL" as const } : undefined;
+
   const o = await prisma.observation.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       plant: true,
       audit: { select: { id: true, startDate: true, endDate: true } },
@@ -59,7 +65,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         orderBy: { createdAt: "desc" }
       },
       notes: {
+        where: noteWhere as any,
         include: { actor: { select: { id: true, email: true, name: true } } },
+        orderBy: { createdAt: "asc" }
+      },
+      actionPlans: {
         orderBy: { createdAt: "asc" }
       }
     }
@@ -67,21 +77,27 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   if (!o) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  if (isAuditee(session.user.role) && !(o.approvalStatus === "APPROVED" && o.isPublished)) {
-    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+  if (isAuditee(role) || isGuest(role)) {
+    const scope = await getUserScope(session.user.id);
+    const allowed = isObservationInScope({ id: o.id, auditId: o.audit.id }, scope) ||
+      (o.approvalStatus === "APPROVED" && o.isPublished);
+    if (!allowed) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
   }
 
   return NextResponse.json({ ok: true, observation: o });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const input = updateSchema.parse(body);
 
-  const orig = await prisma.observation.findUnique({ where: { id: params.id } });
+  const orig = await prisma.observation.findUnique({ where: { id } });
   if (!orig) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
   // Determine role-based allowed fields
@@ -104,13 +120,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const updated = await prisma.observation.update({
-    where: { id: params.id },
+    where: { id },
     data
   });
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
-    entityId: params.id,
+    entityId: id,
     action: "FIELD_UPDATE",
     actorId: session.user.id,
     diff: { before: orig, after: updated }

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { assertAdminOrAuditor } from "@/lib/rbac";
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; checklistId: string } }) {
-  const session = await getServerSession(authOptions);
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; checklistId: string }> }) {
+  const { id, checklistId } = await params;
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   await prisma.auditChecklist.deleteMany({
-    where: { auditId: params.id, checklistId: params.checklistId }
+    where: { auditId: id, checklistId }
   });
 
   return NextResponse.json({ ok: true });

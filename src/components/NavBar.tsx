@@ -18,6 +18,7 @@ export default function NavBar() {
             <Link href="/audits">Audits</Link>
             <Link href="/checklists">Checklists</Link>
             <Link href="/observations">Observations</Link>
+            <Link href="/reports">Reports</Link>
           </nav>
         </div>
 

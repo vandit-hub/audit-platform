@@ -1,4 +1,4 @@
-import NextAuth, { type NextAuthOptions } from "next-auth";
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/server/db";
@@ -7,7 +7,7 @@ import { writeAuditEvent } from "@/server/auditTrail";
 const ABSOLUTE_HOURS = parseInt(process.env.ABSOLUTE_SESSION_HOURS || "24", 10);
 const IDLE_MIN = parseInt(process.env.IDLE_TIMEOUT_MINUTES || "15", 10);
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
@@ -93,4 +93,4 @@ export const authOptions: NextAuthOptions = {
       return session;
     }
   }
-};
+});

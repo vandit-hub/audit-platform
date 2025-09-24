@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdminOrAuditor, assertAdmin } from "@/lib/rbac";
@@ -14,12 +13,13 @@ const updateSchema = z.object({
   signOffAt: z.string().datetime().nullable().optional()
 });
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
   const audit = await prisma.audit.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       plant: true,
       assignments: { include: { auditor: { select: { id: true, name: true, email: true, role: true } } } },
@@ -47,15 +47,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   const body = await req.json();
   const input = updateSchema.parse(body);
 
   const updated = await prisma.audit.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       startDate: input.startDate === undefined ? undefined : input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate === undefined ? undefined : input.endDate ? new Date(input.endDate) : null,

@@ -86,6 +86,12 @@ enum AttachmentKind {
   MGMT_DOC
 }
 
+/* ===== Phase 4 ===== */
+enum NoteVisibility {
+  INTERNAL
+  ALL
+}
+
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
@@ -313,15 +319,17 @@ model Approval {
 }
 
 model RunningNote {
-  id            String      @id @default(cuid())
+  id            String         @id @default(cuid())
   observationId String
-  observation   Observation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  observation   Observation    @relation(fields: [observationId], references: [id], onDelete: Cascade)
   actorId       String
-  actor         User        @relation(fields: [actorId], references: [id])
+  actor         User           @relation(fields: [actorId], references: [id])
   text          String
-  createdAt     DateTime    @default(now())
+  visibility    NoteVisibility @default(INTERNAL)
+  createdAt     DateTime       @default(now())
 
   @@index([observationId, createdAt])
+  @@index([observationId, visibility])
 }
 
 model ActionPlan {

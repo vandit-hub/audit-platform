@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/rbac";
@@ -13,20 +12,22 @@ const createSchema = z.object({
   isMandatory: z.boolean().optional()
 });
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
   const items = await prisma.checklistItem.findMany({
-    where: { checklistId: params.id },
+    where: { checklistId: id },
     orderBy: { createdAt: "asc" }
   });
 
   return NextResponse.json({ ok: true, items });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   assertAdmin(session?.user?.role);
 
   const body = await req.json();
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const item = await prisma.checklistItem.create({
     data: {
-      checklistId: params.id,
+      checklistId: id,
       title: input.title,
       description: input.description ?? null,
       riskCategory: input.riskCategory as any,

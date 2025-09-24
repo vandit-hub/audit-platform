@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdminOrAuditor } from "@/lib/rbac";
@@ -11,8 +10,9 @@ const schema = z.object({
   implementationDate: z.string().datetime().optional()
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   const input = schema.parse(await req.json());
@@ -27,13 +27,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   await prisma.observation.update({
-    where: { id: params.id },
+    where: { id },
     data
   });
 
   await writeAuditEvent({
     entityType: "OBSERVATION",
-    entityId: params.id,
+    entityId: id,
     action: "RETEST",
     actorId: session!.user.id,
     diff: data

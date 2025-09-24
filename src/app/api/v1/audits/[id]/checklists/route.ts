@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdminOrAuditor } from "@/lib/rbac";
@@ -9,14 +8,15 @@ const schema = z.object({
   checklistId: z.string().min(1)
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getServerSession(authOptions);
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   const body = await req.json();
   const input = schema.parse(body);
 
-  const audit = await prisma.audit.findUnique({ where: { id: params.id } });
+  const audit = await prisma.audit.findUnique({ where: { id } });
   if (!audit) return NextResponse.json({ ok: false, error: "Audit not found" }, { status: 404 });
 
   // Ensure checklist is applicable to the plant
@@ -31,9 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const link = await prisma.auditChecklist.upsert({
-    where: { auditId_checklistId: { auditId: params.id, checklistId: input.checklistId } },
+    where: { auditId_checklistId: { auditId: id, checklistId: input.checklistId } },
     update: {},
-    create: { auditId: params.id, checklistId: input.checklistId }
+    create: { auditId: id, checklistId: input.checklistId }
   });
 
   // Seed per-audit items if none exist

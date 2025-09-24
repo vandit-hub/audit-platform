@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, isAuditee } from "@/lib/rbac";
+import { assertAdminOrAuditor, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { Prisma } from "@prisma/client";
+import { buildScopeWhere, getUserScope } from "@/lib/scope";
 
 const createSchema = z.object({
   auditId: z.string().min(1),
@@ -19,7 +20,7 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
@@ -27,21 +28,43 @@ export async function GET(req: NextRequest) {
   const risk = searchParams.get("risk") || undefined;
   const process = searchParams.get("process") || undefined;
   const status = searchParams.get("status") || undefined;
-  const published = searchParams.get("published") || undefined;
+  const published = searchParams.get("published"); // "1" | "0" | null
+  const q = (searchParams.get("q") || "").trim();
 
-  const where: any = {
-    plantId: plantId ?? undefined,
-    riskCategory: risk ?? undefined,
-    concernedProcess: process ?? undefined,
-    currentStatus: status ?? undefined
-  };
+  // Build base filters
+  const filters: Prisma.ObservationWhereInput[] = [];
+  if (plantId) filters.push({ plantId });
+  if (risk) filters.push({ riskCategory: risk as any });
+  if (process) filters.push({ concernedProcess: process as any });
+  if (status) filters.push({ currentStatus: status as any });
+  if (q) {
+    filters.push({
+      OR: [
+        { observationText: { contains: q, mode: "insensitive" } },
+        { risksInvolved: { contains: q, mode: "insensitive" } },
+        { auditeeFeedback: { contains: q, mode: "insensitive" } },
+        { hodActionPlan: { contains: q, mode: "insensitive" } }
+      ]
+    });
+  }
+  let where: Prisma.ObservationWhereInput =
+    filters.length > 0 ? { AND: filters } : {};
 
-  // Auditee can only see approved & published observations
-  if (isAuditee(session.user.role)) {
-    where.approvalStatus = "APPROVED";
-    where.isPublished = true;
-  } else if (published != null) {
-    where.isPublished = published === "1";
+  if (isAdminOrAuditor(session.user.role)) {
+    // Admin/auditor can filter by published flag explicitly
+    if (published === "1") where = { AND: [where, { isPublished: true }] };
+    else if (published === "0") where = { AND: [where, { isPublished: false }] };
+  } else {
+    // Auditee/Guest: restrict by published+approved, plus any scoped access
+    const scope = await getUserScope(session.user.id);
+    const scopeWhere = buildScopeWhere(scope);
+    const allowPublished: Prisma.ObservationWhereInput = {
+      AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }]
+    };
+    const or: Prisma.ObservationWhereInput[] = [allowPublished];
+    if (scopeWhere) or.push(scopeWhere);
+
+    where = { AND: [where, { OR: or }] };
   }
 
   const obs = await prisma.observation.findMany({
@@ -73,7 +96,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   assertAdminOrAuditor(session?.user?.role);
 
   const body = await req.json();

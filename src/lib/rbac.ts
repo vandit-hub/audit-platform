@@ -12,6 +12,10 @@ export function isAuditee(role?: Role | string | null) {
   return role === "AUDITEE" || role === Role.AUDITEE;
 }
 
+export function isGuest(role?: Role | string | null) {
+  return role === "GUEST" || role === Role.GUEST;
+}
+
 export function isAdminOrAuditor(role?: Role | string | null) {
   return isAdmin(role) || isAuditor(role);
 }
