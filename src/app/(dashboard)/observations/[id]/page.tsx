@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import React, { useEffect, useState, FormEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -36,8 +36,20 @@ type Observation = {
   actionPlans: ActionPlan[];
 };
 
-export default function ObservationDetailPage({ params }: { params: { id: string } }) {
-  const id = params.id;
+type ChangeRequest = {
+  id: string;
+  patch: Record<string, unknown>;
+  comment?: string | null;
+  status: "PENDING" | "APPROVED" | "DENIED";
+  requester: { email?: string | null; name?: string | null };
+  decidedBy?: { email?: string | null; name?: string | null } | null;
+  decidedAt?: string | null;
+  decisionComment?: string | null;
+  createdAt: string;
+};
+
+export default function ObservationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user?.role;
@@ -45,24 +57,20 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   const [o, setO] = useState<Observation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Editable fields (we'll send only what changed)
   const [draft, setDraft] = useState<any>({});
-
-  // Upload controls
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileM, setFileM] = useState<File | null>(null);
-
-  // Notes
   const [note, setNote] = useState("");
   const [noteVis, setNoteVis] = useState<"ALL" | "INTERNAL">("ALL");
 
-  // Action plan
   const [apPlan, setApPlan] = useState("");
   const [apOwner, setApOwner] = useState("");
   const [apDate, setApDate] = useState("");
   const [apStatus, setApStatus] = useState("");
 
-  async function load() {
+  const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+
+  const load = useCallback(async () => {
     const res = await fetch(`/api/v1/observations/${id}`, { cache: "no-store" });
     const j = await res.json();
     if (res.ok) {
@@ -82,12 +90,18 @@ export default function ObservationDetailPage({ params }: { params: { id: string
         personResponsibleToImplement: j.observation.personResponsibleToImplement ?? "",
         currentStatus: j.observation.currentStatus
       });
+      // load change requests
+      const crRes = await fetch(`/api/v1/observations/${id}/change-requests`, { cache: "no-store" });
+      if (crRes.ok) {
+        const crJ = await crRes.json();
+        setChangeRequests(crJ.requests || []);
+      }
     } else {
       setError(j.error || "Failed to load");
     }
-  }
+  }, [id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+  useEffect(() => { load(); }, [load]);
 
   function setField(k: string, v: any) { setDraft((d: any) => ({ ...d, [k]: v })); }
 
@@ -111,24 +125,28 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   }
 
   async function submitForApproval() {
-    const res = await fetch(`/api/v1/observations/${id}/submit`, { method: "POST" });
-    if (res.ok) await load();
-  }
-
-  async function approve(approve: boolean) {
-    const res = await fetch(`/api/v1/observations/${id}/approve`, {
+    const res = await fetch(`/api/v1/observations/${id}/submit`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve })
+      headers: { "content-type": "application/json" }
     });
     if (res.ok) await load();
   }
 
-  async function publish(published: boolean) {
+  async function approve(isApprove: boolean) {
+    const comment = window.prompt("Optional comment:");
+    const res = await fetch(`/api/v1/observations/${id}/approve`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approve: isApprove, comment: comment || undefined })
+    });
+    if (res.ok) await load();
+  }
+
+  async function publish(shouldPublish: boolean) {
     const res = await fetch(`/api/v1/observations/${id}/publish`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ published })
+      body: JSON.stringify({ published: shouldPublish })
     });
     if (res.ok) await load();
   }
@@ -142,47 +160,59 @@ export default function ObservationDetailPage({ params }: { params: { id: string
     if (res.ok) await load();
   }
 
-  async function upload(kind: "ANNEXURE" | "MGMT_DOC", file: File) {
-    const pres = await fetch(`/api/v1/observations/${id}/attachments/presign`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind, fileName: file.name, contentType: file.type || "application/octet-stream" })
-    });
-    const pj = await pres.json();
-    if (!pres.ok) throw new Error(pj.error || "presign failed");
-    const put = await fetch(pj.url, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
-    if (!put.ok) throw new Error("upload failed");
-    const fin = await fetch(`/api/v1/observations/${id}/attachments`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ kind, key: pj.key, fileName: file.name, contentType: file.type, size: file.size })
-    });
-    if (!fin.ok) throw new Error("finalize failed");
-  }
+  async function upload(kind: "ANNEXURE" | "MGMT_DOC") {
+    const file = kind === "ANNEXURE" ? fileA : fileM;
+    if (!file) return;
 
-  async function addNote() {
-    if (!note.trim()) return;
-    const res = await fetch(`/api/v1/observations/${id}/notes`, {
+    // Get presigned URL
+    const preRes = await fetch(`/api/v1/observations/${id}/attachments/presign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: note, visibility: noteVis })
+      body: JSON.stringify({ fileName: file.name, kind })
     });
-    if (res.ok) {
-      setNote("");
+    const preJ = await preRes.json();
+    if (!preRes.ok) return;
+
+    // Upload to S3
+    const formData = new FormData();
+    Object.entries(preJ.fields).forEach(([k, v]) => formData.append(k, v as string));
+    formData.append("file", file);
+
+    const upRes = await fetch(preJ.uploadUrl, { method: "POST", body: formData });
+    if (upRes.ok) {
+      // Create attachment record
+      await fetch(`/api/v1/observations/${id}/attachments`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, key: preJ.fields.key, kind })
+      });
+      if (kind === "ANNEXURE") setFileA(null);
+      else setFileM(null);
       await load();
     }
   }
 
-  async function lock(fields: string[], lock: boolean) {
-    const res = await fetch(`/api/v1/observations/${id}/locks`, {
+  async function addNote() {
+    if (!note.trim()) return;
+    await fetch(`/api/v1/observations/${id}/notes`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ fields, lock })
+      body: JSON.stringify({ text: note, visibility: noteVis })
+    });
+    setNote("");
+    await load();
+  }
+
+  async function lock(fields: string[], shouldLock: boolean) {
+    const res = await fetch(`/api/v1/observations/${id}/lock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ fields, lock: shouldLock })
     });
     if (res.ok) await load();
   }
 
-  async function addAction() {
+  async function addActionPlan() {
     if (!apPlan.trim()) return;
     const res = await fetch(`/api/v1/observations/${id}/actions`, {
       method: "POST",
@@ -195,27 +225,56 @@ export default function ObservationDetailPage({ params }: { params: { id: string
       })
     });
     if (res.ok) {
-      setApPlan(""); setApOwner(""); setApDate(""); setApStatus("");
+      setApPlan("");
+      setApOwner("");
+      setApDate("");
+      setApStatus("");
       await load();
     }
   }
 
-  async function updateAction(a: ActionPlan, patch: Partial<ActionPlan>) {
-    const res = await fetch(`/api/v1/observations/${id}/actions/${a.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        plan: patch.plan,
-        owner: patch.owner === undefined ? undefined : (patch.owner ?? null),
-        targetDate: patch.targetDate ? new Date(patch.targetDate).toISOString() : (patch.targetDate === null ? null : undefined),
-        status: patch.status === undefined ? undefined : (patch.status ?? null)
-      })
-    });
-    if (res.ok) await load();
+  function computeAuditorPatch(): Record<string, unknown> {
+    if (!o) return {};
+    const auditorFields = new Set([
+      "observationText","risksInvolved","riskCategory","likelyImpact","concernedProcess","auditorPerson"
+    ]);
+    const patch: Record<string, unknown> = {};
+    for (const k of auditorFields) {
+      const before = (o as any)[k] ?? "";
+      const after = draft[k] ?? "";
+      // normalize dates/values
+      if (k === "riskCategory" || k === "likelyImpact" || k === "concernedProcess") {
+        if ((before ?? "") !== (after || "")) patch[k] = after || null;
+      } else {
+        if ((before ?? "") !== after) patch[k] = after;
+      }
+    }
+    return patch;
   }
 
-  async function deleteAction(a: ActionPlan) {
-    const res = await fetch(`/api/v1/observations/${id}/actions/${a.id}`, { method: "DELETE" });
+  async function requestChange() {
+    const patch = computeAuditorPatch();
+    if (Object.keys(patch).length === 0) {
+      setError("No changes detected to request.");
+      return;
+    }
+    const comment = window.prompt("Optional comment for the admin:");
+    const res = await fetch(`/api/v1/observations/${id}/change-requests`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ patch, comment: comment || undefined })
+    });
+    const j = await res.json();
+    if (!res.ok) setError(j.error || "Failed to submit change request");
+    else await load();
+  }
+
+  async function decideChange(cr: ChangeRequest, approve: boolean) {
+    const res = await fetch(`/api/v1/observations/${id}/change-requests/${cr.id}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approve })
+    });
     if (res.ok) await load();
   }
 
@@ -229,6 +288,8 @@ export default function ObservationDetailPage({ params }: { params: { id: string
   const canRetest = isAdmin || isAuditor;
   const canUploadAnnex = isAdmin || isAuditor;
   const canUploadMgmt = isAdmin || isAuditor || role === "AUDITEE";
+  const auditorLockedByApproval = isAuditor && o.approvalStatus === "APPROVED";
+  const canSave = isAdmin || (!auditorLockedByApproval);
 
   return (
     <div className="space-y-6">
@@ -237,80 +298,86 @@ export default function ObservationDetailPage({ params }: { params: { id: string
       {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
 
       <form onSubmit={save} className="bg-white rounded p-4 shadow space-y-3">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm mb-1">Observation (Auditor)</label>
-            <textarea className="border rounded px-3 py-2 w-full" rows={3} value={draft.observationText} onChange={(e) => setField("observationText", e.target.value)} />
+            <label className="block text-sm mb-1">Observation Text *</label>
+            <textarea className="border rounded px-3 py-2 w-full h-24" value={draft.observationText} onChange={(e) => setField("observationText", e.target.value)} required />
           </div>
           <div>
-            <label className="block text-sm mb-1">Risks Involved (Auditor)</label>
-            <textarea className="border rounded px-3 py-2 w-full" rows={3} value={draft.risksInvolved} onChange={(e) => setField("risksInvolved", e.target.value)} />
+            <label className="block text-sm mb-1">Risks Involved</label>
+            <textarea className="border rounded px-3 py-2 w-full h-24" value={draft.risksInvolved} onChange={(e) => setField("risksInvolved", e.target.value)} />
           </div>
-
           <div>
-            <label className="block text-sm mb-1">Risk Category (A/B/C)</label>
+            <label className="block text-sm mb-1">Risk Category</label>
             <select className="border rounded px-3 py-2 w-full" value={draft.riskCategory} onChange={(e) => setField("riskCategory", e.target.value)}>
-              <option value="">—</option><option value="A">A</option><option value="B">B</option><option value="C">C</option>
+              <option value="">Select</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
             </select>
           </div>
           <div>
             <label className="block text-sm mb-1">Likely Impact</label>
             <select className="border rounded px-3 py-2 w-full" value={draft.likelyImpact} onChange={(e) => setField("likelyImpact", e.target.value)}>
-              <option value="">—</option><option value="LOCAL">Local</option><option value="ORG_WIDE">Organisation wide</option>
+              <option value="">Select</option>
+              <option value="LOCAL">Local</option>
+              <option value="ORG_WIDE">Org-wide</option>
             </select>
           </div>
-
           <div>
-            <label className="block text-sm mb-1">Process</label>
+            <label className="block text-sm mb-1">Concerned Process</label>
             <select className="border rounded px-3 py-2 w-full" value={draft.concernedProcess} onChange={(e) => setField("concernedProcess", e.target.value)}>
-              <option value="">—</option><option value="O2C">O2C</option><option value="P2P">P2P</option><option value="R2R">R2R</option><option value="INVENTORY">Inventory</option>
+              <option value="">Select</option>
+              <option value="O2C">O2C</option>
+              <option value="P2P">P2P</option>
+              <option value="R2R">R2R</option>
+              <option value="INVENTORY">Inventory</option>
             </select>
           </div>
           <div>
             <label className="block text-sm mb-1">Auditor Person</label>
             <input className="border rounded px-3 py-2 w-full" value={draft.auditorPerson} onChange={(e) => setField("auditorPerson", e.target.value)} />
           </div>
-
           <div>
-            <label className="block text-sm mb-1">Auditee Tier 1</label>
+            <label className="block text-sm mb-1">Auditee Person (Tier 1)</label>
             <input className="border rounded px-3 py-2 w-full" value={draft.auditeePersonTier1} onChange={(e) => setField("auditeePersonTier1", e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm mb-1">Auditee Tier 2</label>
+            <label className="block text-sm mb-1">Auditee Person (Tier 2)</label>
             <input className="border rounded px-3 py-2 w-full" value={draft.auditeePersonTier2} onChange={(e) => setField("auditeePersonTier2", e.target.value)} />
           </div>
-
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm mb-1">Auditee Feedback</label>
-            <textarea className="border rounded px-3 py-2 w-full" rows={3} value={draft.auditeeFeedback} onChange={(e) => setField("auditeeFeedback", e.target.value)} />
+            <textarea className="border rounded px-3 py-2 w-full" value={draft.auditeeFeedback} onChange={(e) => setField("auditeeFeedback", e.target.value)} />
           </div>
-
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm mb-1">HOD Action Plan</label>
-            <textarea className="border rounded px-3 py-2 w-full" rows={3} value={draft.hodActionPlan} onChange={(e) => setField("hodActionPlan", e.target.value)} />
+            <textarea className="border rounded px-3 py-2 w-full" value={draft.hodActionPlan} onChange={(e) => setField("hodActionPlan", e.target.value)} />
           </div>
-
           <div>
             <label className="block text-sm mb-1">Target Date</label>
-            <input type="date" className="border rounded px-3 py-2 w-full" value={draft.targetDate} onChange={(e) => setField("targetDate", e.target.value)} />
+            <input className="border rounded px-3 py-2 w-full" type="date" value={draft.targetDate} onChange={(e) => setField("targetDate", e.target.value)} />
           </div>
           <div>
-            <label className="block text-sm mb-1">Responsible Person</label>
+            <label className="block text-sm mb-1">Person Responsible</label>
             <input className="border rounded px-3 py-2 w-full" value={draft.personResponsibleToImplement} onChange={(e) => setField("personResponsibleToImplement", e.target.value)} />
           </div>
-
           <div>
             <label className="block text-sm mb-1">Current Status</label>
             <select className="border rounded px-3 py-2 w-full" value={draft.currentStatus} onChange={(e) => setField("currentStatus", e.target.value)}>
               <option value="PENDING">Pending</option>
-              <option value="IN_PROGRESS">In progress</option>
+              <option value="IN_PROGRESS">In Progress</option>
               <option value="RESOLVED">Resolved</option>
             </select>
           </div>
         </div>
-
         <div className="flex gap-2 flex-wrap">
-          <button className="bg-black text-white px-4 py-2 rounded">Save</button>
+          <button className="bg-black text-white px-4 py-2 rounded" disabled={!canSave}>Save</button>
+          {auditorLockedByApproval && (
+            <button type="button" className="border px-4 py-2 rounded" onClick={requestChange}>
+              Request change (Auditor)
+            </button>
+          )}
           {canSubmit && <button type="button" className="border px-4 py-2 rounded" onClick={submitForApproval}>Submit for approval</button>}
           {canApprove && (
             <>
@@ -335,98 +402,132 @@ export default function ObservationDetailPage({ params }: { params: { id: string
         </div>
       </form>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded p-4 shadow space-y-3">
-          <h2 className="font-medium">Attachments</h2>
-          {canUploadAnnex && (
-            <div className="flex items-center gap-2">
-              <input type="file" onChange={(e) => setFileA(e.target.files?.[0] ?? null)} />
-              <button className="border px-3 py-1 rounded" disabled={!fileA} onClick={async () => { if (fileA) { await upload("ANNEXURE", fileA); setFileA(null); await load(); }}}>Upload Annexure</button>
-            </div>
-          )}
-          {canUploadMgmt && (
-            <div className="flex items-center gap-2">
-              <input type="file" onChange={(e) => setFileM(e.target.files?.[0] ?? null)} />
-              <button className="border px-3 py-1 rounded" disabled={!fileM} onClick={async () => { if (fileM) { await upload("MGMT_DOC", fileM); setFileM(null); await load(); }}}>Upload Mgmt Doc</button>
-            </div>
-          )}
-
-          <ul className="text-sm space-y-1">
-            {o.attachments.map((a) => (
-              <li key={a.id} className="flex items-center justify-between border-b py-1">
-                <span>{a.kind}: {a.fileName}</span>
-                <span className="text-xs text-gray-500">{a.key}</span>
-              </li>
-            ))}
-            {o.attachments.length === 0 && <li className="text-gray-500">No attachments.</li>}
-          </ul>
-        </div>
-
-        <div className="bg-white rounded p-4 shadow space-y-3">
-          <h2 className="font-medium">Running notes</h2>
-          <div className="flex gap-2">
-            <input className="border rounded px-3 py-2 flex-1" placeholder="Add note…" value={note} onChange={(e) => setNote(e.target.value)} />
-            <select className="border rounded px-3 py-2" value={noteVis} onChange={(e) => setNoteVis(e.target.value as any)}>
-              <option value="ALL">Visible to all</option>
-              <option value="INTERNAL">Internal</option>
-            </select>
-            <button className="border px-3 py-2 rounded" onClick={addNote}>Add</button>
+      <div className="bg-white rounded p-4 shadow space-y-3">
+        <h2 className="font-medium">Attachments</h2>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <div className="text-sm text-gray-600 mb-2">Annexures ({o.attachments.filter(a => a.kind === "ANNEXURE").length})</div>
+            <ul className="text-sm space-y-1 mb-3">
+              {o.attachments.filter(a => a.kind === "ANNEXURE").map(a => (
+                <li key={a.id}><a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="underline">{a.fileName}</a></li>
+              ))}
+            </ul>
+            {canUploadAnnex && (
+              <div className="flex gap-2">
+                <input type="file" onChange={(e) => setFileA(e.target.files?.[0] || null)} />
+                <button className="border px-3 py-2 rounded" onClick={() => upload("ANNEXURE")} disabled={!fileA}>Upload</button>
+              </div>
+            )}
           </div>
-          <ul className="text-sm space-y-1">
-            {o.notes.map((n) => (
-              <li key={n.id} className="border-b py-1">
-                <div className="flex items-center gap-2">
-                  <span>{n.text}</span>
-                  {n.visibility === "INTERNAL" && <span className="text-[10px] px-1 rounded border bg-yellow-50 text-yellow-800">INTERNAL</span>}
-                </div>
-                <div className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()} — {n.actor.email ?? n.actor.name ?? "user"}</div>
-              </li>
-            ))}
-            {o.notes.length === 0 && <li className="text-gray-500">No notes yet.</li>}
-          </ul>
+          <div>
+            <div className="text-sm text-gray-600 mb-2">Management Docs ({o.attachments.filter(a => a.kind === "MGMT_DOC").length})</div>
+            <ul className="text-sm space-y-1 mb-3">
+              {o.attachments.filter(a => a.kind === "MGMT_DOC").map(a => (
+                <li key={a.id}><a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="underline">{a.fileName}</a></li>
+              ))}
+            </ul>
+            {canUploadMgmt && (
+              <div className="flex gap-2">
+                <input type="file" onChange={(e) => setFileM(e.target.files?.[0] || null)} />
+                <button className="border px-3 py-2 rounded" onClick={() => upload("MGMT_DOC")} disabled={!fileM}>Upload</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Action Plans</h2>
-        <div className="grid sm:grid-cols-4 gap-2">
-          <input className="border rounded px-3 py-2 sm:col-span-2" placeholder="Action plan..." value={apPlan} onChange={(e) => setApPlan(e.target.value)} />
-          <input className="border rounded px-3 py-2" placeholder="Owner (optional)" value={apOwner} onChange={(e) => setApOwner(e.target.value)} />
-          <input className="border rounded px-3 py-2" type="date" value={apDate} onChange={(e) => setApDate(e.target.value)} />
-          <input className="border rounded px-3 py-2 sm:col-span-3" placeholder="Status (optional)" value={apStatus} onChange={(e) => setApStatus(e.target.value)} />
-          <div>
-            <button className="border px-3 py-2 rounded" onClick={addAction}>Add</button>
-          </div>
+        <h2 className="font-medium">Notes ({o.notes.length})</h2>
+        <div className="flex gap-2 mb-3">
+          <textarea className="border rounded px-3 py-2 flex-1" placeholder="Add a note..." value={note} onChange={(e) => setNote(e.target.value)} />
+          <select className="border rounded px-3 py-2" value={noteVis} onChange={(e) => setNoteVis(e.target.value as "ALL" | "INTERNAL")}>
+            <option value="ALL">All</option>
+            <option value="INTERNAL">Internal</option>
+          </select>
+          <button className="border px-3 py-2 rounded" onClick={addNote}>Add</button>
         </div>
-
         <ul className="text-sm space-y-2">
-          {o.actionPlans.map((a) => (
-            <li key={a.id} className="border rounded p-2">
-              <div className="font-medium">{a.plan}</div>
-              <div className="text-xs text-gray-600">
-                Owner: {a.owner || "—"} | Target: {a.targetDate ? new Date(a.targetDate).toLocaleDateString() : "—"} | Status: {a.status || "—"}
+          {o.notes.map(n => (
+            <li key={n.id} className="border-b pb-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{n.actor.email ?? n.actor.name ?? "User"}</span>
+                <span className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()} · {n.visibility}</span>
               </div>
-              <div className="flex gap-2 mt-2">
-                <button className="border px-2 py-1 rounded" onClick={() => updateAction(a, { status: "Done" })}>Mark Done</button>
-                {(role === "ADMIN" || role === "AUDITOR") && (
-                  <button className="text-red-600 underline" onClick={() => deleteAction(a)}>Delete</button>
-                )}
-              </div>
+              <div>{n.text}</div>
             </li>
           ))}
-          {o.actionPlans.length === 0 && <li className="text-gray-500">No action plans.</li>}
+          {o.notes.length === 0 && <li className="text-gray-500">No notes yet.</li>}
         </ul>
       </div>
 
-      <div className="bg-white rounded p-4 shadow">
-        <h2 className="font-medium mb-2">Approvals</h2>
-        <ul className="text-sm space-y-1">
-          {o.approvals.map((a) => (
-            <li key={a.id} className="border-b py-1">
-              {a.status} — {a.actor.email ?? a.actor.name ?? "user"} {a.comment ? `: ${a.comment}` : ""} <span className="text-xs text-gray-500">{new Date(a.createdAt).toLocaleString()}</span>
+      <div className="bg-white rounded p-4 shadow space-y-3">
+        <h2 className="font-medium">Action Plans ({o.actionPlans.length})</h2>
+        <div className="grid sm:grid-cols-4 gap-2 mb-3">
+          <input className="border rounded px-3 py-2" placeholder="Plan..." value={apPlan} onChange={(e) => setApPlan(e.target.value)} />
+          <input className="border rounded px-3 py-2" placeholder="Owner" value={apOwner} onChange={(e) => setApOwner(e.target.value)} />
+          <input className="border rounded px-3 py-2" type="date" value={apDate} onChange={(e) => setApDate(e.target.value)} />
+          <input className="border rounded px-3 py-2" placeholder="Status" value={apStatus} onChange={(e) => setApStatus(e.target.value)} />
+          <button className="border px-3 py-2 rounded" onClick={addActionPlan}>Add Action Plan</button>
+        </div>
+        <ul className="text-sm space-y-2">
+          {o.actionPlans.map(ap => (
+            <li key={ap.id} className="border rounded p-2">
+              <div className="font-medium">{ap.plan}</div>
+              <div className="text-gray-600">Owner: {ap.owner ?? "—"} · Target: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"} · Status: {ap.status ?? "—"}</div>
+              <div className="text-xs text-gray-500">{new Date(ap.createdAt).toLocaleString()}</div>
             </li>
           ))}
-          {o.approvals.length === 0 && <li className="text-gray-500">No approval history.</li>}
+          {o.actionPlans.length === 0 && <li className="text-gray-500">No action plans yet.</li>}
+        </ul>
+      </div>
+
+      <div className="bg-white rounded p-4 shadow space-y-3">
+        <h2 className="font-medium">Approvals ({o.approvals.length})</h2>
+        <ul className="text-sm space-y-2">
+          {o.approvals.map(ap => (
+            <li key={ap.id} className="border rounded p-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{ap.status}</span>
+                <span className="text-xs text-gray-500">{new Date(ap.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="text-gray-600">By: {ap.actor.email ?? ap.actor.name ?? "User"}</div>
+              {ap.comment && <div className="text-gray-700">Comment: {ap.comment}</div>}
+            </li>
+          ))}
+          {o.approvals.length === 0 && <li className="text-gray-500">No approval history yet.</li>}
+        </ul>
+      </div>
+
+      <div className="bg-white rounded p-4 shadow space-y-3">
+        <h2 className="font-medium">Change Requests</h2>
+        <ul className="text-sm space-y-2">
+          {changeRequests.map((cr) => (
+            <li key={cr.id} className="border rounded p-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium">{cr.status}</div>
+                  <div className="text-xs text-gray-600">
+                    By: {cr.requester.email ?? cr.requester.name ?? "user"} · {new Date(cr.createdAt).toLocaleString()}
+                  </div>
+                  {cr.comment && <div className="text-xs text-gray-700">Comment: {cr.comment}</div>}
+                  {cr.decidedAt && (
+                    <div className="text-xs text-gray-600">
+                      Decision by: {cr.decidedBy?.email ?? cr.decidedBy?.name ?? "admin"} on {new Date(cr.decidedAt).toLocaleString()}
+                      {cr.decisionComment ? ` — ${cr.decisionComment}` : ""}
+                    </div>
+                  )}
+                </div>
+                {isAdmin && cr.status === "PENDING" && (
+                  <div className="flex gap-2">
+                    <button className="border px-2 py-1 rounded" onClick={() => decideChange(cr, true)}>Approve & apply</button>
+                    <button className="border px-2 py-1 rounded" onClick={() => decideChange(cr, false)}>Deny</button>
+                  </div>
+                )}
+              </div>
+              <pre className="text-xs bg-gray-50 p-2 rounded mt-2 overflow-auto">{JSON.stringify(cr.patch, null, 2)}</pre>
+            </li>
+          ))}
+          {changeRequests.length === 0 && <li className="text-gray-500">No change requests.</li>}
         </ul>
       </div>
     </div>

@@ -16,7 +16,6 @@ export default function NavBar() {
           <nav className="flex items-center gap-4 text-sm text-gray-600">
             <Link href="/plants">Plants</Link>
             <Link href="/audits">Audits</Link>
-            <Link href="/checklists">Checklists</Link>
             <Link href="/observations">Observations</Link>
             <Link href="/reports">Reports</Link>
           </nav>

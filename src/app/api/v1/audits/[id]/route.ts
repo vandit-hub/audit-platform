@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, assertAdmin } from "@/lib/rbac";
+import { assertAdminOrAuditor } from "@/lib/rbac";
 
 const updateSchema = z.object({
   startDate: z.string().datetime().nullable().optional(),
@@ -22,23 +22,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       plant: true,
-      assignments: { include: { auditor: { select: { id: true, name: true, email: true, role: true } } } },
-      auditChecklists: {
-        include: {
-          checklist: true,
-          items: { orderBy: { createdAt: "asc" } }
-        }
-      }
+      assignments: { include: { auditor: { select: { id: true, name: true, email: true, role: true } } } }
     }
   });
 
   if (!audit) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  const total = audit.auditChecklists.reduce((acc, ac) => acc + ac.items.length, 0);
-  const done = audit.auditChecklists.reduce(
-    (acc, ac) => acc + ac.items.filter((i) => i.status === "DONE").length,
-    0
-  );
+  const [total, done] = await Promise.all([
+    prisma.observation.count({ where: { auditId: id } }),
+    prisma.observation.count({ where: { auditId: id, currentStatus: "RESOLVED" } })
+  ]);
 
   return NextResponse.json({
     ok: true,

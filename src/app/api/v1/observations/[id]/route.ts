@@ -100,6 +100,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const orig = await prisma.observation.findUnique({ where: { id } });
   if (!orig) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
+  // If auditor and observation already approved -> block direct edits
+  if (!isAdmin(session.user.role) && isAdminOrAuditor(session.user.role) && orig.approvalStatus === "APPROVED") {
+    return NextResponse.json({ ok: false, error: "Observation is approved. Please submit a change request." }, { status: 403 });
+  }
+
   // Determine role-based allowed fields
   const allowed = isAdmin(session.user.role)
     ? new Set([...AUDITOR_FIELDS, ...AUDITEE_FIELDS])
@@ -107,9 +112,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     ? AUDITOR_FIELDS
     : AUDITEE_FIELDS;
 
+  const locked = new Set<string>(Array.isArray((orig.lockedFields as any) ?? []) ? ((orig.lockedFields as any) as string[]) : []);
+  const isAdminUser = isAdmin(session.user.role);
+
   const data: any = {};
   for (const [k, v] of Object.entries(input)) {
     if (allowed.has(k)) {
+      if (!isAdminUser && locked.has(k)) {
+        return NextResponse.json({ ok: false, error: `Field "${k}" is locked` }, { status: 403 });
+      }
       if (k === "targetDate") data[k] = v === null ? null : v ? new Date(v as string) : undefined;
       else data[k] = v;
     }

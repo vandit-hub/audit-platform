@@ -24,8 +24,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const password = credentials?.password || "";
+        const email = (credentials?.email as string)?.toLowerCase().trim();
+        const password = (credentials?.password as string) || "";
 
         if (!email || !password) return null;
 
@@ -68,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.status = (user as any).status;
         token.lastActivity = now;
       } else {
-        const last = token.lastActivity ?? now;
+        const last = (token.lastActivity as number) ?? now;
         if (now - last > idleMs) {
           token.expired = true;
         } else {
@@ -78,11 +78,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }): Promise<any> {
       if (token.expired) {
         // returning null triggers no session on server components
         // Client will get redirected by protected layout
-        // @ts-expect-error: allowed null
         return null;
       }
       if (session.user) {

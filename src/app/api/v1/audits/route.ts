@@ -20,37 +20,43 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || undefined;
 
   const audits = await prisma.audit.findMany({
-    where: {
-      plantId,
-      status: status ? (status as any) : undefined
-    },
+    where: { plantId, status: status ? (status as any) : undefined },
     include: {
       plant: true,
-      assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } },
-      auditChecklists: {
-        include: { items: true, checklist: { select: { id: true, name: true } } }
-      }
+      assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } }
     },
     orderBy: { createdAt: "desc" }
   });
 
-  const shaped = audits.map((a) => {
-    const total = a.auditChecklists.reduce((acc, ac) => acc + ac.items.length, 0);
-    const done = a.auditChecklists.reduce(
-      (acc, ac) => acc + ac.items.filter((i) => i.status === "DONE").length,
-      0
-    );
-    return {
-      id: a.id,
-      plant: a.plant,
-      startDate: a.startDate,
-      endDate: a.endDate,
-      status: a.status,
-      createdAt: a.createdAt,
-      assignments: a.assignments.map((as) => as.auditor),
-      progress: { done, total }
-    };
-  });
+  // Progress from observations: group counts by auditId and status
+  const auditIds = audits.map(a => a.id);
+  const grouped = auditIds.length
+    ? await prisma.observation.groupBy({
+        by: ["auditId", "currentStatus"],
+        where: { auditId: { in: auditIds } },
+        _count: { _all: true }
+      })
+    : [];
+
+  const totals = new Map<string, number>();
+  const resolved = new Map<string, number>();
+  for (const g of grouped) {
+    totals.set(g.auditId, (totals.get(g.auditId) ?? 0) + g._count._all);
+    if (g.currentStatus === "RESOLVED") {
+      resolved.set(g.auditId, (resolved.get(g.auditId) ?? 0) + g._count._all);
+    }
+  }
+
+  const shaped = audits.map((a) => ({
+    id: a.id,
+    plant: a.plant,
+    startDate: a.startDate,
+    endDate: a.endDate,
+    status: a.status,
+    createdAt: a.createdAt,
+    assignments: a.assignments.map((as) => as.auditor),
+    progress: { done: resolved.get(a.id) ?? 0, total: totals.get(a.id) ?? 0 }
+  }));
 
   return NextResponse.json({ ok: true, audits: shaped });
 }

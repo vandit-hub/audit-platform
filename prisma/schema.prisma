@@ -111,6 +111,9 @@ model User {
   createdObservations Observation[] @relation("ObservationCreatedBy")
   notes            RunningNote[]
   approvals        Approval[]
+  // Phase 5
+  changeRequestsCreated ObservationChangeRequest[] @relation("ChangeRequestRequester")
+  changeRequestsDecided ObservationChangeRequest[] @relation("ChangeRequestDecider")
 }
 
 model Plant {
@@ -288,6 +291,7 @@ model Observation {
   approvals        Approval[]
   notes            RunningNote[]
   actionPlans      ActionPlan[]
+  changeRequests   ObservationChangeRequest[]
 
   @@index([plantId])
   @@index([approvalStatus, isPublished])
@@ -341,4 +345,28 @@ model ActionPlan {
   targetDate    DateTime?
   status        String?     // simple text status for MVP
   createdAt     DateTime    @default(now())
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model ObservationChangeRequest {
+  id             String               @id @default(cuid())
+  observationId  String
+  observation    Observation          @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  requesterId    String
+  requester      User                 @relation("ChangeRequestRequester", fields: [requesterId], references: [id])
+  patch          Json
+  comment        String?
+  status         ChangeRequestStatus  @default(PENDING)
+  decidedById    String?
+  decidedBy      User?                @relation("ChangeRequestDecider", fields: [decidedById], references: [id])
+  decidedAt      DateTime?
+  decisionComment String?
+  createdAt      DateTime             @default(now())
+
+  @@index([observationId, status])
 }

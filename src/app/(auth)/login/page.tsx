@@ -69,7 +69,7 @@ export default function LoginPage() {
           Sign in
         </button>
         <p className="text-xs text-gray-500">
-          Don't have an account? Ask an Admin to invite you.
+          Don&#39;t have an account? Ask an Admin to invite you.
         </p>
       </form>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -42,13 +42,11 @@ export default function ObservationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  function savePreset() {
-    localStorage.setItem(
-      "obs.filters",
-      JSON.stringify({ plantId, risk, proc, status, published, q })
-    );
-  }
-  function loadPreset() {
+  const savePreset = useCallback(() => {
+    localStorage.setItem("obs.filters", JSON.stringify({ plantId, risk, proc, status, published, q }));
+  }, [plantId, risk, proc, status, published, q]);
+
+  const loadPreset = useCallback(() => {
     const raw = localStorage.getItem("obs.filters");
     if (!raw) return;
     try {
@@ -60,8 +58,9 @@ export default function ObservationsPage() {
       setPublished(v.published || "");
       setQ(v.q || "");
     } catch {}
-  }
-  function resetFilters() {
+  }, []);
+
+  const resetFilters = useCallback(() => {
     setPlantId("");
     setRisk("");
     setProc("");
@@ -69,9 +68,22 @@ export default function ObservationsPage() {
     setPublished("");
     setQ("");
     localStorage.removeItem("obs.filters");
-  }
+  }, []);
 
-  async function load() {
+  const loadRows = useCallback(async () => {
+    const qs = new URLSearchParams();
+    if (plantId) qs.set("plantId", plantId);
+    if (risk) qs.set("risk", risk);
+    if (proc) qs.set("process", proc);
+    if (status) qs.set("status", status);
+    if (published) qs.set("published", published);
+    if (q) qs.set("q", q);
+    const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
+    const j = await res.json();
+    if (res.ok) setRows(j.observations);
+  }, [plantId, risk, proc, status, published, q]);
+
+  const load = useCallback(async () => {
     const [pRes, aRes] = await Promise.all([
       fetch("/api/v1/plants", { cache: "no-store" }),
       fetch("/api/v1/audits", { cache: "no-store" })
@@ -89,24 +101,11 @@ export default function ObservationsPage() {
       setAudits(auds);
     }
     await loadRows();
-  }
+  }, [loadRows]);
 
-  async function loadRows() {
-    const qs = new URLSearchParams();
-    if (plantId) qs.set("plantId", plantId);
-    if (risk) qs.set("risk", risk);
-    if (proc) qs.set("process", proc);
-    if (status) qs.set("status", status);
-    if (published) qs.set("published", published);
-    if (q) qs.set("q", q);
-    const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
-    const j = await res.json();
-    if (res.ok) setRows(j.observations);
-  }
-
-  useEffect(() => { loadPreset(); /* on first mount only */ }, []);
-  useEffect(() => { load(); }, []);
-  useEffect(() => { loadRows(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [plantId, risk, proc, status, published, q]);
+  useEffect(() => { loadPreset(); }, [loadPreset]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadRows(); }, [loadRows]);
 
   async function create(e: FormEvent) {
     e.preventDefault();

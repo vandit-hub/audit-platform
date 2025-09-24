@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type KPI = {
   total: number;
@@ -26,7 +26,7 @@ export default function ReportsPage() {
   const [overdue, setOverdue] = useState<TargetRow[]>([]);
   const [dueSoon, setDueSoon] = useState<TargetRow[]>([]);
 
-  async function load() {
+  const load = useCallback(async () => {
     const [oRes, tRes] = await Promise.all([
       fetch(`/api/v1/reports/overview?days=${days}`, { cache: "no-store" }),
       fetch(`/api/v1/reports/targets?days=${days}`, { cache: "no-store" })
@@ -37,9 +37,9 @@ export default function ReportsPage() {
       setOverdue(tj.overdue || []);
       setDueSoon(tj.dueSoon || []);
     }
-  }
+  }, [days]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-6">
