@@ -18,6 +18,9 @@ export default function NavBar() {
             <Link href="/audits">Audits</Link>
             <Link href="/observations">Observations</Link>
             <Link href="/reports">Reports</Link>
+            {session?.user?.role === "ADMIN" && (
+              <Link href="/admin/users">Users</Link>
+            )}
           </nav>
         </div>
 
