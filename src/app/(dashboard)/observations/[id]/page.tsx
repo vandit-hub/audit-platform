@@ -54,7 +54,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const router = useRouter();
   const { data: session } = useSession();
   const role = session?.user?.role;
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
 
   const [o, setO] = useState<Observation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +110,13 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   async function save(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
+    // Check if auditor is trying to save an approved observation
+    if (auditorLockedByApproval) {
+      showInfo("This observation is approved and fields are locked. Please use 'Request Change' to modify.");
+      return;
+    }
+
     const res = await fetch(`/api/v1/observations/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -431,7 +438,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button className="bg-black text-white px-4 py-2 rounded" disabled={!canSave}>Save</button>
+          <button className="bg-black text-white px-4 py-2 rounded">Save</button>
           {auditorLockedByApproval && (
             <button type="button" className="border px-4 py-2 rounded" onClick={requestChange}>
               Request change (Auditor)
