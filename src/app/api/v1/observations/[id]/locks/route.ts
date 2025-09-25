@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { notifyFieldLockChange } from "@/websocket/broadcast";
 
 const schema = z.object({
   fields: z.array(z.string().min(1)).min(1),
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     actorId: session!.user.id,
     diff: { fields, lock }
   });
+
+  // Broadcast WebSocket update
+  notifyFieldLockChange(id, fields, lock);
 
   return NextResponse.json({ ok: true, lockedFields: next });
 }

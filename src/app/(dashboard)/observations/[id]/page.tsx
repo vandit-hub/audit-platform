@@ -4,6 +4,8 @@ import React, { useEffect, useState, FormEvent, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
+import { useObservationWebSocket } from "@/lib/websocket/hooks";
+import PresenceBadge from "@/components/PresenceBadge";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
@@ -72,6 +74,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
 
+  // WebSocket integration
+  const { presence, lastUpdate, isConnected } = useObservationWebSocket(id);
+  const userId = (session?.user as any)?.id;
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/v1/observations/${id}`, { cache: "no-store" });
     const j = await res.json();
@@ -104,6 +110,14 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh on WebSocket updates
+  useEffect(() => {
+    if (lastUpdate && o) {
+      console.log('WebSocket update detected, refreshing observation');
+      load();
+    }
+  }, [lastUpdate, load, o]);
 
   function setField(k: string, v: any) { setDraft((d: any) => ({ ...d, [k]: v })); }
 
@@ -359,7 +373,18 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-6">
       <button className="text-sm underline" onClick={() => router.back()}>&larr; Back</button>
-      <h1 className="text-2xl font-semibold">Observation — {o.plant.code} {o.plant.name}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Observation — {o.plant.code} {o.plant.name}</h1>
+        <div className="flex items-center gap-4">
+          {isConnected && <PresenceBadge users={presence} currentUserId={userId} />}
+          {!isConnected && (
+            <div className="text-sm text-gray-500">
+              <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+              Disconnected
+            </div>
+          )}
+        </div>
+      </div>
       {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
 
       <form onSubmit={save} className="bg-white rounded p-4 shadow space-y-3">

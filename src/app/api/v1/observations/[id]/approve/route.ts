@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { z } from "zod";
 import { assertAdmin } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
+import { notifyApprovalStatusChange } from "@/websocket/broadcast";
 
 const schema = z.object({
   approve: z.boolean(),
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     actorId: session!.user.id,
     diff: { comment: input.comment ?? null }
   });
+
+  // Broadcast WebSocket update
+  notifyApprovalStatusChange(o.id, status);
 
   return NextResponse.json({ ok: true });
 }

@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "ws:dev": "tsx watch ws-server.ts",
+    "ws:start": "tsx ws-server.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -21,21 +23,25 @@
     "@aws-sdk/s3-request-presigner": "^3.893.0",
     "@prisma/client": "^6.16.2",
     "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.5.3",
     "next-auth": "^5.0.0-beta.29",
     "pino": "^9.11.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "tailwindcss": "^3.4.7",
+    "ws": "^8.18.3",
     "zod": "^4.1.11",
     "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "@types/zxcvbn": "^4.4.5",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",

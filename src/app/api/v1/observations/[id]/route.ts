@@ -5,6 +5,7 @@ import { z } from "zod";
 import { isAdmin, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
+import { notifyObservationUpdate } from "@/websocket/broadcast";
 
 const updateSchema = z.object({
   // Auditor-editable
@@ -142,6 +143,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     actorId: session.user.id,
     diff: { before: orig, after: updated }
   });
+
+  // Broadcast WebSocket update
+  notifyObservationUpdate(id, { fields: Object.keys(data), updatedBy: session.user.email });
 
   return NextResponse.json({ ok: true, observation: updated });
 }
