@@ -10,7 +10,11 @@
     "typecheck": "tsc --noEmit",
     "db:seed": "prisma db seed",
     "ws:dev": "tsx watch ws-server.ts",
-    "ws:start": "tsx ws-server.ts"
+    "ws:start": "tsx ws-server.ts",
+    "start:standalone": "node .next/standalone/server.js",
+    "start:prod": "npm-run-all --parallel start:standalone ws:start",
+    "build:prod": "npm run typecheck && npm run build",
+    "deploy:simple": "npm run build:prod && npm run start:prod"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -46,6 +50,7 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "npm-run-all": "^4.1.5",
     "postcss": "^8.5.6",
     "prisma": "^6.16.2",
     "tsx": "^4.20.5",
