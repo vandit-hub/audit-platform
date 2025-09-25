@@ -33,6 +33,7 @@ type Observation = {
   reTestResult?: "PASS" | "FAIL" | null;
   approvalStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
   isPublished: boolean;
+  lockedFields?: string[] | null;
   attachments: Attachment[];
   approvals: Approval[];
   notes: Note[];
@@ -277,6 +278,37 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
+  function getFieldLabel(fieldName: string): string {
+    const fieldLabels: Record<string, string> = {
+      observationText: "Observation Text",
+      risksInvolved: "Risks Involved",
+      riskCategory: "Risk Category",
+      likelyImpact: "Likely Impact",
+      concernedProcess: "Concerned Process",
+      auditorPerson: "Auditor Person",
+      auditeePersonTier1: "Auditee Person (Tier 1)",
+      auditeePersonTier2: "Auditee Person (Tier 2)",
+      auditeeFeedback: "Auditee Feedback",
+      hodActionPlan: "HOD Action Plan",
+      targetDate: "Target Date",
+      personResponsibleToImplement: "Person Responsible",
+      currentStatus: "Current Status"
+    };
+    return fieldLabels[fieldName] || fieldName;
+  }
+
+  function isFieldLocked(fieldName: string): boolean {
+    if (!o?.lockedFields) return false;
+    return o.lockedFields.includes(fieldName);
+  }
+
+  function getFieldClassName(fieldName: string, baseClassName: string = "border rounded px-3 py-2 w-full"): string {
+    if (isFieldLocked(fieldName)) {
+      return `${baseClassName} bg-orange-50 border-orange-300`;
+    }
+    return baseClassName;
+  }
+
   async function addActionPlan() {
     if (!apPlan.trim()) return;
     const res = await fetch(`/api/v1/observations/${id}/actions`, {
@@ -390,16 +422,53 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       <form onSubmit={save} className="bg-white rounded p-4 shadow space-y-3">
         <div className="grid md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm mb-1">Observation Text *</label>
-            <textarea className="border rounded px-3 py-2 w-full h-24" value={draft.observationText} onChange={(e) => setField("observationText", e.target.value)} required />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Observation Text *</label>
+              {isFieldLocked("observationText") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <textarea
+              className={getFieldClassName("observationText", "border rounded px-3 py-2 w-full h-24")}
+              value={draft.observationText}
+              onChange={(e) => setField("observationText", e.target.value)}
+              required
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Risks Involved</label>
-            <textarea className="border rounded px-3 py-2 w-full h-24" value={draft.risksInvolved} onChange={(e) => setField("risksInvolved", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Risks Involved</label>
+              {isFieldLocked("risksInvolved") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <textarea
+              className={getFieldClassName("risksInvolved", "border rounded px-3 py-2 w-full h-24")}
+              value={draft.risksInvolved}
+              onChange={(e) => setField("risksInvolved", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Risk Category</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.riskCategory} onChange={(e) => setField("riskCategory", e.target.value)}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Risk Category</label>
+              {isFieldLocked("riskCategory") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <select
+              className={getFieldClassName("riskCategory")}
+              value={draft.riskCategory}
+              onChange={(e) => setField("riskCategory", e.target.value)}
+            >
               <option value="">Select</option>
               <option value="A">A</option>
               <option value="B">B</option>
@@ -407,16 +476,40 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </select>
           </div>
           <div>
-            <label className="block text-sm mb-1">Likely Impact</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.likelyImpact} onChange={(e) => setField("likelyImpact", e.target.value)}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Likely Impact</label>
+              {isFieldLocked("likelyImpact") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <select
+              className={getFieldClassName("likelyImpact")}
+              value={draft.likelyImpact}
+              onChange={(e) => setField("likelyImpact", e.target.value)}
+            >
               <option value="">Select</option>
               <option value="LOCAL">Local</option>
               <option value="ORG_WIDE">Org-wide</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm mb-1">Concerned Process</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.concernedProcess} onChange={(e) => setField("concernedProcess", e.target.value)}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Concerned Process</label>
+              {isFieldLocked("concernedProcess") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <select
+              className={getFieldClassName("concernedProcess")}
+              value={draft.concernedProcess}
+              onChange={(e) => setField("concernedProcess", e.target.value)}
+            >
               <option value="">Select</option>
               <option value="O2C">O2C</option>
               <option value="P2P">P2P</option>
@@ -425,36 +518,133 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </select>
           </div>
           <div>
-            <label className="block text-sm mb-1">Auditor Person</label>
-            <input className="border rounded px-3 py-2 w-full" value={draft.auditorPerson} onChange={(e) => setField("auditorPerson", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Auditor Person</label>
+              {isFieldLocked("auditorPerson") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <input
+              className={getFieldClassName("auditorPerson")}
+              value={draft.auditorPerson}
+              onChange={(e) => setField("auditorPerson", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Auditee Person (Tier 1)</label>
-            <input className="border rounded px-3 py-2 w-full" value={draft.auditeePersonTier1} onChange={(e) => setField("auditeePersonTier1", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Auditee Person (Tier 1)</label>
+              {isFieldLocked("auditeePersonTier1") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <input
+              className={getFieldClassName("auditeePersonTier1")}
+              value={draft.auditeePersonTier1}
+              onChange={(e) => setField("auditeePersonTier1", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Auditee Person (Tier 2)</label>
-            <input className="border rounded px-3 py-2 w-full" value={draft.auditeePersonTier2} onChange={(e) => setField("auditeePersonTier2", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Auditee Person (Tier 2)</label>
+              {isFieldLocked("auditeePersonTier2") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <input
+              className={getFieldClassName("auditeePersonTier2")}
+              value={draft.auditeePersonTier2}
+              onChange={(e) => setField("auditeePersonTier2", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Auditee Feedback</label>
-            <textarea className="border rounded px-3 py-2 w-full" value={draft.auditeeFeedback} onChange={(e) => setField("auditeeFeedback", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Auditee Feedback</label>
+              {isFieldLocked("auditeeFeedback") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <textarea
+              className={getFieldClassName("auditeeFeedback")}
+              value={draft.auditeeFeedback}
+              onChange={(e) => setField("auditeeFeedback", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">HOD Action Plan</label>
-            <textarea className="border rounded px-3 py-2 w-full" value={draft.hodActionPlan} onChange={(e) => setField("hodActionPlan", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">HOD Action Plan</label>
+              {isFieldLocked("hodActionPlan") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <textarea
+              className={getFieldClassName("hodActionPlan")}
+              value={draft.hodActionPlan}
+              onChange={(e) => setField("hodActionPlan", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Target Date</label>
-            <input className="border rounded px-3 py-2 w-full" type="date" value={draft.targetDate} onChange={(e) => setField("targetDate", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Target Date</label>
+              {isFieldLocked("targetDate") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <input
+              className={getFieldClassName("targetDate")}
+              type="date"
+              value={draft.targetDate}
+              onChange={(e) => setField("targetDate", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Person Responsible</label>
-            <input className="border rounded px-3 py-2 w-full" value={draft.personResponsibleToImplement} onChange={(e) => setField("personResponsibleToImplement", e.target.value)} />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Person Responsible</label>
+              {isFieldLocked("personResponsibleToImplement") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <input
+              className={getFieldClassName("personResponsibleToImplement")}
+              value={draft.personResponsibleToImplement}
+              onChange={(e) => setField("personResponsibleToImplement", e.target.value)}
+            />
           </div>
           <div>
-            <label className="block text-sm mb-1">Current Status</label>
-            <select className="border rounded px-3 py-2 w-full" value={draft.currentStatus} onChange={(e) => setField("currentStatus", e.target.value)}>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Current Status</label>
+              {isFieldLocked("currentStatus") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
+            </div>
+            <select
+              className={getFieldClassName("currentStatus")}
+              value={draft.currentStatus}
+              onChange={(e) => setField("currentStatus", e.target.value)}
+            >
               <option value="PENDING">Pending</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="RESOLVED">Resolved</option>
@@ -487,7 +677,50 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </>
           )}
           {isAdmin && (
-            <button type="button" className="border px-4 py-2 rounded" onClick={() => lock(["observationText","riskCategory"], true)}>Lock sample fields</button>
+            <div className="flex flex-col gap-2">
+              {/* Show locked fields and unlock buttons */}
+              {o.lockedFields && o.lockedFields.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                  <div className="text-sm font-medium text-orange-800 mb-2">
+                    Locked Fields ({o.lockedFields.length}):
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {o.lockedFields.map(field => (
+                      <div key={field} className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded text-xs">
+                        <span className="text-orange-800">{getFieldLabel(field)}</span>
+                        <button
+                          type="button"
+                          className="text-orange-600 hover:text-orange-800 ml-1"
+                          onClick={() => lock([field], false)}
+                          title={`Unlock ${getFieldLabel(field)}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-xs border border-orange-300 px-2 py-1 rounded hover:bg-orange-100"
+                      onClick={() => lock(o.lockedFields!, false)}
+                    >
+                      Unlock All
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Lock controls */}
+              <div className="flex gap-2">
+                <button type="button" className="border px-4 py-2 rounded" onClick={() => lock(["observationText","riskCategory"], true)}>
+                  Lock Sample Fields
+                </button>
+                <button type="button" className="border px-4 py-2 rounded" onClick={() => lock(["observationText"], true)}>
+                  Lock Text Field
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </form>
