@@ -265,7 +265,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   }
 
   async function lock(fields: string[], shouldLock: boolean) {
-    const res = await fetch(`/api/v1/observations/${id}/lock`, {
+    const res = await fetch(`/api/v1/observations/${id}/locks`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ fields, lock: shouldLock })
