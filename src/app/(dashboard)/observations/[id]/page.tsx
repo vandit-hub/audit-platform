@@ -153,11 +153,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   }
 
   async function approve(isApprove: boolean) {
-    const comment = window.prompt("Optional comment:");
     const res = await fetch(`/api/v1/observations/${id}/approve`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve: isApprove, comment: comment || undefined })
+      body: JSON.stringify({ approve: isApprove })
     });
     if (res.ok) {
       await load();
@@ -350,7 +349,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const isAuditor = role === "AUDITOR";
   const canApprove = isAdmin;
   const canPublish = isAdmin;
-  const canSubmit = isAdmin || isAuditor;
+  const canSubmit = isAuditor;
   const canRetest = isAdmin || isAuditor;
   const canUploadAnnex = isAdmin || isAuditor;
   const canUploadMgmt = isAdmin || isAuditor || role === "AUDITEE";
