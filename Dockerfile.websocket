@@ -1,0 +1,30 @@
+# WebSocket Server Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install tsx globally
+RUN npm install -g tsx
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy WebSocket server files
+COPY ws-server.ts ./
+COPY src/websocket ./src/websocket
+COPY src/lib ./src/lib
+COPY src/server ./src/server
+COPY prisma ./prisma
+COPY tsconfig.json ./
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Expose WebSocket port
+EXPOSE 3001
+
+# Run WebSocket server
+CMD ["tsx", "ws-server.ts"]

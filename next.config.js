@@ -6,7 +6,7 @@ const nextConfig = {
   compress: true,
 
   // Output configuration
-  output: 'standalone',
+  // output: 'standalone', // Disabled to avoid clientReferenceManifest error
 
   // Image optimization
   images: {

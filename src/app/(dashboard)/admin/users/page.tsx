@@ -56,11 +56,31 @@ export default function AdminUsersPage() {
     }
   };
 
-  const copyInviteLink = () => {
+  const copyInviteLink = async () => {
     if (inviteToken) {
       const inviteUrl = `${window.location.origin}/accept-invite?token=${inviteToken}`;
-      navigator.clipboard.writeText(inviteUrl);
-      showSuccess("Invite link copied to clipboard!");
+
+      try {
+        // Try using the modern clipboard API (requires HTTPS)
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(inviteUrl);
+          showSuccess("Invite link copied to clipboard!");
+        } else {
+          // Fallback for HTTP - create a temporary textarea
+          const textarea = document.createElement('textarea');
+          textarea.value = inviteUrl;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          showSuccess("Invite link copied to clipboard!");
+        }
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        showError("Failed to copy to clipboard. Please copy manually.");
+      }
     }
   };
 
