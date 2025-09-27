@@ -9,6 +9,7 @@ const IDLE_MIN = parseInt(process.env.IDLE_TIMEOUT_MINUTES || "15", 10);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: ABSOLUTE_HOURS * 60 * 60 // absolute session lifetime

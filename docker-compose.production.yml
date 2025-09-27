@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: audit-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: audit123
+      POSTGRES_DB: audit_platform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - audit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: audit-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:audit123@postgres:5432/audit_platform?connect_timeout=10
+      NEXTAUTH_URL: http://143.198.26.114
+      NEXTAUTH_SECRET: audit-platform-secret-key-2024-production
+      AUTH_TRUST_HOST: true
+      NODE_ENV: production
+      NEXT_PUBLIC_WEBSOCKET_URL: ws://143.198.26.114/ws
+      # AWS credentials (update these with real values if needed)
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: your-aws-key
+      AWS_SECRET_ACCESS_KEY: your-aws-secret
+      AWS_BUCKET_NAME: your-bucket
+      # Admin user seed
+      ADMIN_EMAIL: admin@audit.com
+      ADMIN_PASSWORD: Admin@123
+    networks:
+      - audit-network
+    volumes:
+      - ./uploads:/app/uploads
+    command: sh -c "sleep 5 && npx prisma db push --accept-data-loss && npm start"
+
+  websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile.websocket
+    container_name: audit-websocket
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    networks:
+      - audit-network
+    depends_on:
+      - app
+
+  nginx:
+    image: nginx:alpine
+    container_name: audit-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.docker.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+      - websocket
+    networks:
+      - audit-network
+
+networks:
+  audit-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

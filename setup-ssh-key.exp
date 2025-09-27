@@ -1,0 +1,60 @@
+#!/usr/bin/expect -f
+
+set timeout 30
+set server_ip "143.198.26.114"
+set old_password "430628ab4f56c7b995d31f46e8"
+set new_password "AuditPlatform2024!"
+set public_key "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDQWW87fxXA4NWj9V4KAMl2UL8hzjCtvq8pbvdHLlUdhp+kmTHJ0OlpIPGbAawCRX8KNqVgCsnNG4PRy6pT1ALeLosQvMX9g0AfWJTks7V0ROImsNkxWcsGHwOcwIp8pJzIxj8K34ix/WkMO36IkXQt6U4SsO61eN0y+M32ocDOfW/2Qlpk04jlyvE2KtlWHuRYb7jQalfR75RpTB2w4fDzZzitTdc9J3Iibe7UCzh+OEDP6s4/mj5j3pyZ3AsQZIm3IB+0QJMqhKnuMFPLNAnchgdaJCx4DRriszyCAV3Oacthhz7yphEH/BW+FM0ZW8MdysIryyZnmiFDRtmQPsNDaWLVvDOPR7fO3lKqkwnL3jCNEj0HUKSrck2kF9zM57Y54GyPEoUctG60sbQ+34z5MXBi2sDF74ylZ3JCJuyACBQRuNW/RIzcZf6qaR3RqPVXOyDR1XtG4snOsl0G161g46rSywxQhwcGxgw0EYRCYnFdDwBRWLqPgkekoz0f1UZ1bfMMg09LDyyL4Y4nCB2tixqxccD/y9n5f6Q6l2ohtLMjErTHFn66ursxJ4cxAu4/ABtvweGs7mj58bN0Mzhic+MTmVW4XlMBq84kHntnLj910ooCsu8/i6ikuEOCxS1pitiDP4GMqiO03DiqmJfMsrAmWncORjT8RCpEbbC5Kw== vandit@MacBook-Pro.local"
+
+spawn ssh root@$server_ip
+
+# Handle initial connection and password change
+expect {
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    "password:" {
+        send "$old_password\r"
+    }
+}
+
+# Handle password change requirement
+expect {
+    "You are required to change your password immediately" {
+        # Current password
+        expect "password:"
+        send "$old_password\r"
+
+        # New password
+        expect "password:"
+        send "$new_password\r"
+
+        # Confirm new password
+        expect "password:"
+        send "$new_password\r"
+    }
+    "root@" {
+        # Already logged in, no password change needed
+    }
+}
+
+# Now we should be at the shell prompt
+expect "root@"
+
+# Set up SSH key
+send "mkdir -p ~/.ssh\r"
+expect "root@"
+
+send "echo '$public_key' > ~/.ssh/authorized_keys\r"
+expect "root@"
+
+send "chmod 700 ~/.ssh\r"
+expect "root@"
+
+send "chmod 600 ~/.ssh/authorized_keys\r"
+expect "root@"
+
+send "exit\r"
+
+expect eof
