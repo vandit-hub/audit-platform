@@ -5,9 +5,13 @@ import { z } from "zod";
 import { assertAdminOrAuditor } from "@/lib/rbac";
 
 const updateSchema = z.object({
-  startDate: z.string().datetime().nullable().optional(),
-  endDate: z.string().datetime().nullable().optional(),
+  title: z.string().nullable().optional(),
+  purpose: z.string().nullable().optional(),
+  visitStartDate: z.string().datetime().nullable().optional(),
+  visitEndDate: z.string().datetime().nullable().optional(),
   visitDetails: z.string().nullable().optional(),
+  managementResponseDate: z.string().datetime().nullable().optional(),
+  finalPresentationDate: z.string().datetime().nullable().optional(),
   status: z.enum(["PLANNED", "IN_PROGRESS", "SUBMITTED", "SIGNED_OFF"]).optional(),
   reportSubmittedAt: z.string().datetime().nullable().optional(),
   signOffAt: z.string().datetime().nullable().optional()
@@ -51,9 +55,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const updated = await prisma.audit.update({
     where: { id },
     data: {
-      startDate: input.startDate === undefined ? undefined : input.startDate ? new Date(input.startDate) : null,
-      endDate: input.endDate === undefined ? undefined : input.endDate ? new Date(input.endDate) : null,
+      title: input.title === undefined ? undefined : input.title,
+      purpose: input.purpose === undefined ? undefined : input.purpose,
+      visitStartDate: input.visitStartDate === undefined ? undefined : input.visitStartDate ? new Date(input.visitStartDate) : null,
+      visitEndDate: input.visitEndDate === undefined ? undefined : input.visitEndDate ? new Date(input.visitEndDate) : null,
       visitDetails: input.visitDetails === undefined ? undefined : input.visitDetails,
+      managementResponseDate: input.managementResponseDate === undefined ? undefined : input.managementResponseDate ? new Date(input.managementResponseDate) : null,
+      finalPresentationDate: input.finalPresentationDate === undefined ? undefined : input.finalPresentationDate ? new Date(input.finalPresentationDate) : null,
       status: input.status,
       reportSubmittedAt:
         input.reportSubmittedAt === undefined ? undefined : input.reportSubmittedAt ? new Date(input.reportSubmittedAt) : null,

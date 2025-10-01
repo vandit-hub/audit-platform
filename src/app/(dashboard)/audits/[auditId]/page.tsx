@@ -8,9 +8,13 @@ type User = { id: string; name: string | null; email: string | null; role: strin
 type Audit = {
   id: string;
   plant: Plant;
-  startDate?: string | null;
-  endDate?: string | null;
+  title?: string | null;
+  purpose?: string | null;
+  visitStartDate?: string | null;
+  visitEndDate?: string | null;
   visitDetails?: string | null;
+  managementResponseDate?: string | null;
+  finalPresentationDate?: string | null;
   status: "PLANNED" | "IN_PROGRESS" | "SUBMITTED" | "SIGNED_OFF";
   assignments: { auditor: User }[];
 };
@@ -90,9 +94,13 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
         <div className="bg-white rounded p-4 shadow">
           <h2 className="font-medium mb-2">Details</h2>
           <div className="text-sm space-y-1">
-            <div>Status: <span className="font-mono">{audit.status}</span></div>
-            <div>Period: {audit.startDate ? new Date(audit.startDate).toLocaleDateString() : "—"} → {audit.endDate ? new Date(audit.endDate).toLocaleDateString() : "—"}</div>
-            <div>Visit details: {audit.visitDetails || "—"}</div>
+            <div><span className="font-medium">Title:</span> {audit.title || "—"}</div>
+            <div><span className="font-medium">Purpose:</span> {audit.purpose || "—"}</div>
+            <div><span className="font-medium">Status:</span> <span className="font-mono">{audit.status}</span></div>
+            <div><span className="font-medium">Visit Dates:</span> {audit.visitStartDate ? new Date(audit.visitStartDate).toLocaleDateString() : "—"} → {audit.visitEndDate ? new Date(audit.visitEndDate).toLocaleDateString() : "—"}</div>
+            <div><span className="font-medium">Visit details:</span> {audit.visitDetails || "—"}</div>
+            <div><span className="font-medium">Management Response Date:</span> {audit.managementResponseDate ? new Date(audit.managementResponseDate).toLocaleDateString() : "—"}</div>
+            <div><span className="font-medium">Final Presentation Date:</span> {audit.finalPresentationDate ? new Date(audit.finalPresentationDate).toLocaleDateString() : "—"}</div>
           </div>
           <div className="mt-4">
             <div className="text-sm text-gray-600">Progress (observations)</div>

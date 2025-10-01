@@ -6,9 +6,13 @@ import { assertAdminOrAuditor } from "@/lib/rbac";
 
 const createSchema = z.object({
   plantId: z.string().min(1),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  visitDetails: z.string().optional()
+  title: z.string().optional(),
+  purpose: z.string().optional(),
+  visitStartDate: z.string().datetime().optional(),
+  visitEndDate: z.string().datetime().optional(),
+  visitDetails: z.string().optional(),
+  managementResponseDate: z.string().datetime().optional(),
+  finalPresentationDate: z.string().datetime().optional()
 });
 
 export async function GET(req: NextRequest) {
@@ -50,8 +54,9 @@ export async function GET(req: NextRequest) {
   const shaped = audits.map((a) => ({
     id: a.id,
     plant: a.plant,
-    startDate: a.startDate,
-    endDate: a.endDate,
+    title: a.title,
+    visitStartDate: a.visitStartDate,
+    visitEndDate: a.visitEndDate,
     status: a.status,
     createdAt: a.createdAt,
     assignments: a.assignments.map((as) => as.auditor),
@@ -71,9 +76,13 @@ export async function POST(req: NextRequest) {
   const audit = await prisma.audit.create({
     data: {
       plantId: input.plantId,
-      startDate: input.startDate ? new Date(input.startDate) : null,
-      endDate: input.endDate ? new Date(input.endDate) : null,
+      title: input.title ?? null,
+      purpose: input.purpose ?? null,
+      visitStartDate: input.visitStartDate ? new Date(input.visitStartDate) : null,
+      visitEndDate: input.visitEndDate ? new Date(input.visitEndDate) : null,
       visitDetails: input.visitDetails ?? null,
+      managementResponseDate: input.managementResponseDate ? new Date(input.managementResponseDate) : null,
+      finalPresentationDate: input.finalPresentationDate ? new Date(input.finalPresentationDate) : null,
       createdById: session!.user.id
     },
     include: { plant: true }

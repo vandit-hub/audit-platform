@@ -8,8 +8,9 @@ type Plant = { id: string; code: string; name: string };
 type AuditListItem = {
   id: string;
   plant: Plant;
-  startDate?: string | null;
-  endDate?: string | null;
+  title?: string | null;
+  visitStartDate?: string | null;
+  visitEndDate?: string | null;
   status: "PLANNED" | "IN_PROGRESS" | "SUBMITTED" | "SIGNED_OFF";
   createdAt: string;
   assignments: { id: string; name: string | null; email: string | null }[];
@@ -20,9 +21,13 @@ export default function AuditsPage() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [audits, setAudits] = useState<AuditListItem[]>([]);
   const [plantId, setPlantId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [title, setTitle] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [visitStartDate, setVisitStartDate] = useState("");
+  const [visitEndDate, setVisitEndDate] = useState("");
   const [visitDetails, setVisitDetails] = useState("");
+  const [managementResponseDate, setManagementResponseDate] = useState("");
+  const [finalPresentationDate, setFinalPresentationDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { showSuccess, showError } = useToast();
@@ -52,18 +57,26 @@ export default function AuditsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           plantId,
-          startDate: startDate ? new Date(startDate).toISOString() : undefined,
-          endDate: endDate ? new Date(endDate).toISOString() : undefined,
-          visitDetails: visitDetails || undefined
+          title: title || undefined,
+          purpose: purpose || undefined,
+          visitStartDate: visitStartDate ? new Date(visitStartDate).toISOString() : undefined,
+          visitEndDate: visitEndDate ? new Date(visitEndDate).toISOString() : undefined,
+          visitDetails: visitDetails || undefined,
+          managementResponseDate: managementResponseDate ? new Date(managementResponseDate).toISOString() : undefined,
+          finalPresentationDate: finalPresentationDate ? new Date(finalPresentationDate).toISOString() : undefined
         })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to create audit");
       const selectedPlant = plants.find(p => p.id === plantId);
       setPlantId("");
-      setStartDate("");
-      setEndDate("");
+      setTitle("");
+      setPurpose("");
+      setVisitStartDate("");
+      setVisitEndDate("");
       setVisitDetails("");
+      setManagementResponseDate("");
+      setFinalPresentationDate("");
       await load();
       showSuccess(`Audit created successfully for ${selectedPlant?.name || "selected plant"}!`);
     } catch (err: any) {
@@ -99,22 +112,59 @@ export default function AuditsPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm mb-1">Start date</label>
+          <div className="sm:col-span-2">
+            <label className="block text-sm mb-1">Audit Title</label>
             <input
-              type="date"
               className="border rounded px-3 py-2 w-full"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Optional"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-sm mb-1">Audit Purpose</label>
+            <textarea
+              className="border rounded px-3 py-2 w-full"
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder="Optional"
+              rows={3}
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">End date</label>
+            <label className="block text-sm mb-1">Visit Start Date</label>
             <input
               type="date"
               className="border rounded px-3 py-2 w-full"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={visitStartDate}
+              onChange={(e) => setVisitStartDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Visit End Date</label>
+            <input
+              type="date"
+              className="border rounded px-3 py-2 w-full"
+              value={visitEndDate}
+              onChange={(e) => setVisitEndDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Management Response Date</label>
+            <input
+              type="date"
+              className="border rounded px-3 py-2 w-full"
+              value={managementResponseDate}
+              onChange={(e) => setManagementResponseDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Final Presentation Date</label>
+            <input
+              type="date"
+              className="border rounded px-3 py-2 w-full"
+              value={finalPresentationDate}
+              onChange={(e) => setFinalPresentationDate(e.target.value)}
             />
           </div>
           <div className="sm:col-span-2">
@@ -152,8 +202,8 @@ export default function AuditsPage() {
               <tr key={a.id} className="border-t">
                 <td className="py-2">{a.plant.code} — {a.plant.name}</td>
                 <td className="py-2">
-                  {a.startDate ? new Date(a.startDate).toLocaleDateString() : "—"}{" "}
-                  → {a.endDate ? new Date(a.endDate).toLocaleDateString() : "—"}
+                  {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
+                  → {a.visitEndDate ? new Date(a.visitEndDate).toLocaleDateString() : "—"}
                 </td>
                 <td className="py-2">{a.status}</td>
                 <td className="py-2">

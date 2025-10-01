@@ -72,22 +72,26 @@ model GuestInvite {
 }
 
 model Audit {
-  id                String            @id @default(cuid())
-  plantId           String
-  startDate         DateTime?
-  endDate           DateTime?
-  visitDetails      String?
-  reportSubmittedAt DateTime?
-  signOffAt         DateTime?
-  status            AuditStatus       @default(PLANNED)
-  createdById       String
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         User              @relation("AuditCreatedBy", fields: [createdById], references: [id])
-  plant             Plant             @relation(fields: [plantId], references: [id])
-  assignments       AuditAssignment[]
-  auditChecklists   AuditChecklist[]
-  observations      Observation[]
+  id                      String            @id @default(cuid())
+  plantId                 String
+  title                   String?
+  purpose                 String?
+  visitStartDate          DateTime?
+  visitEndDate            DateTime?
+  visitDetails            String?
+  managementResponseDate  DateTime?
+  finalPresentationDate   DateTime?
+  reportSubmittedAt       DateTime?
+  signOffAt               DateTime?
+  status                  AuditStatus       @default(PLANNED)
+  createdById             String
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  createdBy               User              @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  plant                   Plant             @relation(fields: [plantId], references: [id])
+  assignments             AuditAssignment[]
+  auditChecklists         AuditChecklist[]
+  observations            Observation[]
 }
 
 model AuditAssignment {
