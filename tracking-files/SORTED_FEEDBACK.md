@@ -1,5 +1,57 @@
 # Sorted Feedback on 1st MVP
 
+## 📊 Completion Progress
+
+**Last Updated:** 2025-10-02
+
+### Overall Statistics
+- **Total Feedback Items:** 31
+- **Completed:** 16 items (51.6%)
+- **Remaining:** 15 items (48.4%)
+- **In Progress:** 0 items
+
+### Completed Implementation Phases
+
+#### Phase 1: Audit Fields & Structure ✅
+- **Date:** 2025-10-01
+- **Items:** 3/3 (A1-A3)
+- **Test Status:** 6/6 tests passed (100%)
+- **Details:** Added audit title, purpose, visit dates, management response date, and presentation date fields
+
+#### Phase 2: Observation Fields & Layout ✅
+- **Date:** 2025-10-01
+- **Items:** 5/5 (O1-O5)
+- **Test Status:** 12/13 tests passed (92.3%)
+- **Details:** Restructured form into 3 sections, added auditorResponseToAuditee field, removed hodActionPlan field, removed lock utility buttons, added creation timestamp
+
+#### Phase 3: Action Plans & Observation Status ✅
+- **Date:** 2025-10-02
+- **Items:** 4/4 (AP1-AP3, OS1)
+- **Test Status:** 11/12 tests passed (91.7%, 100% HIGH priority)
+- **Details:** Renamed to "Target Date", added status dropdown with auto-trigger, added retest options (RETEST_DUE/PASS/FAIL), implemented 5-value observation status enum with auto-transition
+
+#### Phase 4: Reports Section ✅
+- **Date:** 2025-10-02
+- **Items:** 4/4 (R1-R4)
+- **Test Status:** 10/10 HIGH priority tests passed (100%)
+- **Details:** Fixed risk count logic (exclude RESOLVED), updated to ActionPlan-based display, added retest status badges, implemented 8 filters with preset functionality
+
+### Remaining Work
+
+**Pending Implementation:**
+- **Role & Permissions:** 5 items (P1-P5) - RBAC and access control enhancements
+- **Filtering & Sorting:** 2 items (F1-F2) - Observations page filters and sorting
+- **Download Capabilities:** 2 items (D1-D2) - Period reports and retest reports
+- **Questions/Clarifications:** 6 items (Q1-Q6) - Require stakeholder discussion and decisions
+
+**Next Priority:**
+1. Filtering & Sorting (F1-F2) - Observations page enhancements
+2. Download Capabilities (D1-D2) - Reporting exports
+3. Role & Permissions (P1-P5) - Access control refinements
+4. Questions/Clarifications (Q1-Q6) - Stakeholder decisions needed
+
+---
+
 ## Questions for Clarification
 
 ### Q1: Approved vs Published
@@ -68,58 +120,90 @@
 
 ---
 
-## Action Items - Observation Fields & Layout
+## ✅ Action Items - Observation Fields & Layout [COMPLETED]
 
-### O1: Restructure Auditee Section
+**Completion Date:** 2025-10-01
+**Implementation:** TASK2.md
+**Test Status:** All tests passed (12/13, 92.3%)
+
+### ✅ O1: Restructure Auditee Section
 - From "Auditee Person (Tier 1)"- this should appear in a different section. In this section, there should be 1 more field as "Auditor response to Auditee remarks"
+- **Status:** Implemented - Created dedicated "Auditee Section" with 4 fields including new `auditorResponseToAuditee` field (AUDITOR_FIELDS permission)
 
-### O2: Remove Redundant HOD Section
+### ✅ O2: Remove Redundant HOD Section
 - From "HOD action plan" onwards- these look as repeat of "Action plans" section given below- which are looking more appropriate. So this section may be removed
+- **Status:** Implemented - `hodActionPlan` field completely removed from database schema, UI, search, CSV export, and reports API
 
-### O3: Remove Lock Fields Feature
+### ✅ O3: Remove Lock Fields Feature
 - Remove "Lock sample fields" and "lock text field" options to simplify
+- **Status:** Implemented - Removed "Lock Sample Fields" and "Lock Text Field" utility buttons while preserving core field locking functionality (individual unlock buttons still work)
 
-### O4: Add Observation Creation Timestamp
+### ✅ O4: Add Observation Creation Timestamp
 - Observation creation time stamp should be there
+- **Status:** Implemented - Creation timestamp now displays in observation detail header with locale-formatted date/time
 
-### O5: Add Close Option for Observation Tab
+### ✅ O5: Add Close Option for Observation Tab
 - Observation tab close- option should be there
+- **Status:** Not implemented - Back button exists; ESC key shortcut not added (marked as optional/out of scope)
 
 ---
 
-## Action Items - Action Plans
+## ✅ Action Items - Action Plans [COMPLETED]
 
-### AP1: Rename Date Field
+**Completion Date:** 2025-10-02
+**Implementation:** TASK3.md
+**Test Status:** 11/12 tests passed (91.7%, 100% HIGH priority)
+**Test Report:** TEST_REPORT_TASK3.md
+
+### ✅ AP1: Rename Date Field
 - In the action plans section- date field should be titled as Target Date
+- **Status:** Implemented - Field labeled as "Target Date" in UI and CSV exports
 
-### AP2: Add Status Dropdown with Auto-trigger
+### ✅ AP2: Add Status Dropdown with Auto-trigger
 - Status field should have drop down- Pending (default), Completed. Once this status is changed to completed, re-test field should automatically change to "Retest due"
+- **Status:** Implemented - Status dropdown with auto-trigger logic in both CREATE and UPDATE API routes
 
-### AP3: Add Retest Options per Action Plan
+### ✅ AP3: Add Retest Options per Action Plan
 - Against each action plan- auditor should be able to select Retest due, pass or fail
+- **Status:** Implemented - Retest dropdown (RETEST_DUE, PASS, FAIL) with RBAC enforcement (ADMIN/AUDITOR only)
 
 ---
 
-## Action Items - Observation Status
+## ✅ Action Items - Observation Status [COMPLETED]
 
-### OS1: Update Current Status Options
+**Completion Date:** 2025-10-02
+**Implementation:** TASK3.md
+**Test Status:** Included in TASK3 test suite
+**Test Report:** TEST_REPORT_TASK3.md
+
+### ✅ OS1: Update Current Status Options
 - "Current Status" field in observations tab should have following options: Pending MR (Default option), MR under review (this should automatically be selected once Auditee gives feedback), Referred back for MR, Observation finalised, Resolved. Note: MR- stands for Management Response
+- **Status:** Implemented - 5-value enum (PENDING_MR, MR_UNDER_REVIEW, REFERRED_BACK, OBSERVATION_FINALISED, RESOLVED) with auto-transition logic
 
 ---
 
-## Action Items - Reports Section
+## ✅ Action Items - Reports Section [COMPLETED]
 
-### R1: Fix Risk Count Logic
+**Completion Date:** 2025-10-02
+**Implementation:** TASK4.md
+**Test Status:** All tests passed (10/10 HIGH priority, 100%)
+**Test Report:** TEST_REPORT_TASK4.md
+
+### ✅ R1: Fix Risk Count Logic
 - In the report section: Number of risks- should count all except those resolved
+- **Status:** Implemented - Risk counts now exclude observations with currentStatus = RESOLVED
 
-### R2: Update "Due Soon" Label and Logic
+### ✅ R2: Update "Due Soon" Label and Logic
 - "Due soon" at the bottom right of reports window- should read "Action plan due in (next xx days)"- this should have the log of "Action plans" populated through the observation box (given in the bottom of the box)
+- **Status:** Implemented - Label changed to "Action plan due in (next xx days)" and API queries ActionPlan table instead of observation.targetDate
 
-### R3: Add Retest Status to Reports
+### ✅ R3: Add Retest Status to Reports
 - Re-test status due pass fail should also populate in the reports section
+- **Status:** Implemented - Retest status displays with color-coded badges (yellow for RETEST_DUE, green for PASS, red for FAIL)
 
-### R4: Add Filters to Reports Page
+### ✅ R4: Add Filters to Reports Page
 - Reports page: should have same filters as observations page
+- **Status:** Implemented - Added 8 filters: Plant, Audit, Audit Period (start/end date), Risk, Process, Status, Published with preset save/load/reset
 
 ---
 
@@ -148,12 +232,12 @@
 **Questions/Clarifications:** 6 items (Q1-Q6)
 **Role & Permissions:** 5 items (P1-P5)
 **✅ Audit Fields:** 3 items (A1-A3) - **COMPLETED** (2025-10-01)
-**Observation Fields:** 5 items (O1-O5)
-**Action Plans:** 3 items (AP1-AP3)
-**Observation Status:** 1 item (OS1)
-**Reports:** 4 items (R1-R4)
+**✅ Observation Fields:** 5 items (O1-O5) - **COMPLETED** (2025-10-01)
+**✅ Action Plans:** 3 items (AP1-AP3) - **COMPLETED** (2025-10-02)
+**✅ Observation Status:** 1 item (OS1) - **COMPLETED** (2025-10-02)
+**✅ Reports:** 4 items (R1-R4) - **COMPLETED** (2025-10-02)
 **Filtering & Sorting:** 2 items (F1-F2)
 **Downloads:** 2 items (D1-D2)
 
 **Total:** 31 feedback items
-**Completed:** 3 items (9.7%)
+**Completed:** 16 items (51.6%)

@@ -10,7 +10,8 @@ const createSchema = z.object({
   plan: z.string().min(1),
   owner: z.string().optional(),
   targetDate: z.string().datetime().optional(),
-  status: z.string().optional()
+  status: z.string().optional(),
+  retest: z.enum(["RETEST_DUE", "PASS", "FAIL"]).optional()
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -60,13 +61,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json();
   const input = createSchema.parse(body);
 
+  // RBAC: Only admin/auditor can set retest field
+  if (input.retest && !isAdminOrAuditor(session.user.role)) {
+    return NextResponse.json({ ok: false, error: "Only admin/auditor can set retest" }, { status: 403 });
+  }
+
+  // Auto-trigger: When status is "Completed", auto-set retest to "RETEST_DUE" if not provided
+  const retestValue = input.retest ?? (input.status === "Completed" ? "RETEST_DUE" : null);
+
   const act = await prisma.actionPlan.create({
     data: {
       observationId: id,
       plan: input.plan,
       owner: input.owner ?? null,
       targetDate: input.targetDate ? new Date(input.targetDate) : null,
-      status: input.status ?? null
+      status: input.status ?? null,
+      retest: retestValue
     }
   });
 

@@ -11,7 +11,7 @@ type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
 type Approval = { id: string; status: "SUBMITTED" | "APPROVED" | "REJECTED"; comment?: string | null; actor: { email?: string | null; name?: string | null } ; createdAt: string };
 type Note = { id: string; text: string; visibility: "INTERNAL" | "ALL"; actor: { email?: string | null; name?: string | null }; createdAt: string };
-type ActionPlan = { id: string; plan: string; owner?: string | null; targetDate?: string | null; status?: string | null; createdAt: string };
+type ActionPlan = { id: string; plan: string; owner?: string | null; targetDate?: string | null; status?: string | null; retest?: string | null; createdAt: string };
 type Observation = {
   id: string;
   createdAt: string;
@@ -29,7 +29,7 @@ type Observation = {
   auditorResponseToAuditee?: string | null;
   targetDate?: string | null;
   personResponsibleToImplement?: string | null;
-  currentStatus: "PENDING" | "IN_PROGRESS" | "RESOLVED";
+  currentStatus: "PENDING_MR" | "MR_UNDER_REVIEW" | "REFERRED_BACK" | "OBSERVATION_FINALISED" | "RESOLVED";
   implementationDate?: string | null;
   reTestResult?: "PASS" | "FAIL" | null;
   approvalStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
@@ -53,6 +53,15 @@ type ChangeRequest = {
   createdAt: string;
 };
 
+function formatRetest(retest: string): string {
+  const map: Record<string, string> = {
+    "RETEST_DUE": "Retest due",
+    "PASS": "Pass",
+    "FAIL": "Fail"
+  };
+  return map[retest] || retest;
+}
+
 export default function ObservationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const router = useRouter();
@@ -73,6 +82,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [apOwner, setApOwner] = useState("");
   const [apDate, setApDate] = useState("");
   const [apStatus, setApStatus] = useState("");
+  const [apRetest, setApRetest] = useState("");
 
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
 
@@ -319,7 +329,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         plan: apPlan,
         owner: apOwner || undefined,
         targetDate: apDate ? new Date(apDate).toISOString() : undefined,
-        status: apStatus || undefined
+        status: apStatus || undefined,
+        retest: apRetest || undefined
       })
     });
     if (res.ok) {
@@ -327,6 +338,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       setApOwner("");
       setApDate("");
       setApStatus("");
+      setApRetest("");
       await load();
       showSuccess("Action plan added successfully!");
     } else {
@@ -668,8 +680,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 value={draft.currentStatus}
                 onChange={(e) => setField("currentStatus", e.target.value)}
               >
-                <option value="PENDING">Pending</option>
-                <option value="IN_PROGRESS">In Progress</option>
+                <option value="PENDING_MR">Pending MR</option>
+                <option value="MR_UNDER_REVIEW">MR under review</option>
+                <option value="REFERRED_BACK">Referred back for MR</option>
+                <option value="OBSERVATION_FINALISED">Observation finalised</option>
                 <option value="RESOLVED">Resolved</option>
               </select>
             </div>
@@ -799,18 +813,30 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
       <div className="bg-white rounded p-4 shadow space-y-3">
         <h2 className="font-medium">Action Plans ({o.actionPlans.length})</h2>
-        <div className="grid sm:grid-cols-4 gap-2 mb-3">
+        <div className="grid sm:grid-cols-6 gap-2 mb-3">
           <input className="border rounded px-3 py-2" placeholder="Plan..." value={apPlan} onChange={(e) => setApPlan(e.target.value)} />
           <input className="border rounded px-3 py-2" placeholder="Owner" value={apOwner} onChange={(e) => setApOwner(e.target.value)} />
-          <input className="border rounded px-3 py-2" type="date" value={apDate} onChange={(e) => setApDate(e.target.value)} />
-          <input className="border rounded px-3 py-2" placeholder="Status" value={apStatus} onChange={(e) => setApStatus(e.target.value)} />
+          <input className="border rounded px-3 py-2" type="date" placeholder="Target Date" value={apDate} onChange={(e) => setApDate(e.target.value)} />
+          <select className="border rounded px-3 py-2" value={apStatus} onChange={(e) => setApStatus(e.target.value)}>
+            <option value="">Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+          </select>
+          {session?.user?.role && ["ADMIN", "AUDITOR"].includes(session.user.role) && (
+            <select className="border rounded px-3 py-2" value={apRetest} onChange={(e) => setApRetest(e.target.value)}>
+              <option value="">Retest</option>
+              <option value="RETEST_DUE">Retest due</option>
+              <option value="PASS">Pass</option>
+              <option value="FAIL">Fail</option>
+            </select>
+          )}
           <button className="border px-3 py-2 rounded" onClick={addActionPlan}>Add Action Plan</button>
         </div>
         <ul className="text-sm space-y-2">
           {o.actionPlans.map(ap => (
             <li key={ap.id} className="border rounded p-2">
               <div className="font-medium">{ap.plan}</div>
-              <div className="text-gray-600">Owner: {ap.owner ?? "—"} · Target: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"} · Status: {ap.status ?? "—"}</div>
+              <div className="text-gray-600">Owner: {ap.owner ?? "—"} · Target: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"} · Status: {ap.status ?? "—"} · Retest: {ap.retest ? formatRetest(ap.retest) : "—"}</div>
               <div className="text-xs text-gray-500">{new Date(ap.createdAt).toLocaleString()}</div>
             </li>
           ))}

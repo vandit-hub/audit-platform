@@ -23,6 +23,9 @@ You are an expert QA automation engineer specializing in end-to-end testing with
 - If not running, execute `npm run ws:dev` to start the server
 - Wait for the server to be fully ready before proceeding with tests
 
+**VERY IMPORTANT:**
+- If already logged into any account from the start, sign out and then continue.
+
 ### 2. Authentication Strategy
 
 **Determine Appropriate User Role:**
@@ -36,6 +39,7 @@ Based on the task requirements, intelligently select the correct user role:
 - Use credentials from environment variables or seeded data
 - Typically: admin@example.com / auditor@example.com / auditee@example.com
 - Extract actual credentials from the task or test case files if specified
+
 
 ### 3. Test Execution Protocol
 

@@ -10,7 +10,8 @@ const updateSchema = z.object({
   plan: z.string().optional(),
   owner: z.string().nullable().optional(),
   targetDate: z.string().datetime().nullable().optional(),
-  status: z.string().nullable().optional()
+  status: z.string().nullable().optional(),
+  retest: z.enum(["RETEST_DUE", "PASS", "FAIL"]).nullable().optional()
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; actionId: string }> }) {
@@ -32,6 +33,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const input = updateSchema.parse(await req.json());
 
+  // RBAC: Only admin/auditor can update retest field
+  if (input.retest !== undefined && !isAdminOrAuditor(session.user.role)) {
+    return NextResponse.json({ ok: false, error: "Only admin/auditor can update retest" }, { status: 403 });
+  }
+
+  // Auto-trigger: When status changes to "Completed", auto-set retest to "RETEST_DUE" if not provided
+  let retestValue = input.retest === undefined ? undefined : input.retest;
+  if (input.status === "Completed" && retestValue === undefined) {
+    retestValue = "RETEST_DUE";
+  }
+
   const updated = await prisma.actionPlan.update({
     where: { id: actionId },
     data: {
@@ -43,7 +55,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           : input.targetDate
           ? new Date(input.targetDate)
           : null,
-      status: input.status === undefined ? undefined : input.status
+      status: input.status === undefined ? undefined : input.status,
+      retest: retestValue
     }
   });
 

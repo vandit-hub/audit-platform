@@ -181,7 +181,7 @@ model Observation {
   auditorResponseToAuditee     String?
   targetDate                   DateTime?
   personResponsibleToImplement String?
-  currentStatus                ObservationStatus          @default(PENDING)
+  currentStatus                ObservationStatus          @default(PENDING_MR)
   implementationDate           DateTime?
   reTestResult                 ReTestResult?
   approvalStatus               ApprovalStatus             @default(DRAFT)
@@ -240,14 +240,15 @@ model RunningNote {
 }
 
 model ActionPlan {
-  id            String      @id @default(cuid())
+  id            String             @id @default(cuid())
   observationId String
   plan          String
   owner         String?
   targetDate    DateTime?
   status        String?
-  createdAt     DateTime    @default(now())
-  observation   Observation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  retest        ActionPlanRetest?
+  createdAt     DateTime           @default(now())
+  observation   Observation        @relation(fields: [observationId], references: [id], onDelete: Cascade)
 }
 
 model ObservationChangeRequest {
@@ -323,12 +324,20 @@ enum LikelyImpact {
 }
 
 enum ObservationStatus {
-  PENDING
-  IN_PROGRESS
+  PENDING_MR
+  MR_UNDER_REVIEW
+  REFERRED_BACK
+  OBSERVATION_FINALISED
   RESOLVED
 }
 
 enum ReTestResult {
+  PASS
+  FAIL
+}
+
+enum ActionPlanRetest {
+  RETEST_DUE
   PASS
   FAIL
 }

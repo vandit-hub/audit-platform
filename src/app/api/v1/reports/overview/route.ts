@@ -14,8 +14,18 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const soon = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
+  // Extract filter parameters
+  const plantId = searchParams.get("plantId") || "";
+  const auditId = searchParams.get("auditId") || "";
+  const startDate = searchParams.get("startDate") || "";
+  const endDate = searchParams.get("endDate") || "";
+  const risk = searchParams.get("risk") || "";
+  const process = searchParams.get("process") || "";
+  const status = searchParams.get("status") || "";
+  const publishedFilter = searchParams.get("published") || "";
+
   // Base where (role-aware)
-  let where: Prisma.ObservationWhereInput = {};
+  let baseWhere: Prisma.ObservationWhereInput = {};
   if (!isAdminOrAuditor(session.user.role)) {
     const scope = await getUserScope(session.user.id);
     const scopeWhere = buildScopeWhere(scope);
@@ -24,8 +34,63 @@ export async function GET(req: NextRequest) {
     };
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
-    where = { OR: or };
+    baseWhere = { OR: or };
   }
+
+  // Build filter where clauses
+  const filterClauses: Prisma.ObservationWhereInput[] = [];
+
+  if (plantId) {
+    filterClauses.push({ audit: { plantId } });
+  }
+
+  if (auditId) {
+    filterClauses.push({ auditId });
+  }
+
+  if (startDate || endDate) {
+    const auditDateFilter: any = {};
+    if (startDate && endDate) {
+      // Audit period overlaps with filter range
+      auditDateFilter.OR = [
+        { visitStartDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { visitEndDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { AND: [{ visitStartDate: { lte: new Date(startDate) } }, { visitEndDate: { gte: new Date(endDate) } }] }
+      ];
+    } else if (startDate) {
+      auditDateFilter.OR = [
+        { visitStartDate: { gte: new Date(startDate) } },
+        { visitEndDate: { gte: new Date(startDate) } }
+      ];
+    } else if (endDate) {
+      auditDateFilter.OR = [
+        { visitStartDate: { lte: new Date(endDate) } },
+        { visitEndDate: { lte: new Date(endDate) } }
+      ];
+    }
+    filterClauses.push({ audit: auditDateFilter });
+  }
+
+  if (risk) {
+    filterClauses.push({ riskCategory: risk as any });
+  }
+
+  if (process) {
+    filterClauses.push({ concernedProcess: process as any });
+  }
+
+  if (status) {
+    filterClauses.push({ currentStatus: status as any });
+  }
+
+  if (publishedFilter) {
+    filterClauses.push({ isPublished: publishedFilter === "1" });
+  }
+
+  // Combine base where with filters
+  const where: Prisma.ObservationWhereInput = filterClauses.length > 0
+    ? { AND: [baseWhere, ...filterClauses] }
+    : baseWhere;
 
   const obs = await prisma.observation.findMany({
     where,
@@ -49,7 +114,7 @@ export async function GET(req: NextRequest) {
   for (const o of obs) {
     if (o.currentStatus) statusCounts[o.currentStatus] = (statusCounts[o.currentStatus] || 0) + 1;
     if (o.approvalStatus) approvalCounts[o.approvalStatus] = (approvalCounts[o.approvalStatus] || 0) + 1;
-    if (o.riskCategory) byRisk[o.riskCategory] = (byRisk[o.riskCategory] || 0) + 1;
+    if (o.riskCategory && o.currentStatus !== "RESOLVED") byRisk[o.riskCategory] = (byRisk[o.riskCategory] || 0) + 1;
     if (o.isPublished) published++; else unpublished++;
     if (o.targetDate && o.currentStatus !== "RESOLVED") {
       if (o.targetDate < now) overdue++;

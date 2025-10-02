@@ -16,7 +16,18 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const soon = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
 
-  let baseWhere: Prisma.ObservationWhereInput = { targetDate: { not: null } };
+  // Extract filter parameters
+  const plantId = searchParams.get("plantId") || "";
+  const auditId = searchParams.get("auditId") || "";
+  const startDate = searchParams.get("startDate") || "";
+  const endDate = searchParams.get("endDate") || "";
+  const risk = searchParams.get("risk") || "";
+  const process = searchParams.get("process") || "";
+  const status = searchParams.get("status") || "";
+  const published = searchParams.get("published") || "";
+
+  // Build observation-level where clause for RBAC/scope
+  let observationWhere: Prisma.ObservationWhereInput = {};
   if (!isAdminOrAuditor(session.user.role)) {
     const scope = await getUserScope(session.user.id);
     const scopeWhere = buildScopeWhere(scope);
@@ -25,50 +36,128 @@ export async function GET(req: NextRequest) {
     };
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
-    baseWhere = { AND: [baseWhere, { OR: or }] };
+    observationWhere = { OR: or };
   }
 
-  const overdue = await prisma.observation.findMany({
+  // Build filter where clauses for observation
+  const observationFilters: Prisma.ObservationWhereInput[] = [];
+
+  if (plantId) {
+    observationFilters.push({ audit: { plantId } });
+  }
+
+  if (auditId) {
+    observationFilters.push({ auditId });
+  }
+
+  if (startDate || endDate) {
+    const auditDateFilter: any = {};
+    if (startDate && endDate) {
+      auditDateFilter.OR = [
+        { visitStartDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { visitEndDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { AND: [{ visitStartDate: { lte: new Date(startDate) } }, { visitEndDate: { gte: new Date(endDate) } }] }
+      ];
+    } else if (startDate) {
+      auditDateFilter.OR = [
+        { visitStartDate: { gte: new Date(startDate) } },
+        { visitEndDate: { gte: new Date(startDate) } }
+      ];
+    } else if (endDate) {
+      auditDateFilter.OR = [
+        { visitStartDate: { lte: new Date(endDate) } },
+        { visitEndDate: { lte: new Date(endDate) } }
+      ];
+    }
+    observationFilters.push({ audit: auditDateFilter });
+  }
+
+  if (risk) {
+    observationFilters.push({ riskCategory: risk as any });
+  }
+
+  if (process) {
+    observationFilters.push({ concernedProcess: process as any });
+  }
+
+  if (status) {
+    observationFilters.push({ currentStatus: status as any });
+  }
+
+  if (published) {
+    observationFilters.push({ isPublished: published === "1" });
+  }
+
+  // Combine RBAC where, filters, and RESOLVED exclusion
+  const combinedObservationWhere: Prisma.ObservationWhereInput = {
+    AND: [
+      observationWhere,
+      { currentStatus: { not: "RESOLVED" } },
+      ...observationFilters
+    ]
+  };
+
+  // Base where for ActionPlan: must have targetDate
+  const baseWhere: Prisma.ActionPlanWhereInput = {
+    targetDate: { not: null },
+    observation: combinedObservationWhere
+  };
+
+  const overdue = await prisma.actionPlan.findMany({
     where: {
       AND: [
         baseWhere,
-        { currentStatus: { not: "RESOLVED" } },
         { targetDate: { lt: now } }
       ]
     },
-    include: { plant: true },
+    include: {
+      observation: {
+        include: { plant: true }
+      }
+    },
     orderBy: { targetDate: "asc" },
     take: limit
   });
 
-  const dueSoon = await prisma.observation.findMany({
+  const dueSoon = await prisma.actionPlan.findMany({
     where: {
       AND: [
         baseWhere,
-        { currentStatus: { not: "RESOLVED" } },
         { targetDate: { gte: now, lte: soon } }
       ]
     },
-    include: { plant: true },
+    include: {
+      observation: {
+        include: { plant: true }
+      }
+    },
     orderBy: { targetDate: "asc" },
     take: limit
   });
 
   return NextResponse.json({
     ok: true,
-    overdue: overdue.map((o) => ({
-      id: o.id,
-      plant: o.plant,
-      targetDate: o.targetDate,
-      status: o.currentStatus,
-      owner: o.personResponsibleToImplement ?? null
+    overdue: overdue.map((ap) => ({
+      id: ap.id,
+      observationId: ap.observationId,
+      plan: ap.plan,
+      owner: ap.owner,
+      targetDate: ap.targetDate,
+      status: ap.status,
+      retest: ap.retest,
+      plant: ap.observation.plant,
+      observationStatus: ap.observation.currentStatus
     })),
-    dueSoon: dueSoon.map((o) => ({
-      id: o.id,
-      plant: o.plant,
-      targetDate: o.targetDate,
-      status: o.currentStatus,
-      owner: o.personResponsibleToImplement ?? null
+    dueSoon: dueSoon.map((ap) => ({
+      id: ap.id,
+      observationId: ap.observationId,
+      plan: ap.plan,
+      owner: ap.owner,
+      targetDate: ap.targetDate,
+      status: ap.status,
+      retest: ap.retest,
+      plant: ap.observation.plant,
+      observationStatus: ap.observation.currentStatus
     }))
   });
 }

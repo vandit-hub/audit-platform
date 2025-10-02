@@ -23,7 +23,7 @@ const updateSchema = z.object({
   auditorResponseToAuditee: z.string().nullable().optional(),
   targetDate: z.string().datetime().nullable().optional(),
   personResponsibleToImplement: z.string().nullable().optional(),
-  currentStatus: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED"]).optional()
+  currentStatus: z.enum(["PENDING_MR", "MR_UNDER_REVIEW", "REFERRED_BACK", "OBSERVATION_FINALISED", "RESOLVED"]).optional()
 });
 
 const AUDITOR_FIELDS = new Set([
@@ -129,6 +129,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ ok: false, error: "No permitted fields to update" }, { status: 400 });
+  }
+
+  // Auto-transition: When auditee provides feedback and status is PENDING_MR, change to MR_UNDER_REVIEW
+  if (isAuditee(session.user.role) && data.auditeeFeedback && orig.currentStatus === "PENDING_MR") {
+    data.currentStatus = "MR_UNDER_REVIEW";
   }
 
   const updated = await prisma.observation.update({
