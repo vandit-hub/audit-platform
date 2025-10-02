@@ -20,7 +20,7 @@ const updateSchema = z.object({
   auditeePersonTier1: z.string().nullable().optional(),
   auditeePersonTier2: z.string().nullable().optional(),
   auditeeFeedback: z.string().nullable().optional(),
-  hodActionPlan: z.string().nullable().optional(),
+  auditorResponseToAuditee: z.string().nullable().optional(),
   targetDate: z.string().datetime().nullable().optional(),
   personResponsibleToImplement: z.string().nullable().optional(),
   currentStatus: z.enum(["PENDING", "IN_PROGRESS", "RESOLVED"]).optional()
@@ -32,14 +32,14 @@ const AUDITOR_FIELDS = new Set([
   "riskCategory",
   "likelyImpact",
   "concernedProcess",
-  "auditorPerson"
+  "auditorPerson",
+  "auditorResponseToAuditee"
 ]);
 
 const AUDITEE_FIELDS = new Set([
   "auditeePersonTier1",
   "auditeePersonTier2",
   "auditeeFeedback",
-  "hodActionPlan",
   "targetDate",
   "personResponsibleToImplement",
   "currentStatus"
@@ -59,7 +59,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       plant: true,
-      audit: { select: { id: true, startDate: true, endDate: true } },
+      audit: { select: { id: true, visitStartDate: true, visitEndDate: true } },
       attachments: true,
       approvals: {
         include: { actor: { select: { id: true, email: true, name: true } } },

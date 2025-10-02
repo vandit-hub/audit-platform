@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
         { observationText: { contains: q, mode: "insensitive" } },
         { risksInvolved: { contains: q, mode: "insensitive" } },
         { auditeeFeedback: { contains: q, mode: "insensitive" } },
-        { hodActionPlan: { contains: q, mode: "insensitive" } }
+        { auditorResponseToAuditee: { contains: q, mode: "insensitive" } }
       ]
     });
   }
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   const header = [
     "ID","PlantCode","PlantName","AuditId","Risk","Process","Status",
-    "Approval","Published","TargetDate","Owner","Observation","Risks","AuditeeFeedback","ActionPlan"
+    "Approval","Published","TargetDate","Owner","Observation","Risks","AuditeeFeedback","AuditorResponse"
   ];
 
   const body = rows.map((o) => [
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     o.observationText,
     o.risksInvolved ?? "",
     o.auditeeFeedback ?? "",
-    o.hodActionPlan ?? ""
+    o.auditorResponseToAuditee ?? ""
   ]);
 
   const csv = [header, ...body].map((r) => r.map(csvEscape).join(",")).join("\n");

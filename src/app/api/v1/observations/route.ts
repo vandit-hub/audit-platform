@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         { observationText: { contains: q, mode: "insensitive" } },
         { risksInvolved: { contains: q, mode: "insensitive" } },
         { auditeeFeedback: { contains: q, mode: "insensitive" } },
-        { hodActionPlan: { contains: q, mode: "insensitive" } }
+        { auditorResponseToAuditee: { contains: q, mode: "insensitive" } }
       ]
     });
   }
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       plant: true,
-      audit: { select: { id: true, startDate: true, endDate: true } },
+      audit: { select: { id: true, visitStartDate: true, visitEndDate: true } },
       attachments: true
     },
     orderBy: { createdAt: "desc" }

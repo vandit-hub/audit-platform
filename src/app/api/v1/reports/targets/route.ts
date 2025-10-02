@@ -61,16 +61,14 @@ export async function GET(req: NextRequest) {
       plant: o.plant,
       targetDate: o.targetDate,
       status: o.currentStatus,
-      owner: o.personResponsibleToImplement ?? null,
-      plan: o.hodActionPlan ?? null
+      owner: o.personResponsibleToImplement ?? null
     })),
     dueSoon: dueSoon.map((o) => ({
       id: o.id,
       plant: o.plant,
       targetDate: o.targetDate,
       status: o.currentStatus,
-      owner: o.personResponsibleToImplement ?? null,
-      plan: o.hodActionPlan ?? null
+      owner: o.personResponsibleToImplement ?? null
     }))
   });
 }

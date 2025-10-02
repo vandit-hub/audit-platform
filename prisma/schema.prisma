@@ -178,7 +178,7 @@ model Observation {
   auditeePersonTier1           String?
   auditeePersonTier2           String?
   auditeeFeedback              String?
-  hodActionPlan                String?
+  auditorResponseToAuditee     String?
   targetDate                   DateTime?
   personResponsibleToImplement String?
   currentStatus                ObservationStatus          @default(PENDING)
