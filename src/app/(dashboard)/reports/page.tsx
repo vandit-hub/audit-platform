@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useToast } from "@/contexts/ToastContext";
 
 type KPI = {
   total: number;
@@ -33,6 +34,7 @@ type Audit = {
 };
 
 export default function ReportsPage() {
+  const { showSuccess } = useToast();
   const [days, setDays] = useState(14);
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [overdue, setOverdue] = useState<TargetRow[]>([]);
@@ -106,6 +108,34 @@ export default function ReportsPage() {
     setDays(14);
     localStorage.removeItem("reports.filters");
   }, []);
+
+  const exportPeriodReport = () => {
+    const qs = new URLSearchParams();
+    if (plantId) qs.set("plantId", plantId);
+    if (auditId) qs.set("auditId", auditId);
+    if (startDate) qs.set("startDate", startDate);
+    if (endDate) qs.set("endDate", endDate);
+    if (risk) qs.set("risk", risk);
+    if (process) qs.set("process", process);
+    if (status) qs.set("status", status);
+    if (published) qs.set("published", published);
+    window.location.href = `/api/v1/reports/period/export?${qs.toString()}`;
+    showSuccess("Period report export started! Download will begin shortly.");
+  };
+
+  const exportRetestReport = () => {
+    const qs = new URLSearchParams();
+    if (plantId) qs.set("plantId", plantId);
+    if (auditId) qs.set("auditId", auditId);
+    if (startDate) qs.set("startDate", startDate);
+    if (endDate) qs.set("endDate", endDate);
+    if (risk) qs.set("risk", risk);
+    if (process) qs.set("process", process);
+    if (status) qs.set("status", status);
+    if (published) qs.set("published", published);
+    window.location.href = `/api/v1/reports/retest/export?${qs.toString()}`;
+    showSuccess("Retest report export started! Download will begin shortly.");
+  };
 
   const load = useCallback(async () => {
     // Build query string from filters
@@ -227,6 +257,8 @@ export default function ReportsPage() {
           <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
           <button className="border px-3 py-1 rounded" onClick={loadPresetManual}>Load preset</button>
           <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
+          <button className="border px-3 py-1 rounded bg-blue-50 hover:bg-blue-100" onClick={exportPeriodReport}>Download Period Report</button>
+          <button className="border px-3 py-1 rounded bg-green-50 hover:bg-green-100" onClick={exportRetestReport}>Download Retest Report</button>
         </div>
       </div>
 

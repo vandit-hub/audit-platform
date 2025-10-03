@@ -6,8 +6,8 @@
 
 ### Overall Statistics
 - **Total Feedback Items:** 31
-- **Completed:** 18 items (58.1%)
-- **Remaining:** 13 items (41.9%)
+- **Completed:** 20 items (64.5%)
+- **Remaining:** 11 items (35.5%)
 - **In Progress:** 0 items
 
 ### Completed Implementation Phases
@@ -42,17 +42,22 @@
 - **Test Status:** All tests passed (100%)
 - **Details:** Added audit filter, audit period (date range) filters, sorting by 5 fields, reorganized layout into 3 rows, integrated with preset functionality
 
+#### Phase 6: Download Capabilities ✅
+- **Date:** 2025-10-03
+- **Items:** 2/2 (D1-D2)
+- **Test Status:** All tests passed (100%)
+- **Test Report:** TEST_REPORT_TASK6.md
+- **Details:** Implemented period report export with all observation fields and retest report export with action plan details. Both reports respect all filters, include dynamic filename generation, proper CSV formatting, and RBAC enforcement
+
 ### Remaining Work
 
 **Pending Implementation:**
 - **Role & Permissions:** 5 items (P1-P5) - RBAC and access control enhancements
-- **Download Capabilities:** 2 items (D1-D2) - Period reports and retest reports
 - **Questions/Clarifications:** 6 items (Q1-Q6) - Require stakeholder discussion and decisions
 
 **Next Priority:**
-1. Download Capabilities (D1-D2) - Reporting exports
-2. Role & Permissions (P1-P5) - Access control refinements
-3. Questions/Clarifications (Q1-Q6) - Stakeholder decisions needed
+1. Role & Permissions (P1-P5) - Access control refinements
+2. Questions/Clarifications (Q1-Q6) - Stakeholder decisions needed
 
 ---
 
@@ -227,13 +232,20 @@
 
 ---
 
-## Action Items - Download Capabilities
+## ✅ Action Items - Download Capabilities [COMPLETED]
 
-### D1: Period Report with All Fields
+**Completion Date:** 2025-10-03
+**Implementation:** TASK6.md
+**Test Status:** All tests passed (100%)
+**Test Report:** TEST_REPORT_TASK6.md
+
+### ✅ D1: Period Report with All Fields
 - Report of different periods with all the observation fields in a table
+- **Status:** Implemented - Created `/api/v1/reports/period/export` endpoint that exports all observation fields (18 columns) with applied filters. Includes dynamic filename generation based on date range, proper CSV formatting with special character escaping, RBAC enforcement, and date range overlap logic
 
-### D2: Retest Report
+### ✅ D2: Retest Report
 - Report of retests should be there
+- **Status:** Implemented - Created `/api/v1/reports/retest/export` endpoint that exports action plans with retest status (RETEST_DUE, PASS, FAIL). Includes 10 columns with observation context, proper table joins, filtered by retest field presence, dynamic filename generation, and RBAC enforcement
 
 ---
 
@@ -247,7 +259,7 @@
 **✅ Observation Status:** 1 item (OS1) - **COMPLETED** (2025-10-02)
 **✅ Reports:** 4 items (R1-R4) - **COMPLETED** (2025-10-02)
 **✅ Filtering & Sorting:** 2 items (F1-F2) - **COMPLETED** (2025-10-03)
-**Downloads:** 2 items (D1-D2)
+**✅ Downloads:** 2 items (D1-D2) - **COMPLETED** (2025-10-03)
 
 **Total:** 31 feedback items
-**Completed:** 18 items (58.1%)
+**Completed:** 20 items (64.5%)
