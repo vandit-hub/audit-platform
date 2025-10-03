@@ -25,18 +25,53 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const plantId = searchParams.get("plantId") || undefined;
+  const auditId = searchParams.get("auditId") || undefined;
+  const startDate = searchParams.get("startDate") || undefined;
+  const endDate = searchParams.get("endDate") || undefined;
   const risk = searchParams.get("risk") || undefined;
   const process = searchParams.get("process") || undefined;
   const status = searchParams.get("status") || undefined;
   const published = searchParams.get("published"); // "1" | "0" | null
   const q = (searchParams.get("q") || "").trim();
 
+  // Sorting parameters
+  const allowedSortFields = ["createdAt", "updatedAt", "riskCategory", "currentStatus", "approvalStatus"];
+  const sortBy = allowedSortFields.includes(searchParams.get("sortBy") || "")
+    ? (searchParams.get("sortBy") as string)
+    : "createdAt";
+  const sortOrder = searchParams.get("sortOrder") === "asc" ? "asc" : "desc";
+
   // Build base filters
   const filters: Prisma.ObservationWhereInput[] = [];
   if (plantId) filters.push({ plantId });
+  if (auditId) filters.push({ auditId });
   if (risk) filters.push({ riskCategory: risk as any });
   if (process) filters.push({ concernedProcess: process as any });
   if (status) filters.push({ currentStatus: status as any });
+
+  // Date range filter (audit period overlap logic)
+  if (startDate || endDate) {
+    const auditDateFilter: Prisma.AuditWhereInput = {};
+    if (startDate && endDate) {
+      // Audit period overlaps with filter range if:
+      // - Audit visitStartDate within range OR
+      // - Audit visitEndDate within range OR
+      // - Audit period encompasses the filter range
+      auditDateFilter.OR = [
+        { visitStartDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { visitEndDate: { gte: new Date(startDate), lte: new Date(endDate) } },
+        { AND: [{ visitStartDate: { lte: new Date(startDate) } }, { visitEndDate: { gte: new Date(endDate) } }] }
+      ];
+    } else if (startDate) {
+      // Only start date provided - audit visit must start on or after this date
+      auditDateFilter.visitStartDate = { gte: new Date(startDate) };
+    } else if (endDate) {
+      // Only end date provided - audit visit must end on or before this date
+      auditDateFilter.visitEndDate = { lte: new Date(endDate) };
+    }
+    filters.push({ audit: auditDateFilter });
+  }
+
   if (q) {
     filters.push({
       OR: [
@@ -74,7 +109,7 @@ export async function GET(req: NextRequest) {
       audit: { select: { id: true, visitStartDate: true, visitEndDate: true } },
       attachments: true
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { [sortBy]: sortOrder }
   });
 
   const shaped = obs.map((o) => ({

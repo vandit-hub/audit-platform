@@ -32,11 +32,16 @@ export default function ObservationsPage() {
   const [rows, setRows] = useState<ObservationRow[]>([]);
 
   const [plantId, setPlantId] = useState("");
+  const [filterAuditId, setFilterAuditId] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [risk, setRisk] = useState("");
   const [proc, setProc] = useState("");
   const [status, setStatus] = useState("");
   const [published, setPublished] = useState("");
   const [q, setQ] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   // create form
   const [auditId, setAuditId] = useState("");
@@ -45,9 +50,9 @@ export default function ObservationsPage() {
   const [busy, setBusy] = useState(false);
 
   const savePreset = useCallback(() => {
-    localStorage.setItem("obs.filters", JSON.stringify({ plantId, risk, proc, status, published, q }));
+    localStorage.setItem("obs.filters", JSON.stringify({ plantId, auditId: filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder }));
     showSuccess("Filter preset saved successfully!");
-  }, [plantId, risk, proc, status, published, q, showSuccess]);
+  }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder, showSuccess]);
 
   const loadPreset = () => {
     const raw = localStorage.getItem("obs.filters");
@@ -58,11 +63,16 @@ export default function ObservationsPage() {
     try {
       const v = JSON.parse(raw);
       setPlantId(v.plantId || "");
+      setFilterAuditId(v.auditId || "");
+      setStartDate(v.startDate || "");
+      setEndDate(v.endDate || "");
       setRisk(v.risk || "");
       setProc(v.proc || "");
       setStatus(v.status || "");
       setPublished(v.published || "");
       setQ(v.q || "");
+      setSortBy(v.sortBy || "createdAt");
+      setSortOrder(v.sortOrder || "desc");
       showSuccess("Filter preset loaded successfully!");
     } catch {
       showError("Failed to load filter preset!");
@@ -78,11 +88,16 @@ export default function ObservationsPage() {
     try {
       const v = JSON.parse(raw);
       setPlantId(v.plantId || "");
+      setFilterAuditId(v.auditId || "");
+      setStartDate(v.startDate || "");
+      setEndDate(v.endDate || "");
       setRisk(v.risk || "");
       setProc(v.proc || "");
       setStatus(v.status || "");
       setPublished(v.published || "");
       setQ(v.q || "");
+      setSortBy(v.sortBy || "createdAt");
+      setSortOrder(v.sortOrder || "desc");
       showSuccess("Filter preset loaded successfully!");
     } catch {
       showError("Failed to load filter preset!");
@@ -91,11 +106,16 @@ export default function ObservationsPage() {
 
   const resetFilters = useCallback(() => {
     setPlantId("");
+    setFilterAuditId("");
+    setStartDate("");
+    setEndDate("");
     setRisk("");
     setProc("");
     setStatus("");
     setPublished("");
     setQ("");
+    setSortBy("createdAt");
+    setSortOrder("desc");
     localStorage.removeItem("obs.filters");
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
@@ -103,11 +123,16 @@ export default function ObservationsPage() {
   const loadRows = async () => {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
+    if (filterAuditId) qs.set("auditId", filterAuditId);
+    if (startDate) qs.set("startDate", startDate);
+    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
     if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
     if (published) qs.set("published", published);
     if (q) qs.set("q", q);
+    if (sortBy) qs.set("sortBy", sortBy);
+    if (sortOrder) qs.set("sortOrder", sortOrder);
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json();
     if (res.ok) setRows(j.observations);
@@ -142,7 +167,7 @@ export default function ObservationsPage() {
 
   useEffect(() => {
     loadRows();
-  }, [plantId, risk, proc, status, published, q]); // Run when filters change
+  }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder]); // Run when filters change
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -173,11 +198,16 @@ export default function ObservationsPage() {
   function exportCsv() {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
+    if (filterAuditId) qs.set("auditId", filterAuditId);
+    if (startDate) qs.set("startDate", startDate);
+    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
     if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
     if (published) qs.set("published", published);
     if (q) qs.set("q", q);
+    if (sortBy) qs.set("sortBy", sortBy);
+    if (sortOrder) qs.set("sortOrder", sortOrder);
     window.location.href = `/api/v1/observations/export?${qs.toString()}`;
     showSuccess("CSV export started! Download will begin shortly.");
   }
@@ -189,55 +219,105 @@ export default function ObservationsPage() {
       <h1 className="text-2xl font-semibold">Observations</h1>
 
       <div className="bg-white rounded p-4 shadow space-y-3">
-        <div className="grid sm:grid-cols-6 gap-3">
-          <div>
-            <label className="block text-xs mb-1">Plant</label>
-            <select className="border rounded px-2 py-2 w-full" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
-              <option value="">All</option>
-              {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-            </select>
+        <div className="space-y-3">
+          {/* First row: Plant, Audit, Start Date, End Date */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs mb-1">Plant</label>
+              <select className="border rounded px-2 py-2 w-full" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
+                <option value="">All</option>
+                {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Audit</label>
+              <select className="border rounded px-2 py-2 w-full" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
+                <option value="">All</option>
+                {audits.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.plant.code} — {a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Audit Start Date</label>
+              <input type="date" className="border rounded px-2 py-2 w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Audit End Date</label>
+              <input type="date" className="border rounded px-2 py-2 w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs mb-1">Process</label>
-            <select className="border rounded px-2 py-2 w-full" value={proc} onChange={(e) => setProc(e.target.value)}>
-              <option value="">All</option>
-              <option value="O2C">O2C</option>
-              <option value="P2P">P2P</option>
-              <option value="R2R">R2R</option>
-              <option value="INVENTORY">Inventory</option>
-            </select>
+
+          {/* Second row: Risk, Process, Status, Published */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs mb-1">Risk</label>
+              <select className="border rounded px-2 py-2 w-full" value={risk} onChange={(e) => setRisk(e.target.value)}>
+                <option value="">All</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Process</label>
+              <select className="border rounded px-2 py-2 w-full" value={proc} onChange={(e) => setProc(e.target.value)}>
+                <option value="">All</option>
+                <option value="O2C">O2C</option>
+                <option value="P2P">P2P</option>
+                <option value="R2R">R2R</option>
+                <option value="INVENTORY">Inventory</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Status</label>
+              <select className="border rounded px-2 py-2 w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">All</option>
+                <option value="PENDING_MR">Pending MR</option>
+                <option value="MR_UNDER_REVIEW">MR Under Review</option>
+                <option value="REFERRED_BACK">Referred Back</option>
+                <option value="OBSERVATION_FINALISED">Observation Finalised</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Published</label>
+              <select className="border rounded px-2 py-2 w-full" value={published} onChange={(e) => setPublished(e.target.value)}>
+                <option value="">Any</option>
+                <option value="1">Published</option>
+                <option value="0">Unpublished</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs mb-1">Risk</label>
-            <select className="border rounded px-2 py-2 w-full" value={risk} onChange={(e) => setRisk(e.target.value)}>
-              <option value="">All</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Status</label>
-            <select className="border rounded px-2 py-2 w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="IN_PROGRESS">In progress</option>
-              <option value="RESOLVED">Resolved</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Published</label>
-            <select className="border rounded px-2 py-2 w-full" value={published} onChange={(e) => setPublished(e.target.value)}>
-              <option value="">Any</option>
-              <option value="1">Published</option>
-              <option value="0">Unpublished</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Search</label>
-            <input className="border rounded px-2 py-2 w-full" placeholder="Search text…" value={q} onChange={(e) => setQ(e.target.value)} />
+
+          {/* Third row: Sort By, Sort Order, Search */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs mb-1">Sort By</label>
+              <select className="border rounded px-2 py-2 w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <option value="createdAt">Created Date</option>
+                <option value="updatedAt">Updated Date</option>
+                <option value="riskCategory">Risk Category</option>
+                <option value="currentStatus">Current Status</option>
+                <option value="approvalStatus">Approval Status</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Order</label>
+              <select className="border rounded px-2 py-2 w-full" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+                <option value="desc">Newest First</option>
+                <option value="asc">Oldest First</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs mb-1">Search</label>
+              <input className="border rounded px-2 py-2 w-full" placeholder="Search text…" value={q} onChange={(e) => setQ(e.target.value)} />
+            </div>
           </div>
         </div>
+
         <div className="flex gap-2">
           <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
           <button className="border px-3 py-1 rounded" onClick={loadPresetManual}>Load preset</button>
