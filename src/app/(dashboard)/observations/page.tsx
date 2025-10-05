@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
-type Audit = { id: string; startDate: string | null; endDate: string | null; plant: Plant };
+type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant };
 type ObservationRow = {
   id: string;
   plant: Plant;
@@ -49,61 +49,6 @@ export default function ObservationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const savePreset = useCallback(() => {
-    localStorage.setItem("obs.filters", JSON.stringify({ plantId, auditId: filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder }));
-    showSuccess("Filter preset saved successfully!");
-  }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder, showSuccess]);
-
-  const loadPreset = () => {
-    const raw = localStorage.getItem("obs.filters");
-    if (!raw) {
-      // Don't show error on initial load when no preset exists
-      return;
-    }
-    try {
-      const v = JSON.parse(raw);
-      setPlantId(v.plantId || "");
-      setFilterAuditId(v.auditId || "");
-      setStartDate(v.startDate || "");
-      setEndDate(v.endDate || "");
-      setRisk(v.risk || "");
-      setProc(v.proc || "");
-      setStatus(v.status || "");
-      setPublished(v.published || "");
-      setQ(v.q || "");
-      setSortBy(v.sortBy || "createdAt");
-      setSortOrder(v.sortOrder || "desc");
-      showSuccess("Filter preset loaded successfully!");
-    } catch {
-      showError("Failed to load filter preset!");
-    }
-  };
-
-  const loadPresetManual = () => {
-    const raw = localStorage.getItem("obs.filters");
-    if (!raw) {
-      showError("No saved filter preset found!");
-      return;
-    }
-    try {
-      const v = JSON.parse(raw);
-      setPlantId(v.plantId || "");
-      setFilterAuditId(v.auditId || "");
-      setStartDate(v.startDate || "");
-      setEndDate(v.endDate || "");
-      setRisk(v.risk || "");
-      setProc(v.proc || "");
-      setStatus(v.status || "");
-      setPublished(v.published || "");
-      setQ(v.q || "");
-      setSortBy(v.sortBy || "createdAt");
-      setSortOrder(v.sortOrder || "desc");
-      showSuccess("Filter preset loaded successfully!");
-    } catch {
-      showError("Failed to load filter preset!");
-    }
-  };
-
   const resetFilters = useCallback(() => {
     setPlantId("");
     setFilterAuditId("");
@@ -116,7 +61,6 @@ export default function ObservationsPage() {
     setQ("");
     setSortBy("createdAt");
     setSortOrder("desc");
-    localStorage.removeItem("obs.filters");
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
 
@@ -149,6 +93,7 @@ export default function ObservationsPage() {
     if (aRes.ok) {
       const auds = aJ.audits.map((x: any) => ({
         id: x.id,
+        title: x.title,
         startDate: x.startDate,
         endDate: x.endDate,
         plant: x.plant
@@ -156,10 +101,6 @@ export default function ObservationsPage() {
       setAudits(auds);
     }
   };
-
-  useEffect(() => {
-    loadPreset();
-  }, []); // Run only once on mount
 
   useEffect(() => {
     load();
@@ -235,7 +176,7 @@ export default function ObservationsPage() {
                 <option value="">All</option>
                 {audits.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.plant.code} — {a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}
+                    {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
                   </option>
                 ))}
               </select>
@@ -319,8 +260,6 @@ export default function ObservationsPage() {
         </div>
 
         <div className="flex gap-2">
-          <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
-          <button className="border px-3 py-1 rounded" onClick={loadPresetManual}>Load preset</button>
           <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
           <button className="border px-3 py-1 rounded" onClick={exportCsv}>Export CSV</button>
         </div>
@@ -337,7 +276,7 @@ export default function ObservationsPage() {
               <option value="">Select audit</option>
               {audits.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.plant.code} — {a.plant.name} ({a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})
+                  {a.title || `${a.plant.code} — ${a.plant.name} (${a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})`}
                 </option>
               ))}
             </select>

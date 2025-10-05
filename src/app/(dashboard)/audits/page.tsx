@@ -189,6 +189,7 @@ export default function AuditsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500">
+              <th className="py-2">Audit Title</th>
               <th className="py-2">Plant</th>
               <th className="py-2">Period</th>
               <th className="py-2">Status</th>
@@ -200,6 +201,7 @@ export default function AuditsPage() {
           <tbody>
             {audits.map((a) => (
               <tr key={a.id} className="border-t">
+                <td className="py-2">{a.title || "—"}</td>
                 <td className="py-2">{a.plant.code} — {a.plant.name}</td>
                 <td className="py-2">
                   {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
