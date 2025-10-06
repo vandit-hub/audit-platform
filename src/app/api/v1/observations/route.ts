@@ -85,8 +85,24 @@ export async function GET(req: NextRequest) {
   let where: Prisma.ObservationWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  if (isAdminOrAuditor(session.user.role)) {
-    // Admin/auditor can filter by published flag explicitly
+  if (session.user.role === "ADMIN") {
+    // Admin can see all observations and filter by published flag explicitly
+    if (published === "1") where = { AND: [where, { isPublished: true }] };
+    else if (published === "0") where = { AND: [where, { isPublished: false }] };
+  } else if (session.user.role === "AUDITOR") {
+    // Auditor can only see observations from audits they're assigned to
+    const auditorFilter: Prisma.ObservationWhereInput = {
+      audit: {
+        assignments: {
+          some: {
+            auditorId: session.user.id
+          }
+        }
+      }
+    };
+    where = { AND: [where, auditorFilter] };
+
+    // Auditors can also filter by published flag
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
   } else {
@@ -106,7 +122,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       plant: true,
-      audit: { select: { id: true, visitStartDate: true, visitEndDate: true } },
+      audit: { select: { id: true, title: true, visitStartDate: true, visitEndDate: true } },
       attachments: true
     },
     orderBy: { [sortBy]: sortOrder }

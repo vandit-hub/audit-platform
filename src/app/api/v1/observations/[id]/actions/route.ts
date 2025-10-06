@@ -26,7 +26,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  if (isAuditee(session.user.role) || isGuest(session.user.role)) {
+  // Check if auditor is assigned to this audit
+  if (session.user.role === "AUDITOR") {
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: obs.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  } else if (isAuditee(session.user.role) || isGuest(session.user.role)) {
     const scoped = isObservationInScope(obs, await getUserScope(session.user.id));
     const allowed = scoped || (obs.approvalStatus === "APPROVED" && obs.isPublished);
     if (!allowed) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
@@ -49,12 +60,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (isGuest(session.user.role)) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
-  if (isAuditee(session.user.role)) {
-    const obs = await prisma.observation.findUnique({
-      where: { id },
-      select: { id: true, auditId: true }
+
+  const obs = await prisma.observation.findUnique({
+    where: { id },
+    select: { id: true, auditId: true }
+  });
+  if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+
+  // Check if auditor is assigned to this audit
+  if (session.user.role === "AUDITOR") {
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: obs.auditId,
+        auditorId: session.user.id
+      }
     });
-    const scoped = obs && isObservationInScope(obs, await getUserScope(session.user.id));
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  } else if (isAuditee(session.user.role)) {
+    const scoped = isObservationInScope(obs, await getUserScope(session.user.id));
     if (!scoped) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 

@@ -27,8 +27,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Observation not found" }, { status: 404 });
 
-  if (isAdminOrAuditor(session.user.role)) {
-    // ok
+  if (session.user.role === "ADMIN") {
+    // Admin can upload any attachment
+  } else if (session.user.role === "AUDITOR") {
+    // Check if auditor is assigned to this audit
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: obs.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
   } else if (isAuditee(session.user.role)) {
     if (input.kind !== "MGMT_DOC") {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });

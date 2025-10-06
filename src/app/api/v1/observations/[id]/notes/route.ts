@@ -15,6 +15,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
+  // Check if auditor is assigned to this audit
+  if (session.user.role === "AUDITOR") {
+    const obs = await prisma.observation.findUnique({ where: { id }, select: { auditId: true } });
+    if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: obs.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  }
+
   const where: any = { observationId: id };
   if (isAuditee(session.user.role) || isGuest(session.user.role)) {
     where.visibility = "ALL";
@@ -43,7 +59,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  if (isAuditee(session.user.role) || isGuest(session.user.role)) {
+  // Check if auditor is assigned to this audit
+  if (session.user.role === "AUDITOR") {
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: obs.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  } else if (isAuditee(session.user.role) || isGuest(session.user.role)) {
     const scope = await getUserScope(session.user.id);
     if (!isObservationInScope(obs, scope)) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });

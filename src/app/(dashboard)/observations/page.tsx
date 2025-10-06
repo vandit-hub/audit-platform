@@ -10,7 +10,7 @@ type Audit = { id: string; title?: string | null; startDate: string | null; endD
 type ObservationRow = {
   id: string;
   plant: Plant;
-  audit: { id: string; startDate: string | null; endDate: string | null };
+  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null };
   riskCategory?: "A" | "B" | "C" | null;
   concernedProcess?: "O2C" | "P2P" | "R2R" | "INVENTORY" | null;
   currentStatus: "PENDING" | "IN_PROGRESS" | "RESOLVED";
@@ -313,7 +313,7 @@ export default function ObservationsPage() {
             {rows.map((r) => (
               <tr key={r.id} className="border-t">
                 <td className="py-2">{r.plant.code}</td>
-                <td className="py-2">{r.audit.startDate ? r.audit.startDate.split('T')[0] : "—"}</td>
+                <td className="py-2">{r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}</td>
                 <td className="py-2 max-w-xs">
                   <div className="truncate" title={r.title}>
                     {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}

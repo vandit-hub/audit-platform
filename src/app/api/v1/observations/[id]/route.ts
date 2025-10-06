@@ -78,7 +78,19 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!o) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
-  if (isAuditee(role) || isGuest(role)) {
+  // Check permissions based on role
+  if (role === "AUDITOR") {
+    // Auditor can only access observations from audits they're assigned to
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: o.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  } else if (isAuditee(role) || isGuest(role)) {
     const scope = await getUserScope(session.user.id);
     const allowed = isObservationInScope({ id: o.id, auditId: o.audit.id }, scope) ||
       (o.approvalStatus === "APPROVED" && o.isPublished);
@@ -100,6 +112,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const orig = await prisma.observation.findUnique({ where: { id } });
   if (!orig) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+
+  // Check if auditor is assigned to this audit
+  if (session.user.role === "AUDITOR") {
+    const assignment = await prisma.auditAssignment.findFirst({
+      where: {
+        auditId: orig.auditId,
+        auditorId: session.user.id
+      }
+    });
+    if (!assignment) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    }
+  }
 
   // If auditor and observation already approved -> block direct edits
   if (!isAdmin(session.user.role) && isAdminOrAuditor(session.user.role) && orig.approvalStatus === "APPROVED") {
