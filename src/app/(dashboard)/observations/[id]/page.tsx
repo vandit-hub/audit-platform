@@ -53,6 +53,16 @@ type ChangeRequest = {
   createdAt: string;
 };
 
+// Fields that AUDITEE role can edit
+const AUDITEE_EDITABLE_FIELDS = new Set([
+  "auditeePersonTier1",
+  "auditeePersonTier2",
+  "auditeeFeedback",
+  "targetDate",
+  "personResponsibleToImplement",
+  "currentStatus"
+]);
+
 function formatRetest(retest: string): string {
   const map: Record<string, string> = {
     "RETEST_DUE": "Retest due",
@@ -313,10 +323,41 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     return o.lockedFields.includes(fieldName);
   }
 
+  function isFieldDisabled(fieldName: string): boolean {
+    if (!o) return false;
+
+    // Admin can edit all fields
+    if (isAdmin) return false;
+
+    // Check if field is locked (applies to non-admins)
+    if (isFieldLocked(fieldName)) return true;
+
+    // For auditees, disable all fields except those in AUDITEE_EDITABLE_FIELDS
+    if (role === "AUDITEE") {
+      return !AUDITEE_EDITABLE_FIELDS.has(fieldName);
+    }
+
+    // For auditors, auditee fields should be disabled (except auditorResponseToAuditee)
+    if (isAuditor) {
+      return AUDITEE_EDITABLE_FIELDS.has(fieldName) && fieldName !== "auditorResponseToAuditee";
+    }
+
+    // Default: not disabled
+    return false;
+  }
+
   function getFieldClassName(fieldName: string, baseClassName: string = "border rounded px-3 py-2 w-full"): string {
-    if (isFieldLocked(fieldName)) {
+    const locked = isFieldLocked(fieldName);
+    const disabled = isFieldDisabled(fieldName);
+
+    if (locked) {
       return `${baseClassName} bg-orange-50 border-orange-300`;
     }
+
+    if (disabled) {
+      return `${baseClassName} bg-gray-50 border-gray-200 cursor-not-allowed`;
+    }
+
     return baseClassName;
   }
 
@@ -456,6 +497,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("observationText", "border rounded px-3 py-2 w-full h-24")}
                 value={draft.observationText}
                 onChange={(e) => setField("observationText", e.target.value)}
+                disabled={isFieldDisabled("observationText")}
                 required
               />
             </div>
@@ -473,6 +515,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("risksInvolved", "border rounded px-3 py-2 w-full h-24")}
                 value={draft.risksInvolved}
                 onChange={(e) => setField("risksInvolved", e.target.value)}
+                disabled={isFieldDisabled("risksInvolved")}
               />
             </div>
             <div>
@@ -489,6 +532,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("riskCategory")}
                 value={draft.riskCategory}
                 onChange={(e) => setField("riskCategory", e.target.value)}
+                disabled={isFieldDisabled("riskCategory")}
               >
                 <option value="">Select</option>
                 <option value="A">A</option>
@@ -510,6 +554,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("likelyImpact")}
                 value={draft.likelyImpact}
                 onChange={(e) => setField("likelyImpact", e.target.value)}
+                disabled={isFieldDisabled("likelyImpact")}
               >
                 <option value="">Select</option>
                 <option value="LOCAL">Local</option>
@@ -530,6 +575,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("concernedProcess")}
                 value={draft.concernedProcess}
                 onChange={(e) => setField("concernedProcess", e.target.value)}
+                disabled={isFieldDisabled("concernedProcess")}
               >
                 <option value="">Select</option>
                 <option value="O2C">O2C</option>
@@ -552,6 +598,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("auditorPerson")}
                 value={draft.auditorPerson}
                 onChange={(e) => setField("auditorPerson", e.target.value)}
+                disabled={isFieldDisabled("auditorPerson")}
               />
             </div>
           </div>
@@ -575,6 +622,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("auditeePersonTier1")}
                 value={draft.auditeePersonTier1}
                 onChange={(e) => setField("auditeePersonTier1", e.target.value)}
+                disabled={isFieldDisabled("auditeePersonTier1")}
               />
             </div>
             <div>
@@ -591,6 +639,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("auditeePersonTier2")}
                 value={draft.auditeePersonTier2}
                 onChange={(e) => setField("auditeePersonTier2", e.target.value)}
+                disabled={isFieldDisabled("auditeePersonTier2")}
               />
             </div>
             <div>
@@ -607,6 +656,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("auditeeFeedback", "border rounded px-3 py-2 w-full h-24")}
                 value={draft.auditeeFeedback}
                 onChange={(e) => setField("auditeeFeedback", e.target.value)}
+                disabled={isFieldDisabled("auditeeFeedback")}
               />
             </div>
             <div>
@@ -623,6 +673,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("auditorResponseToAuditee", "border rounded px-3 py-2 w-full h-24")}
                 value={draft.auditorResponseToAuditee}
                 onChange={(e) => setField("auditorResponseToAuditee", e.target.value)}
+                disabled={isFieldDisabled("auditorResponseToAuditee")}
               />
             </div>
           </div>
@@ -647,6 +698,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 type="date"
                 value={draft.targetDate}
                 onChange={(e) => setField("targetDate", e.target.value)}
+                disabled={isFieldDisabled("targetDate")}
               />
             </div>
             <div>
@@ -663,6 +715,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("personResponsibleToImplement")}
                 value={draft.personResponsibleToImplement}
                 onChange={(e) => setField("personResponsibleToImplement", e.target.value)}
+                disabled={isFieldDisabled("personResponsibleToImplement")}
               />
             </div>
             <div>
@@ -679,6 +732,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 className={getFieldClassName("currentStatus")}
                 value={draft.currentStatus}
                 onChange={(e) => setField("currentStatus", e.target.value)}
+                disabled={isFieldDisabled("currentStatus")}
               >
                 <option value="PENDING_MR">Pending MR</option>
                 <option value="MR_UNDER_REVIEW">MR under review</option>

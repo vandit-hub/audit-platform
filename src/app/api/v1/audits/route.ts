@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor } from "@/lib/rbac";
+import { assertAdmin } from "@/lib/rbac";
 
 const createSchema = z.object({
   plantId: z.string().min(1),
@@ -23,8 +23,23 @@ export async function GET(req: NextRequest) {
   const plantId = searchParams.get("plantId") || undefined;
   const status = searchParams.get("status") || undefined;
 
+  // Build base where clause
+  const where: any = {
+    plantId,
+    status: status ? (status as any) : undefined
+  };
+
+  // Add assignment filter for AUDITOR role
+  if (session.user.role === "AUDITOR") {
+    where.assignments = {
+      some: {
+        auditorId: session.user.id
+      }
+    };
+  }
+
   const audits = await prisma.audit.findMany({
-    where: { plantId, status: status ? (status as any) : undefined },
+    where,
     include: {
       plant: true,
       assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } }
@@ -68,7 +83,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  assertAdminOrAuditor(session?.user?.role);
+
+  try {
+    assertAdmin(session?.user?.role);
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Forbidden" },
+      { status: err.status || 403 }
+    );
+  }
 
   const body = await req.json();
   const input = createSchema.parse(body);

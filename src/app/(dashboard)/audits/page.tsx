@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
 
 type Plant = { id: string; code: string; name: string };
@@ -18,6 +19,8 @@ type AuditListItem = {
 };
 
 export default function AuditsPage() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "ADMIN";
   const [plants, setPlants] = useState<Plant[]>([]);
   const [audits, setAudits] = useState<AuditListItem[]>([]);
   const [plantId, setPlantId] = useState("");
@@ -92,8 +95,9 @@ export default function AuditsPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Audits</h1>
 
-      <form onSubmit={onCreate} className="bg-white rounded p-4 shadow space-y-3 max-w-2xl">
-        <div className="text-sm text-gray-600">Create an audit (Admin or Auditor)</div>
+      {isAdmin && (
+        <form onSubmit={onCreate} className="bg-white rounded p-4 shadow space-y-3 max-w-2xl">
+          <div className="text-sm text-gray-600">Create an audit (Admin only)</div>
         {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
@@ -182,10 +186,17 @@ export default function AuditsPage() {
             </button>
           </div>
         </div>
-      </form>
+        </form>
+      )}
+
+      {!isAdmin && (
+        <div className="bg-blue-50 border border-blue-200 rounded p-4 text-sm text-blue-800">
+          You can view audits assigned to you below.
+        </div>
+      )}
 
       <div className="bg-white rounded p-4 shadow">
-        <h2 className="font-medium mb-2">All Audits</h2>
+        <h2 className="font-medium mb-2">{isAdmin ? "All Audits" : "My Assigned Audits"}</h2>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-gray-500">
