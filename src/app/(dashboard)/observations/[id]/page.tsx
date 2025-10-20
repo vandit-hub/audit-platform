@@ -6,6 +6,11 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
 import { useObservationWebSocket } from "@/lib/websocket/hooks";
 import PresenceBadge from "@/components/PresenceBadge";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Badge from "@/components/ui/Badge";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
@@ -443,7 +448,17 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  if (!o) return <div>Loading…</div>;
+  if (!o) return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <svg className="animate-spin h-12 w-12 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p className="text-neutral-600">Loading observation...</p>
+      </div>
+    </div>
+  );
 
   const isAdmin = role === "ADMIN";
   const isAuditor = role === "AUDITOR";
@@ -456,33 +471,66 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const auditorLockedByApproval = isAuditor && o.approvalStatus === "APPROVED";
   const canSave = isAdmin || (!auditorLockedByApproval);
 
+  const getApprovalBadgeVariant = (status: string) => {
+    switch (status) {
+      case "DRAFT": return "neutral";
+      case "SUBMITTED": return "warning";
+      case "APPROVED": return "success";
+      case "REJECTED": return "error";
+      default: return "neutral";
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <button className="text-sm underline" onClick={() => router.back()}>&larr; Back</button>
+    <div className="space-y-8">
+      <button
+        className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        onClick={() => router.back()}
+      >
+        <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+      </button>
+
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Observation — {o.plant.code} {o.plant.name}</h1>
-          <div className="text-sm text-gray-600 mt-1">
-            Created: {new Date(o.createdAt).toLocaleString()}
+          <h1 className="text-4xl font-bold text-neutral-900">Observation</h1>
+          <p className="text-base text-neutral-600 mt-2">
+            {o.plant.code} — {o.plant.name}
+          </p>
+          <div className="flex items-center gap-3 mt-3">
+            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>
+              {o.approvalStatus}
+            </Badge>
+            <span className="text-sm text-neutral-500">
+              Created {new Date(o.createdAt).toLocaleString()}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-4">
           {isConnected && <PresenceBadge users={presence} currentUserId={userId} />}
           {!isConnected && (
-            <div className="text-sm text-gray-500">
-              <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+            <div className="text-sm text-neutral-500 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 bg-neutral-400 rounded-full"></span>
               Disconnected
             </div>
           )}
         </div>
       </div>
-      {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
 
-      <form onSubmit={save} className="bg-white rounded p-4 shadow space-y-6">
-        {/* Section 1: Observation Details */}
-        <div>
-          <h2 className="text-lg font-semibold mb-3 pb-2 border-b">Observation Details</h2>
-          <div className="grid md:grid-cols-2 gap-3">
+      {error && (
+        <div className="text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg">
+          {error}
+        </div>
+      )}
+
+      <Card padding="lg">
+        <form onSubmit={save} className="space-y-8">
+          {/* Section 1: Observation Details */}
+          <div>
+            <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Observation Details</h2>
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm">Observation Text *</label>
@@ -606,8 +654,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
         {/* Section 2: Auditee Section */}
         <div>
-          <h2 className="text-lg font-semibold mb-3 pb-2 border-b">Auditee Section</h2>
-          <div className="grid md:grid-cols-2 gap-3">
+          <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Auditee Section</h2>
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm">Auditee Person (Tier 1)</label>
@@ -681,8 +729,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
         {/* Section 3: Implementation Details */}
         <div>
-          <h2 className="text-lg font-semibold mb-3 pb-2 border-b">Implementation Details</h2>
-          <div className="grid md:grid-cols-2 gap-3">
+          <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Implementation Details</h2>
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm">Target Date</label>
@@ -743,29 +791,29 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button className="bg-black text-white px-4 py-2 rounded">Save</button>
+        <div className="flex gap-3 flex-wrap pt-4 border-t border-neutral-200">
+          <Button type="submit" variant="primary">Save Changes</Button>
           {auditorLockedByApproval && (
-            <button type="button" className="border px-4 py-2 rounded" onClick={requestChange}>
-              Request change (Auditor)
-            </button>
+            <Button type="button" variant="secondary" onClick={requestChange}>
+              Request Change (Auditor)
+            </Button>
           )}
-          {canSubmit && <button type="button" className="border px-4 py-2 rounded" onClick={submitForApproval}>Submit for approval</button>}
+          {canSubmit && <Button type="button" variant="secondary" onClick={submitForApproval}>Submit for Approval</Button>}
           {canApprove && (
             <>
-              <button type="button" className="border px-4 py-2 rounded" onClick={() => approve(true)}>Approve</button>
-              <button type="button" className="border px-4 py-2 rounded" onClick={() => approve(false)}>Reject</button>
+              <Button type="button" variant="primary" onClick={() => approve(true)}>Approve</Button>
+              <Button type="button" variant="destructive" onClick={() => approve(false)}>Reject</Button>
             </>
           )}
           {canPublish && (
-            <button type="button" className="border px-4 py-2 rounded" onClick={() => publish(!o.isPublished)}>
+            <Button type="button" variant="secondary" onClick={() => publish(!o.isPublished)}>
               {o.isPublished ? "Unpublish" : "Publish"}
-            </button>
+            </Button>
           )}
           {canRetest && (
             <>
-              <button type="button" className="border px-4 py-2 rounded" onClick={() => retest("PASS")}>Retest: Pass</button>
-              <button type="button" className="border px-4 py-2 rounded" onClick={() => retest("FAIL")}>Retest: Fail</button>
+              <Button type="button" variant="primary" onClick={() => retest("PASS")}>Retest: Pass</Button>
+              <Button type="button" variant="destructive" onClick={() => retest("FAIL")}>Retest: Fail</Button>
             </>
           )}
           {isAdmin && (
@@ -792,161 +840,260 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                     ))}
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       type="button"
-                      className="text-xs border border-orange-300 px-2 py-1 rounded hover:bg-orange-100"
+                      variant="secondary"
+                      size="sm"
                       onClick={() => lock(o.lockedFields!, false)}
                     >
                       Unlock All
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
             </div>
           )}
         </div>
-      </form>
+        </form>
+      </Card>
 
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Attachments</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Attachments</h2>
+        <div className="grid sm:grid-cols-2 gap-6">
           <div>
-            <div className="text-sm text-gray-600 mb-2">Annexures ({o.attachments.filter(a => a.kind === "ANNEXURE").length})</div>
-            <ul className="text-sm space-y-1 mb-3">
+            <div className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">
+              Annexures ({o.attachments.filter(a => a.kind === "ANNEXURE").length})
+            </div>
+            <ul className="text-sm space-y-2 mb-4">
               {o.attachments.filter(a => a.kind === "ANNEXURE").map(a => (
-                <li key={a.id}><a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="underline">{a.fileName}</a></li>
+                <li key={a.id}>
+                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-2">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    {a.fileName}
+                  </a>
+                </li>
               ))}
+              {o.attachments.filter(a => a.kind === "ANNEXURE").length === 0 && (
+                <li className="text-neutral-500">No annexures uploaded</li>
+              )}
             </ul>
             {canUploadAnnex && (
-              <div className="flex gap-2">
-                <input type="file" onChange={(e) => setFileA(e.target.files?.[0] || null)} />
-                <button className="border px-3 py-2 rounded" onClick={() => upload("ANNEXURE")} disabled={!fileA}>Upload</button>
+              <div className="flex gap-2 items-end">
+                <input type="file" onChange={(e) => setFileA(e.target.files?.[0] || null)} className="text-sm" />
+                <Button variant="secondary" size="sm" onClick={() => upload("ANNEXURE")} disabled={!fileA}>Upload</Button>
               </div>
             )}
           </div>
           <div>
-            <div className="text-sm text-gray-600 mb-2">Management Docs ({o.attachments.filter(a => a.kind === "MGMT_DOC").length})</div>
-            <ul className="text-sm space-y-1 mb-3">
+            <div className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">
+              Management Docs ({o.attachments.filter(a => a.kind === "MGMT_DOC").length})
+            </div>
+            <ul className="text-sm space-y-2 mb-4">
               {o.attachments.filter(a => a.kind === "MGMT_DOC").map(a => (
-                <li key={a.id}><a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="underline">{a.fileName}</a></li>
+                <li key={a.id}>
+                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-2">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                    {a.fileName}
+                  </a>
+                </li>
               ))}
+              {o.attachments.filter(a => a.kind === "MGMT_DOC").length === 0 && (
+                <li className="text-neutral-500">No management docs uploaded</li>
+              )}
             </ul>
             {canUploadMgmt && (
-              <div className="flex gap-2">
-                <input type="file" onChange={(e) => setFileM(e.target.files?.[0] || null)} />
-                <button className="border px-3 py-2 rounded" onClick={() => upload("MGMT_DOC")} disabled={!fileM}>Upload</button>
+              <div className="flex gap-2 items-end">
+                <input type="file" onChange={(e) => setFileM(e.target.files?.[0] || null)} className="text-sm" />
+                <Button variant="secondary" size="sm" onClick={() => upload("MGMT_DOC")} disabled={!fileM}>Upload</Button>
               </div>
             )}
           </div>
         </div>
-      </div>
+      </Card>
 
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Notes ({o.notes.length})</h2>
-        <div className="flex gap-2 mb-3">
-          <textarea className="border rounded px-3 py-2 flex-1" placeholder="Add a note..." value={note} onChange={(e) => setNote(e.target.value)} />
-          <select className="border rounded px-3 py-2" value={noteVis} onChange={(e) => setNoteVis(e.target.value as "ALL" | "INTERNAL")}>
-            <option value="ALL">All</option>
-            <option value="INTERNAL">Internal</option>
-          </select>
-          <button className="border px-3 py-2 rounded" onClick={addNote}>Add</button>
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Notes ({o.notes.length})</h2>
+        <div className="flex gap-3 mb-6">
+          <textarea
+            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 flex-1 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            placeholder="Add a note..."
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+          />
+          <div className="flex flex-col gap-2">
+            <select
+              className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+              value={noteVis}
+              onChange={(e) => setNoteVis(e.target.value as "ALL" | "INTERNAL")}
+            >
+              <option value="ALL">All</option>
+              <option value="INTERNAL">Internal</option>
+            </select>
+            <Button variant="primary" size="sm" onClick={addNote}>Add Note</Button>
+          </div>
         </div>
-        <ul className="text-sm space-y-2">
+        <ul className="text-sm space-y-3">
           {o.notes.map(n => (
-            <li key={n.id} className="border-b pb-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{n.actor.email ?? n.actor.name ?? "User"}</span>
-                <span className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()} · {n.visibility}</span>
+            <li key={n.id} className="border-b border-neutral-100 pb-3 last:border-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-neutral-900">{n.actor.email ?? n.actor.name ?? "User"}</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant={n.visibility === "INTERNAL" ? "warning" : "neutral"} size="sm">
+                    {n.visibility}
+                  </Badge>
+                  <span className="text-xs text-neutral-500">{new Date(n.createdAt).toLocaleString()}</span>
+                </div>
               </div>
-              <div>{n.text}</div>
+              <div className="text-neutral-700">{n.text}</div>
             </li>
           ))}
-          {o.notes.length === 0 && <li className="text-gray-500">No notes yet.</li>}
+          {o.notes.length === 0 && (
+            <li className="text-center py-8 text-neutral-500">No notes yet.</li>
+          )}
         </ul>
-      </div>
+      </Card>
 
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Action Plans ({o.actionPlans.length})</h2>
-        <div className="grid sm:grid-cols-6 gap-2 mb-3">
-          <input className="border rounded px-3 py-2" placeholder="Plan..." value={apPlan} onChange={(e) => setApPlan(e.target.value)} />
-          <input className="border rounded px-3 py-2" placeholder="Owner" value={apOwner} onChange={(e) => setApOwner(e.target.value)} />
-          <input className="border rounded px-3 py-2" type="date" placeholder="Target Date" value={apDate} onChange={(e) => setApDate(e.target.value)} />
-          <select className="border rounded px-3 py-2" value={apStatus} onChange={(e) => setApStatus(e.target.value)}>
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Action Plans ({o.actionPlans.length})</h2>
+        <div className="grid sm:grid-cols-6 gap-3 mb-6">
+          <input
+            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            placeholder="Plan..."
+            value={apPlan}
+            onChange={(e) => setApPlan(e.target.value)}
+          />
+          <input
+            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            placeholder="Owner"
+            value={apOwner}
+            onChange={(e) => setApOwner(e.target.value)}
+          />
+          <input
+            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            type="date"
+            placeholder="Target Date"
+            value={apDate}
+            onChange={(e) => setApDate(e.target.value)}
+          />
+          <select
+            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            value={apStatus}
+            onChange={(e) => setApStatus(e.target.value)}
+          >
             <option value="">Status</option>
             <option value="Pending">Pending</option>
             <option value="Completed">Completed</option>
           </select>
           {session?.user?.role && ["ADMIN", "AUDITOR"].includes(session.user.role) && (
-            <select className="border rounded px-3 py-2" value={apRetest} onChange={(e) => setApRetest(e.target.value)}>
+            <select
+              className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+              value={apRetest}
+              onChange={(e) => setApRetest(e.target.value)}
+            >
               <option value="">Retest</option>
               <option value="RETEST_DUE">Retest due</option>
               <option value="PASS">Pass</option>
               <option value="FAIL">Fail</option>
             </select>
           )}
-          <button className="border px-3 py-2 rounded" onClick={addActionPlan}>Add Action Plan</button>
+          <Button variant="primary" onClick={addActionPlan}>Add Plan</Button>
         </div>
-        <ul className="text-sm space-y-2">
+        <ul className="text-sm space-y-3">
           {o.actionPlans.map(ap => (
-            <li key={ap.id} className="border rounded p-2">
-              <div className="font-medium">{ap.plan}</div>
-              <div className="text-gray-600">Owner: {ap.owner ?? "—"} · Target: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"} · Status: {ap.status ?? "—"} · Retest: {ap.retest ? formatRetest(ap.retest) : "—"}</div>
-              <div className="text-xs text-gray-500">{new Date(ap.createdAt).toLocaleString()}</div>
-            </li>
-          ))}
-          {o.actionPlans.length === 0 && <li className="text-gray-500">No action plans yet.</li>}
-        </ul>
-      </div>
-
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Approvals ({o.approvals.length})</h2>
-        <ul className="text-sm space-y-2">
-          {o.approvals.map(ap => (
-            <li key={ap.id} className="border rounded p-2">
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{ap.status}</span>
-                <span className="text-xs text-gray-500">{new Date(ap.createdAt).toLocaleString()}</span>
-              </div>
-              <div className="text-gray-600">By: {ap.actor.email ?? ap.actor.name ?? "User"}</div>
-              {ap.comment && <div className="text-gray-700">Comment: {ap.comment}</div>}
-            </li>
-          ))}
-          {o.approvals.length === 0 && <li className="text-gray-500">No approval history yet.</li>}
-        </ul>
-      </div>
-
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <h2 className="font-medium">Change Requests</h2>
-        <ul className="text-sm space-y-2">
-          {changeRequests.map((cr) => (
-            <li key={cr.id} className="border rounded p-2">
-              <div className="flex items-center justify-between">
+            <li key={ap.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25 hover:shadow-sm transition-shadow">
+              <div className="font-semibold text-neutral-900 mb-2">{ap.plan}</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-neutral-600 mb-2">
+                <div><span className="font-medium">Owner:</span> {ap.owner ?? "—"}</div>
+                <div><span className="font-medium">Target:</span> {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"}</div>
+                <div><span className="font-medium">Status:</span> {ap.status ?? "—"}</div>
                 <div>
-                  <div className="font-medium">{cr.status}</div>
-                  <div className="text-xs text-gray-600">
-                    By: {cr.requester.email ?? cr.requester.name ?? "user"} · {new Date(cr.createdAt).toLocaleString()}
+                  <span className="font-medium">Retest:</span>{" "}
+                  {ap.retest ? (
+                    <Badge variant={ap.retest === "PASS" ? "success" : ap.retest === "FAIL" ? "error" : "warning"} size="sm">
+                      {formatRetest(ap.retest)}
+                    </Badge>
+                  ) : "—"}
+                </div>
+              </div>
+              <div className="text-xs text-neutral-500">{new Date(ap.createdAt).toLocaleString()}</div>
+            </li>
+          ))}
+          {o.actionPlans.length === 0 && (
+            <li className="text-center py-8 text-neutral-500">No action plans yet.</li>
+          )}
+        </ul>
+      </Card>
+
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Approvals ({o.approvals.length})</h2>
+        <ul className="text-sm space-y-3">
+          {o.approvals.map(ap => (
+            <li key={ap.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25">
+              <div className="flex items-center justify-between mb-2">
+                <Badge variant={getApprovalBadgeVariant(ap.status)}>{ap.status}</Badge>
+                <span className="text-xs text-neutral-500">{new Date(ap.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="text-neutral-600 mb-1">
+                <span className="font-medium">By:</span> {ap.actor.email ?? ap.actor.name ?? "User"}
+              </div>
+              {ap.comment && (
+                <div className="text-neutral-700 mt-2 p-3 bg-white rounded border border-neutral-200">
+                  <span className="font-medium text-neutral-900">Comment:</span> {ap.comment}
+                </div>
+              )}
+            </li>
+          ))}
+          {o.approvals.length === 0 && (
+            <li className="text-center py-8 text-neutral-500">No approval history yet.</li>
+          )}
+        </ul>
+      </Card>
+
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Change Requests</h2>
+        <ul className="text-sm space-y-4">
+          {changeRequests.map((cr) => (
+            <li key={cr.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <Badge variant={cr.status === "APPROVED" ? "success" : cr.status === "DENIED" ? "error" : "warning"}>
+                    {cr.status}
+                  </Badge>
+                  <div className="text-xs text-neutral-600 mt-2">
+                    <span className="font-medium">By:</span> {cr.requester.email ?? cr.requester.name ?? "user"} · {new Date(cr.createdAt).toLocaleString()}
                   </div>
-                  {cr.comment && <div className="text-xs text-gray-700">Comment: {cr.comment}</div>}
+                  {cr.comment && (
+                    <div className="text-xs text-neutral-700 mt-2">
+                      <span className="font-medium">Comment:</span> {cr.comment}
+                    </div>
+                  )}
                   {cr.decidedAt && (
-                    <div className="text-xs text-gray-600">
-                      Decision by: {cr.decidedBy?.email ?? cr.decidedBy?.name ?? "admin"} on {new Date(cr.decidedAt).toLocaleString()}
+                    <div className="text-xs text-neutral-600 mt-2">
+                      <span className="font-medium">Decision by:</span> {cr.decidedBy?.email ?? cr.decidedBy?.name ?? "admin"} on {new Date(cr.decidedAt).toLocaleString()}
                       {cr.decisionComment ? ` — ${cr.decisionComment}` : ""}
                     </div>
                   )}
                 </div>
                 {isAdmin && cr.status === "PENDING" && (
                   <div className="flex gap-2">
-                    <button className="border px-2 py-1 rounded" onClick={() => decideChange(cr, true)}>Approve & apply</button>
-                    <button className="border px-2 py-1 rounded" onClick={() => decideChange(cr, false)}>Deny</button>
+                    <Button variant="primary" size="sm" onClick={() => decideChange(cr, true)}>Approve & Apply</Button>
+                    <Button variant="destructive" size="sm" onClick={() => decideChange(cr, false)}>Deny</Button>
                   </div>
                 )}
               </div>
-              <pre className="text-xs bg-gray-50 p-2 rounded mt-2 overflow-auto">{JSON.stringify(cr.patch, null, 2)}</pre>
+              <pre className="text-xs bg-white border border-neutral-200 p-3 rounded-lg mt-3 overflow-auto">{JSON.stringify(cr.patch, null, 2)}</pre>
             </li>
           ))}
-          {changeRequests.length === 0 && <li className="text-gray-500">No change requests.</li>}
+          {changeRequests.length === 0 && (
+            <li className="text-center py-8 text-neutral-500">No change requests.</li>
+          )}
         </ul>
-      </div>
+      </Card>
     </div>
   );
 }

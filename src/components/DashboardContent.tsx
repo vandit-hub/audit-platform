@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 
 type AuditMetrics = {
   total: number;
@@ -64,120 +66,170 @@ export default function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-4xl font-bold text-neutral-900">Dashboard</h1>
+          <p className="text-base text-neutral-600 mt-2">Overview of your audit platform</p>
+        </div>
         <div className="grid sm:grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-6 bg-white rounded shadow animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          </div>
-          <div className="p-6 bg-white rounded shadow animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          </div>
+          <Card padding="lg">
+            <div className="animate-pulse space-y-4">
+              <div className="h-5 bg-neutral-200 rounded w-1/3"></div>
+              <div className="h-10 bg-neutral-200 rounded w-1/4"></div>
+            </div>
+          </Card>
+          <Card padding="lg">
+            <div className="animate-pulse space-y-4">
+              <div className="h-5 bg-neutral-200 rounded w-1/3"></div>
+              <div className="h-10 bg-neutral-200 rounded w-1/4"></div>
+            </div>
+          </Card>
         </div>
       </div>
     );
   }
 
+  const getStatusVariant = (status: string): "neutral" | "primary" | "warning" | "success" | "error" => {
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('planned')) return 'neutral';
+    if (statusLower.includes('progress')) return 'primary';
+    if (statusLower.includes('submitted')) return 'warning';
+    if (statusLower.includes('signed')) return 'success';
+    return 'neutral';
+  };
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold text-neutral-900">Dashboard</h1>
+        <p className="text-base text-neutral-600 mt-2">Overview of your audit platform</p>
+      </div>
 
       <div className="grid sm:grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Audits Card */}
-        <div className="p-6 bg-white rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">Audits</h2>
-            <Link href="/audits" className="text-sm text-blue-600 hover:text-blue-800">
-              View all →
+        <Card padding="lg">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-neutral-900">Audits</h2>
+            <Link
+              href="/audits"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+            >
+              View all
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <div className="text-3xl font-bold text-gray-900">
+              <div className="text-4xl font-bold text-neutral-900">
                 {auditMetrics?.total || 0}
               </div>
-              <div className="text-sm text-gray-500">Total audits</div>
+              <div className="text-sm text-neutral-600 mt-1">Total audits</div>
             </div>
 
             {auditMetrics && auditMetrics.total > 0 && (
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-gray-700">Status breakdown:</div>
-                <div className="space-y-1">
+              <div className="space-y-3 pt-4 border-t border-neutral-200">
+                <div className="text-sm font-semibold text-neutral-700">Status breakdown:</div>
+                <div className="space-y-2">
                   {Object.entries(auditMetrics.statusCounts).map(([status, count]) => (
-                    <div key={status} className="flex justify-between text-sm">
-                      <span className="text-gray-600 capitalize">
+                    <div key={status} className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600 capitalize">
                         {status.toLowerCase().replace('_', ' ')}
                       </span>
-                      <span className="font-medium">{count}</span>
+                      <div className="min-w-[50px] flex justify-end">
+                        <Badge variant={getStatusVariant(status)}>{count}</Badge>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Observations Card */}
-        <div className="p-6 bg-white rounded-lg shadow">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-900">Observations</h2>
-            <Link href="/observations" className="text-sm text-blue-600 hover:text-blue-800">
-              View all →
+        <Card padding="lg">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-neutral-900">Observations</h2>
+            <Link
+              href="/observations"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors flex items-center gap-1"
+            >
+              View all
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <div className="text-3xl font-bold text-gray-900">
+              <div className="text-4xl font-bold text-neutral-900">
                 {observationMetrics?.total || 0}
               </div>
-              <div className="text-sm text-gray-500">Total observations</div>
+              <div className="text-sm text-neutral-600 mt-1">Total observations</div>
             </div>
 
             {observationMetrics && observationMetrics.total > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-4 pt-4 border-t border-neutral-200">
                 <div>
-                  <div className="text-sm font-medium text-gray-700 mb-1">Status:</div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Pending</span>
-                      <span className="font-medium">{observationMetrics.statusCounts.PENDING}</span>
+                  <div className="text-sm font-semibold text-neutral-700 mb-2">Status:</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Pending</span>
+                      <div className="min-w-[50px] flex justify-end">
+                        <Badge variant="neutral">{observationMetrics.statusCounts.PENDING}</Badge>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">In Progress</span>
-                      <span className="font-medium">{observationMetrics.statusCounts.IN_PROGRESS}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">In Progress</span>
+                      <div className="min-w-[50px] flex justify-end">
+                        <Badge variant="primary">{observationMetrics.statusCounts.IN_PROGRESS}</Badge>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Resolved</span>
-                      <span className="font-medium text-green-600">{observationMetrics.statusCounts.RESOLVED}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-neutral-600">Resolved</span>
+                      <div className="min-w-[50px] flex justify-end">
+                        <Badge variant="success">{observationMetrics.statusCounts.RESOLVED}</Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-sm font-medium text-gray-700 mb-1">Risk levels:</div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-red-600">High (A): {observationMetrics.byRisk.A}</span>
-                    <span className="text-orange-600">Medium (B): {observationMetrics.byRisk.B}</span>
-                    <span className="text-yellow-600">Low (C): {observationMetrics.byRisk.C}</span>
+                <div className="pt-2">
+                  <div className="text-sm font-semibold text-neutral-700 mb-2">Risk levels:</div>
+                  <div className="flex gap-3 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="error">A</Badge>
+                      <span className="text-sm text-neutral-600">{observationMetrics.byRisk.A}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="warning">B</Badge>
+                      <span className="text-sm text-neutral-600">{observationMetrics.byRisk.B}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="neutral">C</Badge>
+                      <span className="text-sm text-neutral-600">{observationMetrics.byRisk.C}</span>
+                    </div>
                   </div>
                 </div>
 
                 {(observationMetrics.due.overdue > 0 || observationMetrics.due.dueSoon > 0) && (
-                  <div>
-                    <div className="text-sm font-medium text-gray-700 mb-1">Attention needed:</div>
-                    <div className="space-y-1">
+                  <div className="pt-2">
+                    <div className="text-sm font-semibold text-neutral-700 mb-2">Attention needed:</div>
+                    <div className="space-y-2">
                       {observationMetrics.due.overdue > 0 && (
-                        <div className="text-sm text-red-600">
-                          {observationMetrics.due.overdue} overdue
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="error">{observationMetrics.due.overdue}</Badge>
+                          <span className="text-neutral-600">overdue</span>
                         </div>
                       )}
                       {observationMetrics.due.dueSoon > 0 && (
-                        <div className="text-sm text-orange-600">
-                          {observationMetrics.due.dueSoon} due soon
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="warning">{observationMetrics.due.dueSoon}</Badge>
+                          <span className="text-neutral-600">due soon</span>
                         </div>
                       )}
                     </div>
@@ -186,7 +238,7 @@ export default function DashboardContent() {
               </div>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

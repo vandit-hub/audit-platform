@@ -4,6 +4,11 @@ import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 
 type Plant = { id: string; code: string; name: string };
 type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant };
@@ -155,187 +160,259 @@ export default function ObservationsPage() {
 
   const canCreate = role === "ADMIN" || role === "AUDITOR";
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Observations</h1>
+  const statusVariant = (status: string) => {
+    if (status.includes("DRAFT")) return "neutral";
+    if (status.includes("SUBMITTED") || status.includes("UNDER_REVIEW")) return "warning";
+    if (status.includes("APPROVED") || status.includes("RESOLVED") || status.includes("FINALISED")) return "success";
+    if (status.includes("REJECTED") || status.includes("REFERRED")) return "error";
+    return "primary";
+  };
 
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <div className="space-y-3">
-          {/* First row: Plant, Audit, Start Date, End Date */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs mb-1">Plant</label>
-              <select className="border rounded px-2 py-2 w-full" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
-                <option value="">All</option>
+  const riskVariant = (risk: string | null | undefined) => {
+    if (risk === "A") return "error";
+    if (risk === "B") return "warning";
+    if (risk === "C") return "neutral";
+    return "neutral";
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold text-neutral-900">Observations</h1>
+        <p className="text-base text-neutral-600 mt-2">Track and manage audit findings</p>
+      </div>
+
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Basic Filters</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Select label="Plant" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
+                <option value="">All Plants</option>
                 {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Audit</label>
-              <select className="border rounded px-2 py-2 w-full" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
-                <option value="">All</option>
+              </Select>
+
+              <Select label="Audit" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
+                <option value="">All Audits</option>
                 {audits.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Audit Start Date</label>
-              <input type="date" className="border rounded px-2 py-2 w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Audit End Date</label>
-              <input type="date" className="border rounded px-2 py-2 w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </Select>
+
+              <Input
+                type="date"
+                label="Audit Start Date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+
+              <Input
+                type="date"
+                label="Audit End Date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
             </div>
           </div>
 
-          {/* Second row: Risk, Process, Status, Published */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs mb-1">Risk</label>
-              <select className="border rounded px-2 py-2 w-full" value={risk} onChange={(e) => setRisk(e.target.value)}>
-                <option value="">All</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Process</label>
-              <select className="border rounded px-2 py-2 w-full" value={proc} onChange={(e) => setProc(e.target.value)}>
-                <option value="">All</option>
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Advanced Filters</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Select label="Risk Category" value={risk} onChange={(e) => setRisk(e.target.value)}>
+                <option value="">All Risks</option>
+                <option value="A">Risk A (High)</option>
+                <option value="B">Risk B (Medium)</option>
+                <option value="C">Risk C (Low)</option>
+              </Select>
+
+              <Select label="Process" value={proc} onChange={(e) => setProc(e.target.value)}>
+                <option value="">All Processes</option>
                 <option value="O2C">O2C</option>
                 <option value="P2P">P2P</option>
                 <option value="R2R">R2R</option>
                 <option value="INVENTORY">Inventory</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Status</label>
-              <select className="border rounded px-2 py-2 w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All</option>
+              </Select>
+
+              <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">All Statuses</option>
                 <option value="PENDING_MR">Pending MR</option>
                 <option value="MR_UNDER_REVIEW">MR Under Review</option>
                 <option value="REFERRED_BACK">Referred Back</option>
                 <option value="OBSERVATION_FINALISED">Observation Finalised</option>
                 <option value="RESOLVED">Resolved</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Published</label>
-              <select className="border rounded px-2 py-2 w-full" value={published} onChange={(e) => setPublished(e.target.value)}>
+              </Select>
+
+              <Select label="Published" value={published} onChange={(e) => setPublished(e.target.value)}>
                 <option value="">Any</option>
                 <option value="1">Published</option>
                 <option value="0">Unpublished</option>
-              </select>
+              </Select>
             </div>
           </div>
 
-          {/* Third row: Sort By, Sort Order, Search */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs mb-1">Sort By</label>
-              <select className="border rounded px-2 py-2 w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Sort & Search</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Select label="Sort By" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                 <option value="createdAt">Created Date</option>
                 <option value="updatedAt">Updated Date</option>
                 <option value="riskCategory">Risk Category</option>
                 <option value="currentStatus">Current Status</option>
                 <option value="approvalStatus">Approval Status</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Order</label>
-              <select className="border rounded px-2 py-2 w-full" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+              </Select>
+
+              <Select label="Order" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
                 <option value="desc">Newest First</option>
                 <option value="asc">Oldest First</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs mb-1">Search</label>
-              <input className="border rounded px-2 py-2 w-full" placeholder="Search text…" value={q} onChange={(e) => setQ(e.target.value)} />
+              </Select>
+
+              <Input
+                label="Search"
+                placeholder="Search observations..."
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
-          <button className="border px-3 py-1 rounded" onClick={exportCsv}>Export CSV</button>
+        <div className="flex flex-wrap gap-3 pt-2 border-t border-neutral-100">
+          <Button variant="secondary" onClick={resetFilters}>Reset Filters</Button>
+          <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
         </div>
-      </div>
+      </Card>
 
       {canCreate && (
-        <form onSubmit={create} className="bg-white rounded p-4 shadow space-y-3">
-        <div className="text-sm text-gray-600">Create Observation (Admin/Auditor)</div>
-        {error && <div className="text-sm text-red-700 bg-red-50 p-2 rounded">{error}</div>}
-        <div className="grid md:grid-cols-3 gap-3">
-          <div className="md:col-span-1">
-            <label className="block text-sm mb-1">Audit</label>
-            <select className="border rounded px-3 py-2 w-full" value={auditId} onChange={(e) => setAuditId(e.target.value)} required>
-              <option value="">Select audit</option>
-              {audits.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title || `${a.plant.code} — ${a.plant.name} (${a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})`}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm mb-1">Observation</label>
-            <input className="border rounded px-3 py-2 w-full" value={observationText} onChange={(e) => setObservationText(e.target.value)} required />
-          </div>
-          <div className="md:col-span-3">
-            <button className="bg-black text-white px-4 py-2 rounded" disabled={busy}>{busy ? "Creating…" : "Create"}</button>
-          </div>
-        </div>
-        </form>
+        <Card padding="lg">
+          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Observation (Admin/Auditor)</h2>
+          {error && (
+            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
+              {error}
+            </div>
+          )}
+          <form onSubmit={create} className="space-y-6">
+            <div className="grid md:grid-cols-3 gap-4">
+              <Select
+                label="Audit"
+                value={auditId}
+                onChange={(e) => setAuditId(e.target.value)}
+                required
+                className="md:col-span-1"
+              >
+                <option value="">Select audit</option>
+                {audits.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title || `${a.plant.code} — ${a.plant.name} (${a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})`}
+                  </option>
+                ))}
+              </Select>
+
+              <Input
+                label="Observation"
+                value={observationText}
+                onChange={(e) => setObservationText(e.target.value)}
+                required
+                className="md:col-span-2"
+                placeholder="Enter observation details..."
+              />
+            </div>
+
+            <Button type="submit" variant="primary" isLoading={busy}>
+              {busy ? "Creating…" : "Create Observation"}
+            </Button>
+          </form>
+        </Card>
       )}
 
-      <div className="bg-white rounded p-4 shadow">
-        <h2 className="font-medium mb-2">Results</h2>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500">
-              <th className="py-2">Plant</th>
-              <th className="py-2">Audit</th>
-              <th className="py-2">Observation</th>
-              <th className="py-2">Risk</th>
-              <th className="py-2">Process</th>
-              <th className="py-2">Status</th>
-              <th className="py-2">Approval</th>
-              <th className="py-2">Published</th>
-              <th className="py-2">Files</th>
-              <th className="py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t">
-                <td className="py-2">{r.plant.code}</td>
-                <td className="py-2">{r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}</td>
-                <td className="py-2 max-w-xs">
-                  <div className="truncate" title={r.title}>
-                    {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}
-                  </div>
-                </td>
-                <td className="py-2">{r.riskCategory ?? "—"}</td>
-                <td className="py-2">{r.concernedProcess ?? "—"}</td>
-                <td className="py-2">{r.currentStatus}</td>
-                <td className="py-2">{r.approvalStatus}</td>
-                <td className="py-2">{r.isPublished ? "Yes" : "No"}</td>
-                <td className="py-2">{r.annexures + r.mgmtDocs}</td>
-                <td className="py-2">
-                  <Link href={`/observations/${r.id}`} className="text-blue-600 underline">Open</Link>
-                </td>
+      <Card padding="lg">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-neutral-900">Results</h2>
+          <span className="text-sm font-medium text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-md">
+            {rows.length} {rows.length === 1 ? 'observation' : 'observations'}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Observation</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Risk</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Process</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Status</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Approval</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Published</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Files</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
               </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr><td className="py-4 text-gray-500" colSpan={10}>No observations.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {rows.map((r, index) => (
+                <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
+                  <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
+                  <td className="py-4 px-6 text-neutral-700 text-xs">
+                    {r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}
+                  </td>
+                  <td className="py-4 px-6 max-w-xs">
+                    <div className="truncate text-neutral-800" title={r.title}>
+                      {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    {r.riskCategory ? (
+                      <Badge variant={riskVariant(r.riskCategory)}>{r.riskCategory}</Badge>
+                    ) : (
+                      <span className="text-neutral-400">—</span>
+                    )}
+                  </td>
+                  <td className="py-4 px-6 text-neutral-600 text-xs">
+                    {r.concernedProcess ?? "—"}
+                  </td>
+                  <td className="py-4 px-6">
+                    <Badge variant={statusVariant(r.currentStatus)}>
+                      {r.currentStatus.replace("_", " ")}
+                    </Badge>
+                  </td>
+                  <td className="py-4 px-6">
+                    <Badge variant={statusVariant(r.approvalStatus)}>
+                      {r.approvalStatus}
+                    </Badge>
+                  </td>
+                  <td className="py-4 px-6">
+                    {r.isPublished ? (
+                      <Badge variant="success">Yes</Badge>
+                    ) : (
+                      <Badge variant="neutral">No</Badge>
+                    )}
+                  </td>
+                  <td className="py-4 px-6 text-neutral-600">
+                    <span className="font-medium">{r.annexures + r.mgmtDocs}</span>
+                  </td>
+                  <td className="py-4 px-6">
+                    <Link
+                      href={`/observations/${r.id}`}
+                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
+                    >
+                      Open →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td className="py-8 text-neutral-500 text-center" colSpan={10}>
+                    No observations found. Try adjusting your filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
