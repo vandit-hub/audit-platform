@@ -4,6 +4,11 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Badge from "@/components/ui/Badge";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -85,96 +90,87 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-        <p className="text-gray-600 mt-2">Invite new users to the audit platform</p>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold text-neutral-900">User Management</h1>
+        <p className="text-base text-neutral-600 mt-2">Invite new users to the audit platform</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <h2 className="text-lg font-semibold mb-4">Invite New User</h2>
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Invite New User</h2>
 
-        <form onSubmit={handleInviteUser} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="user@example.com"
-            />
-          </div>
+        <form onSubmit={handleInviteUser} className="space-y-6">
+          <Input
+            type="email"
+            label="Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="user@example.com"
+          />
 
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-              Role
-            </label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as any)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="GUEST">Guest</option>
-              <option value="AUDITEE">Auditee</option>
-              <option value="AUDITOR">Auditor</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
+          <Select
+            label="Role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as any)}
+          >
+            <option value="GUEST">Guest</option>
+            <option value="AUDITEE">Auditee</option>
+            <option value="AUDITOR">Auditor</option>
+            <option value="ADMIN">Admin</option>
+          </Select>
 
-          <div>
-            <label htmlFor="expires" className="block text-sm font-medium text-gray-700 mb-1">
-              Expires In (Days)
-            </label>
-            <input
-              type="number"
-              id="expires"
-              value={expiresInDays}
-              onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
-              min="1"
-              max="30"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          <Input
+            type="number"
+            label="Expires In (Days)"
+            value={expiresInDays.toString()}
+            onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
+            min="1"
+            max="30"
+            helperText="Invitation will expire after this many days (1-30)"
+          />
 
-          <button
+          <Button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="primary"
+            isLoading={isLoading}
+            className="w-full"
           >
             {isLoading ? "Creating Invitation..." : "Send Invitation"}
-          </button>
+          </Button>
         </form>
 
-
         {inviteToken && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-            <h3 className="text-sm font-medium text-blue-800 mb-2">Invitation Created</h3>
-            <p className="text-sm text-blue-700 mb-3">
-              Share this invitation link with the user:
-            </p>
+          <div className="mt-6 p-5 bg-primary-50 border border-primary-200 rounded-lg">
+            <div className="flex items-start gap-3 mb-4">
+              <svg className="h-6 w-6 text-primary-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-semibold text-primary-900 mb-1">Invitation Created Successfully</h3>
+                <p className="text-sm text-primary-700">
+                  Share this invitation link with the user:
+                </p>
+              </div>
+            </div>
             <div className="flex gap-2">
               <input
                 type="text"
                 readOnly
                 value={`${window.location.origin}/accept-invite?token=${inviteToken}`}
-                className="flex-1 px-3 py-2 text-sm bg-white border border-blue-300 rounded-md"
+                className="flex-1 px-3.5 py-2.5 text-sm bg-white border border-primary-300 rounded-lg focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
               />
-              <button
+              <Button
                 onClick={copyInviteLink}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                variant="primary"
+                size="md"
               >
                 Copy
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
