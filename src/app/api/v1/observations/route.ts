@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { assertAuditorOrAuditHead, isCFO, isCXOTeam, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { Prisma } from "@prisma/client";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
@@ -85,11 +85,13 @@ export async function GET(req: NextRequest) {
   let where: Prisma.ObservationWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  if (session.user.role === "ADMIN") {
-    // Admin can see all observations and filter by published flag explicitly
+  // CFO and CXO_TEAM can see all observations
+  if (isCFO(session.user.role) || isCXOTeam(session.user.role)) {
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
-  } else if (session.user.role === "AUDITOR") {
+  }
+  // AUDIT_HEAD and AUDITOR can see observations from assigned audits
+  else if (isAuditHead(session.user.role) || isAuditor(session.user.role)) {
     // Auditor can only see observations from audits they're assigned to
     const auditorFilter: Prisma.ObservationWhereInput = {
       audit: {
@@ -148,7 +150,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  assertAdminOrAuditor(session?.user?.role);
+  assertAuditorOrAuditHead(session?.user?.role);
 
   const body = await req.json();
   const input = createSchema.parse(body);

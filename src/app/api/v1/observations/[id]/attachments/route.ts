@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { isCFO, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
 
@@ -27,10 +27,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Observation not found" }, { status: 404 });
 
-  if (session.user.role === "ADMIN") {
-    // Admin can upload any attachment
-  } else if (session.user.role === "AUDITOR") {
-    // Check if auditor is assigned to this audit
+  // CFO can upload any attachment
+  if (isCFO(session.user.role)) {
+    // No checks needed - CFO has full access
+  }
+  // AUDIT_HEAD and AUDITOR can upload if assigned to the audit
+  else if (isAuditHead(session.user.role) || isAuditor(session.user.role)) {
     const assignment = await prisma.auditAssignment.findFirst({
       where: {
         auditId: obs.auditId,
@@ -40,7 +42,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!assignment) {
       return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
     }
-  } else if (isAuditee(session.user.role)) {
+  }
+  // AUDITEE can only upload MGMT_DOC for assigned observations
+  else if (isAuditee(session.user.role)) {
     if (input.kind !== "MGMT_DOC") {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
@@ -48,7 +52,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!isObservationInScope(obs, scope)) {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
-  } else if (isGuest(session.user.role)) {
+  }
+  // GUEST and others cannot upload
+  else {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
