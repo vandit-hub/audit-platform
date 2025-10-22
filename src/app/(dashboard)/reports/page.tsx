@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useToast } from "@/contexts/ToastContext";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Badge from "@/components/ui/Badge";
 
 type KPI = {
   total: number;
@@ -181,204 +186,278 @@ export default function ReportsPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Reports</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-4xl font-bold text-neutral-900">Reports</h1>
+        <p className="text-base text-neutral-600 mt-2">View analytics and export audit reports</p>
+      </div>
 
-      <div className="bg-white rounded p-4 shadow space-y-3">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs mb-1">Plant</label>
-            <select className="border rounded px-2 py-2 w-full" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filters</h2>
+        <div className="space-y-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Select label="Plant" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
               <option value="">All</option>
               {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Audit</label>
-            <select className="border rounded px-2 py-2 w-full" value={auditId} onChange={(e) => setAuditId(e.target.value)}>
+            </Select>
+
+            <Select label="Audit" value={auditId} onChange={(e) => setAuditId(e.target.value)}>
               <option value="">All</option>
               {audits.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.title || "Untitled"} — {a.plant.code} ({a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "?"})
                 </option>
               ))}
-            </select>
+            </Select>
+
+            <Input
+              type="date"
+              label="Start Date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+
+            <Input
+              type="date"
+              label="End Date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
           </div>
-          <div>
-            <label className="block text-xs mb-1">Start Date</label>
-            <input type="date" className="border rounded px-2 py-2 w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-xs mb-1">End Date</label>
-            <input type="date" className="border rounded px-2 py-2 w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-xs mb-1">Risk</label>
-            <select className="border rounded px-2 py-2 w-full" value={risk} onChange={(e) => setRisk(e.target.value)}>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Select label="Risk Category" value={risk} onChange={(e) => setRisk(e.target.value)}>
               <option value="">All</option>
               <option value="A">A</option>
               <option value="B">B</option>
               <option value="C">C</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Process</label>
-            <select className="border rounded px-2 py-2 w-full" value={process} onChange={(e) => setProcess(e.target.value)}>
+            </Select>
+
+            <Select label="Process" value={process} onChange={(e) => setProcess(e.target.value)}>
               <option value="">All</option>
               <option value="O2C">O2C</option>
               <option value="P2P">P2P</option>
               <option value="R2R">R2R</option>
               <option value="INVENTORY">Inventory</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Status</label>
-            <select className="border rounded px-2 py-2 w-full" value={status} onChange={(e) => setStatus(e.target.value)}>
+            </Select>
+
+            <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All</option>
               <option value="PENDING_MR">Pending MR</option>
               <option value="MR_UNDER_REVIEW">MR Under Review</option>
               <option value="REFERRED_BACK">Referred Back</option>
               <option value="OBSERVATION_FINALISED">Observation Finalised</option>
               <option value="RESOLVED">Resolved</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs mb-1">Published</label>
-            <select className="border rounded px-2 py-2 w-full" value={published} onChange={(e) => setPublished(e.target.value)}>
+            </Select>
+
+            <Select label="Published" value={published} onChange={(e) => setPublished(e.target.value)}>
               <option value="">Any</option>
               <option value="1">Published</option>
               <option value="0">Unpublished</option>
-            </select>
+            </Select>
+          </div>
+
+          <div className="flex gap-3 flex-wrap pt-4 border-t border-neutral-200">
+            <Button variant="secondary" size="sm" onClick={savePreset}>Save Preset</Button>
+            <Button variant="secondary" size="sm" onClick={loadPresetManual}>Load Preset</Button>
+            <Button variant="secondary" size="sm" onClick={resetFilters}>Reset Filters</Button>
+            <div className="ml-auto flex gap-3">
+              <Button variant="primary" size="sm" onClick={exportPeriodReport}>Download Period Report</Button>
+              <Button variant="primary" size="sm" onClick={exportRetestReport}>Download Retest Report</Button>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button className="border px-3 py-1 rounded" onClick={savePreset}>Save preset</button>
-          <button className="border px-3 py-1 rounded" onClick={loadPresetManual}>Load preset</button>
-          <button className="border px-3 py-1 rounded" onClick={resetFilters}>Reset</button>
-          <button className="border px-3 py-1 rounded bg-blue-50 hover:bg-blue-100" onClick={exportPeriodReport}>Download Period Report</button>
-          <button className="border px-3 py-1 rounded bg-green-50 hover:bg-green-100" onClick={exportRetestReport}>Download Retest Report</button>
-        </div>
-      </div>
+      </Card>
 
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-gray-600">Due window (days)</label>
-        <input className="border rounded px-2 py-1 w-20" type="number" min={1} max={60} value={days} onChange={(e) => setDays(parseInt(e.target.value || "14", 10))} />
-      </div>
+      <Card padding="lg">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-neutral-700">Due window (days)</label>
+          <Input
+            type="number"
+            min={1}
+            max={60}
+            value={days.toString()}
+            onChange={(e) => setDays(parseInt(e.target.value || "14", 10))}
+            className="w-24"
+          />
+          <p className="text-sm text-neutral-600">Show action plans due within this time frame</p>
+        </div>
+      </Card>
 
       {kpi && (
         <>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">Total Observations</div>
-              <div className="text-2xl font-bold">{kpi.total}</div>
-            </div>
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">Pending</div>
-              <div className="text-2xl font-bold">{kpi.statusCounts.PENDING}</div>
-            </div>
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">In Progress</div>
-              <div className="text-2xl font-bold">{kpi.statusCounts.IN_PROGRESS}</div>
-            </div>
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">Resolved</div>
-              <div className="text-2xl font-bold">{kpi.statusCounts.RESOLVED}</div>
+          <div>
+            <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider">Overview</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card padding="lg" hover>
+                <div className="text-neutral-600 text-sm font-medium mb-2">Total Observations</div>
+                <div className="text-4xl font-bold text-neutral-900">{kpi.total}</div>
+              </Card>
+              <Card padding="lg" hover>
+                <div className="text-neutral-600 text-sm font-medium mb-2">Pending</div>
+                <div className="text-4xl font-bold text-warning-600">{kpi.statusCounts.PENDING}</div>
+              </Card>
+              <Card padding="lg" hover>
+                <div className="text-neutral-600 text-sm font-medium mb-2">In Progress</div>
+                <div className="text-4xl font-bold text-primary-600">{kpi.statusCounts.IN_PROGRESS}</div>
+              </Card>
+              <Card padding="lg" hover>
+                <div className="text-neutral-600 text-sm font-medium mb-2">Resolved</div>
+                <div className="text-4xl font-bold text-success-600">{kpi.statusCounts.RESOLVED}</div>
+              </Card>
             </div>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">Approvals</div>
-              <div className="text-sm">
-                DRAFT: {kpi.approvalCounts.DRAFT} · SUBMITTED: {kpi.approvalCounts.SUBMITTED} · APPROVED: {kpi.approvalCounts.APPROVED} · REJECTED: {kpi.approvalCounts.REJECTED}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <Card padding="lg">
+              <div className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Approvals</div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Draft</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="neutral">{kpi.approvalCounts.DRAFT}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Submitted</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="warning">{kpi.approvalCounts.SUBMITTED}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Approved</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="success">{kpi.approvalCounts.APPROVED}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Rejected</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="error">{kpi.approvalCounts.REJECTED}</Badge>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">Published</div>
-              <div className="text-sm">
-                Published: {kpi.published.published} · Unpublished: {kpi.published.unpublished}
+            </Card>
+            <Card padding="lg">
+              <div className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Publication Status</div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Published</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="success">{kpi.published.published}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Unpublished</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="neutral">{kpi.published.unpublished}</Badge>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="p-4 bg-white rounded shadow">
-              <div className="text-gray-500 text-sm">By Risk</div>
-              <div className="text-sm">
-                A: {kpi.byRisk.A} · B: {kpi.byRisk.B} · C: {kpi.byRisk.C}
+            </Card>
+            <Card padding="lg">
+              <div className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">By Risk Category</div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Category A</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="error">{kpi.byRisk.A}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Category B</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="warning">{kpi.byRisk.B}</Badge>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-neutral-600">Category C</span>
+                  <div className="min-w-[60px] flex justify-end">
+                    <Badge variant="neutral">{kpi.byRisk.C}</Badge>
+                  </div>
+                </div>
               </div>
-            </div>
+            </Card>
           </div>
         </>
       )}
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded p-4 shadow">
-          <h2 className="font-medium mb-2">Overdue Action Plans</h2>
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card padding="lg">
+          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Overdue Action Plans</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500">
-                  <th className="py-2">Plant</th>
-                  <th className="py-2">Plan</th>
-                  <th className="py-2">Target</th>
-                  <th className="py-2">Owner</th>
-                  <th className="py-2">Retest</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plan</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Target</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Owner</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Retest</th>
                 </tr>
               </thead>
-              <tbody>
-                {overdue.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="py-2">{r.plant.code}</td>
-                    <td className="py-2 max-w-xs truncate" title={r.plan}>{r.plan}</td>
-                    <td className="py-2">{new Date(r.targetDate).toLocaleDateString()}</td>
-                    <td className="py-2">{r.owner ?? "—"}</td>
-                    <td className="py-2">
-                      {r.retest === "RETEST_DUE" && <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">Due</span>}
-                      {r.retest === "PASS" && <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800">Pass</span>}
-                      {r.retest === "FAIL" && <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-800">Fail</span>}
-                      {!r.retest && <span className="text-gray-400">—</span>}
+              <tbody className="divide-y divide-neutral-100">
+                {overdue.map((r, index) => (
+                  <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
+                    <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
+                    <td className="py-4 px-6 text-neutral-700 max-w-xs truncate" title={r.plan}>{r.plan}</td>
+                    <td className="py-4 px-6 text-neutral-600">{new Date(r.targetDate).toLocaleDateString()}</td>
+                    <td className="py-4 px-6 text-neutral-600">{r.owner ?? "—"}</td>
+                    <td className="py-4 px-6">
+                      {r.retest === "RETEST_DUE" && <Badge variant="warning" size="sm">Due</Badge>}
+                      {r.retest === "PASS" && <Badge variant="success" size="sm">Pass</Badge>}
+                      {r.retest === "FAIL" && <Badge variant="error" size="sm">Fail</Badge>}
+                      {!r.retest && <span className="text-neutral-400">—</span>}
                     </td>
                   </tr>
                 ))}
-                {overdue.length === 0 && <tr><td className="py-3 text-gray-500" colSpan={5}>None.</td></tr>}
+                {overdue.length === 0 && (
+                  <tr>
+                    <td className="py-8 text-center text-neutral-500" colSpan={5}>No overdue action plans</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded p-4 shadow">
-          <h2 className="font-medium mb-2">Action plan due in (next {days} days)</h2>
+        <Card padding="lg">
+          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Due Soon (next {days} days)</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500">
-                  <th className="py-2">Plant</th>
-                  <th className="py-2">Plan</th>
-                  <th className="py-2">Target</th>
-                  <th className="py-2">Owner</th>
-                  <th className="py-2">Retest</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plan</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Target</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Owner</th>
+                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Retest</th>
                 </tr>
               </thead>
-              <tbody>
-                {dueSoon.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="py-2">{r.plant.code}</td>
-                    <td className="py-2 max-w-xs truncate" title={r.plan}>{r.plan}</td>
-                    <td className="py-2">{new Date(r.targetDate).toLocaleDateString()}</td>
-                    <td className="py-2">{r.owner ?? "—"}</td>
-                    <td className="py-2">
-                      {r.retest === "RETEST_DUE" && <span className="px-2 py-1 text-xs rounded bg-yellow-100 text-yellow-800">Due</span>}
-                      {r.retest === "PASS" && <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800">Pass</span>}
-                      {r.retest === "FAIL" && <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-800">Fail</span>}
-                      {!r.retest && <span className="text-gray-400">—</span>}
+              <tbody className="divide-y divide-neutral-100">
+                {dueSoon.map((r, index) => (
+                  <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
+                    <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
+                    <td className="py-4 px-6 text-neutral-700 max-w-xs truncate" title={r.plan}>{r.plan}</td>
+                    <td className="py-4 px-6 text-neutral-600">{new Date(r.targetDate).toLocaleDateString()}</td>
+                    <td className="py-4 px-6 text-neutral-600">{r.owner ?? "—"}</td>
+                    <td className="py-4 px-6">
+                      {r.retest === "RETEST_DUE" && <Badge variant="warning" size="sm">Due</Badge>}
+                      {r.retest === "PASS" && <Badge variant="success" size="sm">Pass</Badge>}
+                      {r.retest === "FAIL" && <Badge variant="error" size="sm">Fail</Badge>}
+                      {!r.retest && <span className="text-neutral-400">—</span>}
                     </td>
                   </tr>
                 ))}
-                {dueSoon.length === 0 && <tr><td className="py-3 text-gray-500" colSpan={5}>None.</td></tr>}
+                {dueSoon.length === 0 && (
+                  <tr>
+                    <td className="py-8 text-center text-neutral-500" colSpan={5}>No action plans due soon</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

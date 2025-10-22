@@ -2,6 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 export default function AcceptInvitePage() {
   const sp = useSearchParams();
@@ -34,60 +37,75 @@ export default function AcceptInvitePage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gray-50">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-sm p-6 bg-white rounded-lg shadow space-y-4"
-      >
-        <h1 className="text-xl font-semibold">Accept Invitation</h1>
-        {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 p-2 rounded">
-            {error}
+    <div className="min-h-screen grid place-items-center bg-gradient-to-br from-neutral-50 to-neutral-100 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4">
+            <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
           </div>
-        )}
-        <div className="space-y-1">
-          <label className="block text-sm">Invite token</label>
-          <input
-            className="w-full border rounded px-3 py-2"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            required
-          />
-          <p className="text-xs text-gray-500">
-            (Paste the token you received from the Admin.)
-          </p>
+          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Accept Invitation</h1>
+          <p className="text-neutral-600">Complete your account setup to get started</p>
         </div>
-        <div className="space-y-1">
-          <label className="block text-sm">Your name</label>
-          <input
-            className="w-full border rounded px-3 py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="block text-sm">Create password</label>
-          <input
-            className="w-full border rounded px-3 py-2"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
-          <p className="text-xs text-gray-500">
-            Use at least 8 chars, with letters, numbers & symbols.
-          </p>
-        </div>
-        <button
-          className="w-full py-2 rounded bg-black text-white hover:opacity-90 disabled:opacity-50"
-          type="submit"
-          disabled={busy}
-        >
-          {busy ? "Working…" : "Accept invite"}
-        </button>
-      </form>
+
+        <Card padding="lg">
+          {error && (
+            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg flex items-start gap-3">
+              <svg className="h-5 w-5 text-error-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="space-y-6">
+            <Input
+              label="Invite Token"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              required
+              placeholder="Paste your invitation token"
+              helperText="Enter the token you received from the Admin"
+            />
+
+            <Input
+              label="Your Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="John Doe"
+            />
+
+            <Input
+              type="password"
+              label="Create Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              placeholder="••••••••"
+              helperText="Use at least 8 characters with letters, numbers & symbols"
+            />
+
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={busy}
+              className="w-full"
+            >
+              {busy ? "Setting up your account..." : "Accept Invitation"}
+            </Button>
+          </form>
+        </Card>
+
+        <p className="text-center mt-6 text-sm text-neutral-600">
+          Already have an account?{" "}
+          <a href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            Sign in
+          </a>
+        </p>
+      </div>
     </div>
   );
 }

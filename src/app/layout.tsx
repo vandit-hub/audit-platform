@@ -9,8 +9,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const session = await auth();
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <SessionWrapper session={session}>
           <ToastProvider>
             {children}
