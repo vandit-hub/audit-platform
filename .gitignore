@@ -42,3 +42,7 @@ next-env.d.ts
 
 # claude code
 .claude/claude-code-workflows-main 2 copy/
+
+
+# qdrant storage
+qdrant_storage/

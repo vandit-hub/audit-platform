@@ -727,68 +727,30 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        {/* Section 3: Implementation Details */}
-        <div>
-          <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Implementation Details</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Target Date</label>
-                {isFieldLocked("targetDate") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
-                    Locked
-                  </div>
-                )}
-              </div>
-              <input
-                className={getFieldClassName("targetDate")}
-                type="date"
-                value={draft.targetDate}
-                onChange={(e) => setField("targetDate", e.target.value)}
-                disabled={isFieldDisabled("targetDate")}
-              />
+        {/* Current Status */}
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">Current Status</label>
+              {isFieldLocked("currentStatus") && (
+                <div className="flex items-center text-xs text-orange-600">
+                  <span className="mr-1">🔒</span>
+                  Locked
+                </div>
+              )}
             </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Person Responsible</label>
-                {isFieldLocked("personResponsibleToImplement") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
-                    Locked
-                  </div>
-                )}
-              </div>
-              <input
-                className={getFieldClassName("personResponsibleToImplement")}
-                value={draft.personResponsibleToImplement}
-                onChange={(e) => setField("personResponsibleToImplement", e.target.value)}
-                disabled={isFieldDisabled("personResponsibleToImplement")}
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Current Status</label>
-                {isFieldLocked("currentStatus") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
-                    Locked
-                  </div>
-                )}
-              </div>
-              <select
-                className={getFieldClassName("currentStatus")}
-                value={draft.currentStatus}
-                onChange={(e) => setField("currentStatus", e.target.value)}
-                disabled={isFieldDisabled("currentStatus")}
-              >
-                <option value="PENDING_MR">Pending MR</option>
-                <option value="MR_UNDER_REVIEW">MR under review</option>
-                <option value="REFERRED_BACK">Referred back for MR</option>
-                <option value="OBSERVATION_FINALISED">Observation finalised</option>
-                <option value="RESOLVED">Resolved</option>
-              </select>
-            </div>
+            <select
+              className={getFieldClassName("currentStatus")}
+              value={draft.currentStatus}
+              onChange={(e) => setField("currentStatus", e.target.value)}
+              disabled={isFieldDisabled("currentStatus")}
+            >
+              <option value="PENDING_MR">Pending MR</option>
+              <option value="MR_UNDER_REVIEW">MR under review</option>
+              <option value="REFERRED_BACK">Referred back for MR</option>
+              <option value="OBSERVATION_FINALISED">Observation finalised</option>
+              <option value="RESOLVED">Resolved</option>
+            </select>
           </div>
         </div>
         <div className="flex gap-3 flex-wrap pt-4 border-t border-neutral-200">

@@ -28,9 +28,54 @@ A comprehensive internal audit management system built with Next.js 15, featurin
 ## Prerequisites
 
 - Node.js 20.9 or higher
-- PostgreSQL 14+
+- Docker (for PostgreSQL database)
 - npm
 - AWS S3 bucket (optional, for file attachments)
+
+## Database Setup
+
+**IMPORTANT**: This project uses PostgreSQL running in a Docker container named `audit-postgres`. Do NOT use a local Homebrew or system PostgreSQL installation.
+
+### Starting the Database
+
+1. **Start the PostgreSQL Docker container**
+   ```bash
+   docker start audit-postgres
+   ```
+
+2. **Verify the container is running**
+   ```bash
+   docker ps | grep audit-postgres
+   ```
+
+   You should see the container running on port 5432.
+
+3. **If the container doesn't exist, check for it**
+   ```bash
+   docker ps -a | grep postgres
+   ```
+
+   If you need to create it, use docker-compose or check your project's deployment files.
+
+### Stopping the Database
+
+```bash
+docker stop audit-postgres
+```
+
+### Connection Details
+
+- **Host**: localhost
+- **Port**: 5432
+- **Database**: audit_platform
+- **User**: postgres
+- **Password**: audit123
+- **Connection String**: `postgresql://postgres:audit123@localhost:5432/audit_platform`
+
+**Note**: If you have Homebrew PostgreSQL running, stop it to avoid port conflicts:
+```bash
+brew services stop postgresql@14
+```
 
 ## Installation
 
@@ -51,9 +96,9 @@ A comprehensive internal audit management system built with Next.js 15, featurin
    ```
 
    Edit `.env` and configure:
-   - `DATABASE_URL` - PostgreSQL connection string
+   - `DATABASE_URL` - PostgreSQL connection string (should be `postgresql://postgres:audit123@localhost:5432/audit_platform`)
    - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
-   - `NEXTAUTH_URL` - Application URL (http://localhost:3000 for dev)
+   - `NEXTAUTH_URL` - Application URL (http://localhost:3005 for dev)
    - `WEBSOCKET_PORT` - WebSocket server port (default: 3001)
    - `NEXT_PUBLIC_WEBSOCKET_URL` - WebSocket URL for client (ws://localhost:3001 for dev)
 
@@ -89,12 +134,17 @@ These are already configured in `.env.example` with the credentials shown above.
 
 ## Development
 
+**Before starting development**, ensure PostgreSQL is running:
+```bash
+docker start audit-postgres
+```
+
 The application requires **two servers** running concurrently:
 
 ### Option 1: Run both servers separately
 
 ```bash
-# Terminal 1 - Next.js app (port 3000)
+# Terminal 1 - Next.js app (port 3005)
 npm run dev
 
 # Terminal 2 - WebSocket server (port 3001)
@@ -108,7 +158,7 @@ pm2 start ecosystem.config.js
 pm2 logs
 ```
 
-Access the application at http://localhost:3000
+Access the application at http://localhost:3005
 
 ## Project Structure
 
@@ -166,7 +216,7 @@ audit-platform/
 
 The application uses two separate Node.js processes:
 
-1. **Next.js Application (port 3000)**
+1. **Next.js Application (port 3005)**
    - Main web application
    - API routes and server actions
    - Server-side rendering
@@ -180,6 +230,8 @@ The application uses two separate Node.js processes:
    - JWT-based authentication
 
 Both servers must run for full functionality. The WebSocket server is independent and can scale separately.
+
+**Note**: The app runs on port 3005 (not the default 3000) to avoid conflicts with other development servers.
 
 ### Authentication
 
