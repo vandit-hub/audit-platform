@@ -4,10 +4,12 @@ import { signOut, useSession } from "next-auth/react";
 import RoleBadge from "./RoleBadge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isCFOOrCXOTeam, isAuditHead, isAuditee } from "@/lib/rbac";
 
 export default function NavBar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const userRole = session?.user?.role;
 
   const isActive = (path: string) => {
     if (path === "/" && pathname === "/") return true;
@@ -21,6 +23,13 @@ export default function NavBar() {
       ? `${base} bg-primary-50 text-primary-700`
       : `${base} text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900`;
   };
+
+  // Role-based navigation visibility
+  const showPlants = userRole && isCFOOrCXOTeam(userRole);
+  const showAudits = userRole && !isAuditee(userRole);
+  const showObservations = true; // All roles can see observations
+  const showReports = userRole && (isCFOOrCXOTeam(userRole) || isAuditHead(userRole));
+  const showUsers = userRole && isCFOOrCXOTeam(userRole);
 
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
@@ -36,19 +45,27 @@ export default function NavBar() {
               </span>
             </Link>
             <nav className="hidden md:flex items-center gap-1">
-              <Link href="/plants" className={navLinkClass("/plants")}>
-                Plants
-              </Link>
-              <Link href="/audits" className={navLinkClass("/audits")}>
-                Audits
-              </Link>
-              <Link href="/observations" className={navLinkClass("/observations")}>
-                Observations
-              </Link>
-              <Link href="/reports" className={navLinkClass("/reports")}>
-                Reports
-              </Link>
-              {session?.user?.role === "ADMIN" && (
+              {showPlants && (
+                <Link href="/plants" className={navLinkClass("/plants")}>
+                  Plants
+                </Link>
+              )}
+              {showAudits && (
+                <Link href="/audits" className={navLinkClass("/audits")}>
+                  Audits
+                </Link>
+              )}
+              {showObservations && (
+                <Link href="/observations" className={navLinkClass("/observations")}>
+                  Observations
+                </Link>
+              )}
+              {showReports && (
+                <Link href="/reports" className={navLinkClass("/reports")}>
+                  Reports
+                </Link>
+              )}
+              {showUsers && (
                 <Link href="/admin/users" className={navLinkClass("/admin")}>
                   Users
                 </Link>

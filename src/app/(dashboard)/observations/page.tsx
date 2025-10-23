@@ -9,13 +9,14 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import { isAuditorOrAuditHead } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
-type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant };
+type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant; isLocked?: boolean };
 type ObservationRow = {
   id: string;
   plant: Plant;
-  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null };
+  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null; isLocked?: boolean };
   riskCategory?: "A" | "B" | "C" | null;
   concernedProcess?: "O2C" | "P2P" | "R2R" | "INVENTORY" | null;
   currentStatus: "PENDING" | "IN_PROGRESS" | "RESOLVED";
@@ -158,7 +159,7 @@ export default function ObservationsPage() {
     showSuccess("CSV export started! Download will begin shortly.");
   }
 
-  const canCreate = role === "ADMIN" || role === "AUDITOR";
+  const canCreate = isAuditorOrAuditHead(role);
 
   const statusVariant = (status: string) => {
     if (status.includes("DRAFT")) return "neutral";
@@ -340,6 +341,7 @@ export default function ObservationsPage() {
               <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Observation</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Risk</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Process</th>
@@ -356,6 +358,18 @@ export default function ObservationsPage() {
                   <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
                   <td className="py-4 px-6 text-neutral-700 text-xs">
                     {r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}
+                  </td>
+                  <td className="py-4 px-6">
+                    {r.audit.isLocked ? (
+                      <Badge variant="warning">
+                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Locked
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">Open</Badge>
+                    )}
                   </td>
                   <td className="py-4 px-6 max-w-xs">
                     <div className="truncate text-neutral-800" title={r.title}>
@@ -404,7 +418,7 @@ export default function ObservationsPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="py-8 text-neutral-500 text-center" colSpan={10}>
+                  <td className="py-8 text-neutral-500 text-center" colSpan={11}>
                     No observations found. Try adjusting your filters.
                   </td>
                 </tr>
