@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor } from "@/lib/rbac";
+import { assertCFOOrCXOTeam, isCFO, isCXOTeam, isAuditHead, isAuditor } from "@/lib/rbac";
+import { writeAuditEvent } from "@/server/auditTrail";
 
 const updateSchema = z.object({
   title: z.string().nullable().optional(),
@@ -22,6 +23,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
+  const role = session.user.role;
+  const userId = session.user.id;
+
   const audit = await prisma.audit.findUnique({
     where: { id },
     include: {
@@ -31,6 +35,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   if (!audit) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+
+  // Apply role-based access control
+  if (isCFO(role) || isCXOTeam(role)) {
+    // CFO and CXO_TEAM can view all audits - allow access
+  } else if (isAuditHead(role) && audit.auditHeadId === userId) {
+    // AUDIT_HEAD can view if they lead this audit - allow access
+  } else if (isAuditor(role) && audit.assignments.some(a => a.auditorId === userId)) {
+    // AUDITOR can view if assigned to this audit - allow access
+  } else {
+    // Otherwise deny access
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const [total, done] = await Promise.all([
     prisma.observation.count({ where: { auditId: id } }),
@@ -47,7 +63,29 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  assertAdminOrAuditor(session?.user?.role);
+
+  try {
+    assertCFOOrCXOTeam(session?.user?.role);
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message || "Forbidden" },
+      { status: err.status || 403 }
+    );
+  }
+
+  // Check if audit is locked
+  const existing = await prisma.audit.findUnique({
+    where: { id },
+    select: { isLocked: true }
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "Audit not found" }, { status: 404 });
+  }
+
+  if (existing.isLocked && !isCFO(session?.user?.role)) {
+    return NextResponse.json({ error: "Audit is locked" }, { status: 403 });
+  }
 
   const body = await req.json();
   const input = updateSchema.parse(body);
@@ -68,6 +106,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       signOffAt:
         input.signOffAt === undefined ? undefined : input.signOffAt ? new Date(input.signOffAt) : null
     }
+  });
+
+  // Log audit trail
+  await writeAuditEvent({
+    entityType: 'AUDIT',
+    entityId: id,
+    action: 'UPDATED',
+    actorId: session!.user.id,
+    diff: input
   });
 
   return NextResponse.json({ ok: true, audit: updated });
