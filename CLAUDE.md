@@ -338,3 +338,31 @@ The codebase does not currently have automated tests. When adding tests:
 - Use standard Next.js testing setup (Jest + React Testing Library)
 - Test WebSocket handlers separately from API routes
 - Consider integration tests for the dual-server architecture
+
+### Browser-Based Testing with Playwright
+
+**❌ DON'T: Programmatic Auth with curl/fetch**
+
+This approach DOES NOT WORK with NextAuth v5. Do not attempt to:
+- Use curl/fetch to POST to auth endpoints
+- Manually set session cookies via API calls
+- Bypass the login UI form submission
+
+**✅ DO: UI-Based Login through Browser**
+
+Use Playwright browser automation to:
+- Navigate to `/login` page
+- Fill the login form fields (email, password)
+- Submit the form via click
+- Let NextAuth v5 handle session creation naturally through the browser
+
+Example (Playwright):
+```typescript
+await page.goto('/login');
+await page.fill('input[name="email"]', 'user@example.com');
+await page.fill('input[name="password"]', 'password123');
+await page.click('button[type="submit"]');
+await page.waitForURL(/^((?!\/login).)*$/); // Wait for redirect
+```
+
+This ensures NextAuth v5 session management works correctly with proper cookies and JWT handling.
