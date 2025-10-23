@@ -90,9 +90,24 @@ export async function GET(req: NextRequest) {
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
   }
-  // AUDIT_HEAD and AUDITOR can see observations from assigned audits
-  else if (isAuditHead(session.user.role) || isAuditor(session.user.role)) {
-    // Auditor can only see observations from audits they're assigned to
+  // AUDIT_HEAD can see observations from audits where they are the audit head OR assigned as auditor
+  else if (isAuditHead(session.user.role)) {
+    const auditHeadFilter: Prisma.ObservationWhereInput = {
+      audit: {
+        OR: [
+          { auditHeadId: session.user.id }, // Audits where they are the audit head
+          { assignments: { some: { auditorId: session.user.id } } } // Audits where they're assigned as auditor
+        ]
+      }
+    };
+    where = { AND: [where, auditHeadFilter] };
+
+    // Audit heads can also filter by published flag
+    if (published === "1") where = { AND: [where, { isPublished: true }] };
+    else if (published === "0") where = { AND: [where, { isPublished: false }] };
+  }
+  // AUDITOR can see observations from audits they're assigned to
+  else if (isAuditor(session.user.role)) {
     const auditorFilter: Prisma.ObservationWhereInput = {
       audit: {
         assignments: {
@@ -107,8 +122,20 @@ export async function GET(req: NextRequest) {
     // Auditors can also filter by published flag
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
-  } else {
-    // Auditee/Guest: restrict by published+approved, plus any scoped access
+  }
+  // AUDITEE can see only observations they're assigned to via ObservationAssignment
+  else if (isAuditee(session.user.role)) {
+    const auditeeFilter: Prisma.ObservationWhereInput = {
+      assignments: {
+        some: {
+          auditeeId: session.user.id
+        }
+      }
+    };
+    where = { AND: [where, auditeeFilter] };
+  }
+  // GUEST: restrict by published+approved, plus any scoped access
+  else if (isGuest(session.user.role)) {
     const scope = await getUserScope(session.user.id);
     const scopeWhere = buildScopeWhere(scope);
     const allowPublished: Prisma.ObservationWhereInput = {
