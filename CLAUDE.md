@@ -12,13 +12,15 @@ This is an **Audit Platform** built with Next.js 15 (App Router), TypeScript, Pr
 
 After running `npm run db:seed`, use these credentials to login:
 
-- **Admin**: admin@example.com / admin123
+- **CFO**: cfo@example.com / cfo123
+- **CXO Team**: cxo@example.com / cxo123
+- **Audit Head**: audithead@example.com / audithead123
 - **Auditor**: auditor@example.com / auditor123
 - **Auditee**: auditee@example.com / auditee123
 - **Guest**: guest@example.com / guest123
 
 ### Core Commands
-- `npm run dev` - Start development server (Next.js on port 3000)
+- `npm run dev` - Start development server (Next.js on port 3005)
 - `npm run build` - Build for production
 - `npm start` - Start production build
 - `npm run typecheck` - Run TypeScript type checking
@@ -46,7 +48,7 @@ After running `npm run db:seed`, use these credentials to login:
 
 The application runs **two separate servers**:
 
-1. **Next.js Application (port 3000)** - Main web application with:
+1. **Next.js Application (port 3005)** - Main web application with:
    - App Router pages in `src/app/`
    - API routes in `src/app/api/`
    - Server components and actions
@@ -102,7 +104,7 @@ src/
 
 Key entities and relationships:
 
-- **User** - Users with roles (ADMIN, AUDITOR, AUDITEE, GUEST)
+- **User** - Users with RBAC v2 roles (CFO, CXO_TEAM, AUDIT_HEAD, AUDITOR, AUDITEE, GUEST)
 - **Plant** - Facilities being audited
 - **Audit** - Audit sessions with assignments and checklists
 - **Observation** - Audit findings with approval workflow
@@ -112,6 +114,7 @@ Key entities and relationships:
 - **GuestInvite** - Token-based guest invitations
 - **ObservationChangeRequest** - Change request workflow
 - **RunningNote** - Notes on observations
+- **ObservationAssignment** - Auditee assignments to observations
 
 Schema location: `prisma/schema.prisma`
 
@@ -123,10 +126,22 @@ Schema location: `prisma/schema.prisma`
 - Session timeouts: absolute (24h default) and idle (15min default)
 - Configured in `src/lib/auth.ts`
 
-**Role-Based Access Control (RBAC)**:
-- Roles: ADMIN, AUDITOR, AUDITEE, GUEST
-- Permission checks in `src/lib/rbac.ts`
-- Scope-based restrictions in `src/lib/scope.ts`
+**Role-Based Access Control (RBAC v2)**:
+- **CFO** - Organization-level superuser with full access (short-circuits all permission checks)
+- **CXO_TEAM** - Manages plants, audits, assigns users, configures visibility
+- **AUDIT_HEAD** - Leads audits, approves/rejects observations, can create observations
+- **AUDITOR** - Creates and edits draft observations, submits for approval
+- **AUDITEE** - Assigned to observations, edits designated fields only
+- **GUEST** - Read-only access with scope restrictions (optional)
+
+Permission checks in `src/lib/rbac.ts`
+Scope-based restrictions in `src/lib/scope.ts`
+
+**Important RBAC Patterns**:
+- Use `assert*` functions in API routes (throw 403 on unauthorized)
+- Use `is*` predicates for boolean checks
+- CFO bypasses all permission checks (short-circuit pattern)
+- Audit heads inherit auditor capabilities
 
 **WebSocket Authentication**:
 - JWT tokens generated in API routes
@@ -147,8 +162,9 @@ Schema location: `prisma/schema.prisma`
 - `presence` - User presence in rooms
 - `notification` - System notifications
 
-**Broadcasting**:
-- Use `src/websocket/broadcast.ts` utilities from API routes
+**Broadcasting from API Routes**:
+- Use `src/websocket/broadcast.ts` utilities
+- Functions: `notifyObservationUpdate`, `notifyFieldLockChange`, `notifyApprovalStatusChange`, `notifyChangeRequestCreated`
 - Direct HTTP broadcast endpoint: `/api/v1/websocket/broadcast`
 
 ### Path Aliases
@@ -165,7 +181,7 @@ Required environment variables (see `.env.example`):
 **Core**:
 - `DATABASE_URL` - PostgreSQL connection string
 - `NEXTAUTH_SECRET` - NextAuth secret (generate with `openssl rand -base64 32`)
-- `NEXTAUTH_URL` - Application URL
+- `NEXTAUTH_URL` - Application URL (http://localhost:3005 for dev)
 
 **Session**:
 - `IDLE_TIMEOUT_MINUTES` - Idle timeout (default: 15)
@@ -180,7 +196,31 @@ Required environment variables (see `.env.example`):
 - `S3_BUCKET_NAME`, `S3_REGION`
 
 **Seeding**:
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` - Initial admin user
+- Role-specific credentials: `CFO_EMAIL`, `CFO_PASSWORD`, `CFO_NAME`
+- Similarly for CXO_TEAM, AUDIT_HEAD, AUDITOR, AUDITEE, GUEST
+
+## Database Setup
+
+**IMPORTANT**: This project uses PostgreSQL running in a Docker container named `audit-postgres`.
+
+### Starting the Database
+```bash
+docker start audit-postgres
+docker ps | grep audit-postgres  # verify it's running
+```
+
+### Connection Details
+- **Host**: localhost
+- **Port**: 5432
+- **Database**: audit_platform
+- **User**: postgres
+- **Password**: audit123
+- **Connection String**: `postgresql://postgres:audit123@localhost:5432/audit_platform`
+
+If Homebrew PostgreSQL is running, stop it to avoid conflicts:
+```bash
+brew services stop postgresql@14
+```
 
 ## Deployment
 
@@ -205,6 +245,7 @@ Full deployment guide: `DEPLOYMENT.md`
 - Nginx reverse proxy recommended for production (config in DEPLOYMENT.md)
 - Firewall must allow ports 3000 (Next.js) and 3001 (WebSocket)
 - Set `NODE_ENV=production` for both processes
+- Application runs on port 3005 in development, 3000 in production
 
 ## Key Implementation Notes
 
@@ -214,11 +255,30 @@ When modifying observations or other entities that need real-time updates:
 2. Broadcast WebSocket message using `src/websocket/broadcast.ts`
 3. Clients listening in the room receive instant updates
 
+Example:
+```typescript
+import { notifyObservationUpdate } from "@/websocket/broadcast";
+// After updating observation in database
+notifyObservationUpdate(observationId, { field: "value" });
+```
+
 ### Approval Workflow
 Observations go through approval stages (DRAFT → SUBMITTED → APPROVED/REJECTED). Check `approvalStatus` field and ensure RBAC permissions are enforced.
 
 ### Audit Trail
-All significant actions are logged to `AuditEvent` table via `writeAuditEvent()` from `src/server/auditTrail.ts`.
+All significant actions are logged to `AuditEvent` table via `writeAuditEvent()` from `src/server/auditTrail.ts`. This function never throws errors.
+
+Example:
+```typescript
+import { writeAuditEvent } from "@/server/auditTrail";
+await writeAuditEvent({
+  entityType: "OBSERVATION",
+  entityId: obs.id,
+  action: "UPDATE",
+  actorId: session.user.id,
+  diff: { changes }
+});
+```
 
 ### File Uploads
 S3 helpers are in `src/lib/s3.ts`. Attachments are stored with metadata in `ObservationAttachment` table (kind: ANNEXURE or MGMT_DOC).
@@ -226,12 +286,10 @@ S3 helpers are in `src/lib/s3.ts`. Attachments are stored with metadata in `Obse
 ### Guest Access
 Guests can be invited via `GuestInvite` tokens with optional scope restrictions. Implement scope checks using `src/lib/scope.ts`.
 
-## Testing
-
-The codebase does not currently have automated tests. When adding tests:
-- Use standard Next.js testing setup (Jest + React Testing Library)
-- Test WebSocket handlers separately from API routes
-- Consider integration tests for the dual-server architecture
+Functions:
+- `getUserScope(userId)` - Get user's scope from invite
+- `buildScopeWhere(scope)` - Build Prisma where clause for scope
+- `isObservationInScope(obs, scope)` - Check if observation is in scope
 
 ## Common Patterns
 
@@ -244,15 +302,67 @@ import { prisma } from "@/server/db";
 ### Protected API Routes
 ```typescript
 import { auth } from "@/lib/auth";
+import { assertAuditorOrAuditHead } from "@/lib/rbac";
+
 const session = await auth();
 if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+assertAuditorOrAuditHead(session.user.role); // Throws 403 if unauthorized
 ```
 
 ### WebSocket Broadcasting from API Routes
 ```typescript
-import { broadcastToRoom } from "@/lib/websocket/client";
-await broadcastToRoom(`observation:${id}`, {
-  type: "observation_updated",
-  data: { id, field: "status" }
+import { notifyObservationUpdate } from "@/websocket/broadcast";
+await notifyObservationUpdate(observationId, {
+  field: "status",
+  value: "SUBMITTED"
 });
 ```
+
+### Checking Permissions
+```typescript
+import { isCFO, canApproveObservations } from "@/lib/rbac";
+
+// Predicate (safe to call anywhere)
+if (canApproveObservations(session.user.role)) {
+  // Show approve button
+}
+
+// Assertion (throws error in API routes)
+assertAuditHead(session.user.role);
+```
+
+## Testing
+
+The codebase does not currently have automated tests. When adding tests:
+- Use standard Next.js testing setup (Jest + React Testing Library)
+- Test WebSocket handlers separately from API routes
+- Consider integration tests for the dual-server architecture
+
+### Browser-Based Testing with Playwright
+
+**❌ DON'T: Programmatic Auth with curl/fetch**
+
+This approach DOES NOT WORK with NextAuth v5. Do not attempt to:
+- Use curl/fetch to POST to auth endpoints
+- Manually set session cookies via API calls
+- Bypass the login UI form submission
+
+**✅ DO: UI-Based Login through Browser**
+
+Use Playwright browser automation to:
+- Navigate to `/login` page
+- Fill the login form fields (email, password)
+- Submit the form via click
+- Let NextAuth v5 handle session creation naturally through the browser
+
+Example (Playwright):
+```typescript
+await page.goto('/login');
+await page.fill('input[name="email"]', 'user@example.com');
+await page.fill('input[name="password"]', 'password123');
+await page.click('button[type="submit"]');
+await page.waitForURL(/^((?!\/login).)*$/); // Wait for redirect
+```
+
+This ensures NextAuth v5 session management works correctly with proper cookies and JWT handling.

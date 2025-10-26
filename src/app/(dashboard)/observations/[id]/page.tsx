@@ -11,17 +11,24 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
+import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
 type Approval = { id: string; status: "SUBMITTED" | "APPROVED" | "REJECTED"; comment?: string | null; actor: { email?: string | null; name?: string | null } ; createdAt: string };
 type Note = { id: string; text: string; visibility: "INTERNAL" | "ALL"; actor: { email?: string | null; name?: string | null }; createdAt: string };
 type ActionPlan = { id: string; plan: string; owner?: string | null; targetDate?: string | null; status?: string | null; retest?: string | null; createdAt: string };
+type ObservationAssignment = {
+  id: string;
+  auditee: { id: string; name: string | null; email: string | null };
+  assignedAt: string;
+};
+
 type Observation = {
   id: string;
   createdAt: string;
   plant: Plant;
-  audit: { id: string; visitStartDate: string | null; visitEndDate: string | null };
+  audit: { id: string; visitStartDate: string | null; visitEndDate: string | null; isLocked?: boolean; completedAt?: string | null };
   observationText: string;
   risksInvolved?: string | null;
   riskCategory?: "A" | "B" | "C" | null;
@@ -44,6 +51,7 @@ type Observation = {
   approvals: Approval[];
   notes: Note[];
   actionPlans: ActionPlan[];
+  assignments?: ObservationAssignment[];
 };
 
 type ChangeRequest = {
@@ -100,6 +108,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [apRetest, setApRetest] = useState("");
 
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
+  const [auditees, setAuditees] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
+  const [selectedAuditee, setSelectedAuditee] = useState("");
 
   // WebSocket integration
   const { presence, lastUpdate, isConnected } = useObservationWebSocket(id);
@@ -125,11 +135,18 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         personResponsibleToImplement: j.observation.personResponsibleToImplement ?? "",
         currentStatus: j.observation.currentStatus
       });
-      // load change requests
-      const crRes = await fetch(`/api/v1/observations/${id}/change-requests`, { cache: "no-store" });
+      // load change requests and auditees list
+      const [crRes, auditeeRes] = await Promise.all([
+        fetch(`/api/v1/observations/${id}/change-requests`, { cache: "no-store" }),
+        fetch(`/api/v1/users?role=AUDITEE`, { cache: "no-store" })
+      ]);
       if (crRes.ok) {
         const crJ = await crRes.json();
         setChangeRequests(crJ.requests || []);
+      }
+      if (auditeeRes.ok) {
+        const auditeeJ = await auditeeRes.json();
+        setAuditees(auditeeJ.users || []);
       }
     } else {
       setError(j.error || "Failed to load");
@@ -204,6 +221,54 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       showSuccess(`Observation ${isApprove ? 'approved' : 'rejected'} successfully!`);
     } else {
       showError(`Failed to ${isApprove ? 'approve' : 'reject'} observation!`);
+    }
+  }
+
+  async function deleteObservation() {
+    if (!confirm("Are you sure you want to delete this observation? This action cannot be undone.")) {
+      return;
+    }
+    const res = await fetch(`/api/v1/observations/${id}`, {
+      method: "DELETE"
+    });
+    if (res.ok) {
+      showSuccess("Observation deleted successfully!");
+      router.push('/observations');
+    } else {
+      const j = await res.json().catch(() => ({}));
+      showError(j.error || "Failed to delete observation!");
+    }
+  }
+
+  async function assignAuditee() {
+    if (!selectedAuditee) return;
+    const res = await fetch(`/api/v1/observations/${id}/assign-auditee`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ auditeeId: selectedAuditee })
+    });
+    if (res.ok) {
+      const selectedUser = auditees.find(u => u.id === selectedAuditee);
+      setSelectedAuditee("");
+      await load();
+      showSuccess(`Auditee ${selectedUser?.email || selectedUser?.name || 'user'} assigned successfully!`);
+    } else {
+      const j = await res.json().catch(() => ({}));
+      showError(j.error || "Failed to assign auditee!");
+    }
+  }
+
+  async function removeAuditee(assignmentId: string) {
+    if (!confirm("Remove this auditee from the observation?")) return;
+    const res = await fetch(`/api/v1/observations/${id}/assign-auditee?assignmentId=${assignmentId}`, {
+      method: "DELETE"
+    });
+    if (res.ok) {
+      await load();
+      showSuccess("Auditee removed successfully!");
+    } else {
+      const j = await res.json().catch(() => ({}));
+      showError(j.error || "Failed to remove auditee!");
     }
   }
 
@@ -331,19 +396,27 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   function isFieldDisabled(fieldName: string): boolean {
     if (!o) return false;
 
-    // Admin can edit all fields
-    if (isAdmin) return false;
+    // CFO can edit all fields
+    if (canOverride) return false;
 
-    // Check if field is locked (applies to non-admins)
+    // Check if audit is locked (blocks all edits except CFO)
+    if (o.audit?.isLocked) return true;
+
+    // Check if field is locked (applies to non-CFO users)
     if (isFieldLocked(fieldName)) return true;
 
-    // For auditees, disable all fields except those in AUDITEE_EDITABLE_FIELDS
-    if (role === "AUDITEE") {
+    // For auditees, check assignment and field restrictions
+    if (isAuditee(role)) {
+      // Check if user is assigned to this observation
+      const isAssigned = o.assignments?.some(a => a.auditee.id === userId);
+      // Disable all fields if not assigned
+      if (!isAssigned) return true;
+      // If assigned, only allow AUDITEE_EDITABLE_FIELDS
       return !AUDITEE_EDITABLE_FIELDS.has(fieldName);
     }
 
     // For auditors, auditee fields should be disabled (except auditorResponseToAuditee)
-    if (isAuditor) {
+    if (isAuditorRole) {
       return AUDITEE_EDITABLE_FIELDS.has(fieldName) && fieldName !== "auditorResponseToAuditee";
     }
 
@@ -460,16 +533,18 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     </div>
   );
 
-  const isAdmin = role === "ADMIN";
-  const isAuditor = role === "AUDITOR";
-  const canApprove = isAdmin;
-  const canPublish = isAdmin;
-  const canSubmit = isAuditor;
-  const canRetest = isAdmin || isAuditor;
-  const canUploadAnnex = isAdmin || isAuditor;
-  const canUploadMgmt = isAdmin || isAuditor || role === "AUDITEE";
-  const auditorLockedByApproval = isAuditor && o.approvalStatus === "APPROVED";
-  const canSave = isAdmin || (!auditorLockedByApproval);
+  const canOverride = isCFO(role);
+  const isAuditorRole = isAuditorOrAuditHead(role) && !isAuditHead(role); // Pure auditor (not audit head)
+  const canApprove = canApproveObservations(role);
+  const canPublish = isCFO(role);
+  const canSubmit = isAuditorOrAuditHead(role);
+  const canRetest = isAuditorOrAuditHead(role);
+  const canUploadAnnex = isAuditorOrAuditHead(role);
+  const canUploadMgmt = isAuditorOrAuditHead(role) || isAuditee(role);
+  const auditorLockedByApproval = isAuditorRole && o.approvalStatus === "APPROVED";
+  const canSave = canOverride || (!auditorLockedByApproval);
+  const canDelete = isCFO(role) || (isAuditHead(role) && !o.audit.isLocked);
+  const canManageAssignments = isCFOOrCXOTeam(role) || isAuditHead(role) || isAuditorOrAuditHead(role);
 
   const getApprovalBadgeVariant = (status: string) => {
     switch (status) {
@@ -492,6 +567,41 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </svg>
         Back
       </button>
+
+      {/* Audit Lock Banner */}
+      {o.audit?.isLocked && !canOverride && (
+        <div className="bg-warning-50 border-l-4 border-warning-500 rounded-lg p-5">
+          <div className="flex items-start gap-3">
+            <svg className="h-6 w-6 text-warning-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-warning-900 mb-1">Parent Audit is Locked</h3>
+              <p className="text-sm text-warning-800">
+                This observation's parent audit has been locked. Most operations are restricted.
+                {canOverride && <span className="font-medium"> CFO can still make changes.</span>}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {o.audit?.completedAt && (
+        <div className="bg-success-50 border-l-4 border-success-500 rounded-lg p-5">
+          <div className="flex items-start gap-3">
+            <svg className="h-6 w-6 text-success-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-success-900 mb-1">Parent Audit Completed</h3>
+              <p className="text-sm text-success-800">
+                This observation's parent audit was completed on {new Date(o.audit.completedAt).toLocaleString()}.
+                {canOverride && <span className="font-medium"> CFO can still make changes.</span>}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div>
@@ -527,9 +637,55 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
       <Card padding="lg">
         <form onSubmit={save} className="space-y-8">
-          {/* Section 1: Observation Details */}
-          <div>
-            <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Observation Details</h2>
+          {/* Auditee Information Banner */}
+          {isAuditee(role) && (
+            <div className="mb-6">
+              {!o.assignments?.some(a => a.auditee.id === userId) ? (
+                <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="h-5 w-5 text-warning-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-warning-800">You are not assigned to this observation</p>
+                      <p className="text-xs text-warning-700 mt-1">You cannot edit any fields until you are assigned by an auditor or audit head.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : o.audit?.isLocked ? (
+                <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="h-5 w-5 text-error-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-error-800">This audit is locked</p>
+                      <p className="text-xs text-error-700 mt-1">You cannot edit fields at this time. Only CFO can make changes.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="h-5 w-5 text-success-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-success-800">You can edit auditee fields</p>
+                      <p className="text-xs text-success-700 mt-1">Fields in the "Auditee Section" below are editable. Other fields are read-only.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Section 1: Auditor Section */}
+          <div className="border-l-4 border-primary-500 pl-4">
+            <h2 className="text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wider">Auditor Section — Fields managed by auditors and audit heads</h2>
+            <p className="text-xs text-neutral-600 mb-4 pb-3 border-b border-neutral-200">
+              Visible to all, editable by auditors and audit heads (when in draft or rejected status)
+            </p>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -653,8 +809,11 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Section 2: Auditee Section */}
-        <div>
-          <h2 className="text-sm font-semibold text-neutral-700 mb-4 uppercase tracking-wider pb-3 border-b border-neutral-200">Auditee Section</h2>
+        <div className="border-l-4 border-success-500 pl-4">
+          <h2 className="text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wider">Auditee Section — Fields managed by assigned auditees</h2>
+          <p className="text-xs text-neutral-600 mb-4 pb-3 border-b border-neutral-200">
+            Visible to all, editable by assigned auditees (even after approval, while audit is open)
+          </p>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -760,12 +919,51 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               Request Change (Auditor)
             </Button>
           )}
-          {canSubmit && <Button type="button" variant="secondary" onClick={submitForApproval}>Submit for Approval</Button>}
+          {canSubmit && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={submitForApproval}
+              disabled={o.audit?.isLocked && !canOverride || o.approvalStatus === "SUBMITTED" || o.approvalStatus === "APPROVED"}
+              title={
+                o.audit?.isLocked && !canOverride
+                  ? "Audit is locked - cannot submit"
+                  : o.approvalStatus === "SUBMITTED"
+                    ? "Already submitted for approval"
+                    : o.approvalStatus === "APPROVED"
+                      ? "Already approved - use change request workflow"
+                      : undefined
+              }
+            >
+              Submit for Approval
+            </Button>
+          )}
           {canApprove && (
             <>
-              <Button type="button" variant="primary" onClick={() => approve(true)}>Approve</Button>
-              <Button type="button" variant="destructive" onClick={() => approve(false)}>Reject</Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => approve(true)}
+                disabled={o.audit?.isLocked && !canOverride}
+                title={o.audit?.isLocked && !canOverride ? "Audit is locked - cannot approve" : undefined}
+              >
+                Approve
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => approve(false)}
+                disabled={o.audit?.isLocked && !canOverride}
+                title={o.audit?.isLocked && !canOverride ? "Audit is locked - cannot reject" : undefined}
+              >
+                Reject
+              </Button>
             </>
+          )}
+          {canDelete && (
+            <Button type="button" variant="destructive" onClick={deleteObservation}>
+              Delete Observation
+            </Button>
           )}
           {canPublish && (
             <Button type="button" variant="secondary" onClick={() => publish(!o.isPublished)}>
@@ -778,7 +976,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               <Button type="button" variant="destructive" onClick={() => retest("FAIL")}>Retest: Fail</Button>
             </>
           )}
-          {isAdmin && (
+          {canOverride && (
             <div className="flex flex-col gap-2">
               {/* Show locked fields and unlock buttons */}
               {o.lockedFields && o.lockedFields.length > 0 && (
@@ -817,6 +1015,82 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
         </form>
+      </Card>
+
+      <Card padding="lg">
+        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Assigned Auditees</h2>
+        <div className="space-y-4">
+          {/* Assigned Auditees List */}
+          {o.assignments && o.assignments.length > 0 ? (
+            <div className="space-y-3 mb-4">
+              {o.assignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {(assignment.auditee.email ?? assignment.auditee.name ?? "A")[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-neutral-900">
+                        {assignment.auditee.email ?? assignment.auditee.name}
+                      </div>
+                      <div className="text-xs text-neutral-600">
+                        Assigned on {new Date(assignment.assignedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  {canManageAssignments && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAuditee(assignment.id)}
+                      className="text-error-600 hover:text-error-700 hover:bg-error-50"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-6 text-center mb-4">
+              <p className="text-sm text-neutral-600">No auditees assigned to this observation.</p>
+            </div>
+          )}
+
+          {/* Assignment Interface */}
+          {canManageAssignments && (
+            <div className="pt-4 border-t border-neutral-200">
+              <h3 className="text-sm font-semibold text-neutral-700 mb-3">Assign Auditee</h3>
+              <div className="flex gap-3">
+                <Select
+                  label=""
+                  value={selectedAuditee}
+                  onChange={(e) => setSelectedAuditee(e.target.value)}
+                  className="flex-1"
+                >
+                  <option value="">Select auditee</option>
+                  {auditees.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email ?? u.name}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  variant="primary"
+                  onClick={assignAuditee}
+                  className="mt-0"
+                >
+                  Assign
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Card>
 
       <Card padding="lg">
@@ -951,7 +1225,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <option value="Pending">Pending</option>
             <option value="Completed">Completed</option>
           </select>
-          {session?.user?.role && ["ADMIN", "AUDITOR"].includes(session.user.role) && (
+          {isAuditorOrAuditHead(role) && (
             <select
               className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
               value={apRetest}
@@ -1041,7 +1315,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                     </div>
                   )}
                 </div>
-                {isAdmin && cr.status === "PENDING" && (
+                {canOverride && cr.status === "PENDING" && (
                   <div className="flex gap-2">
                     <Button variant="primary" size="sm" onClick={() => decideChange(cr, true)}>Approve & Apply</Button>
                     <Button variant="destructive" size="sm" onClick={() => decideChange(cr, false)}>Deny</Button>

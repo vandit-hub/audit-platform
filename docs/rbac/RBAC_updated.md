@@ -287,7 +287,7 @@ If absent, add DELETE branch.
 ### Navigation in `src/components/NavBar.tsx`
 
 - **CFO**: Plants, Audits, Observations, Reports, Users
-- **CXO Team**: Plants, Audits, Reports, Users
+- **CXO Team**: Plants, Audits, Observations, Reports, Users
 - **Audit Head**: Audits, Observations, Reports
 - **Auditor**: Audits, Observations
 - **Auditee**: Observations
@@ -477,7 +477,7 @@ This table shows exactly what each role can and cannot do across all platform re
 |------|-----|----------|------------|---------|---------|
 | Plants | ✅ | ✅ | ❌ | ❌ | ❌ |
 | Audits | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Observations | ✅ | ❌ | ✅ | ✅ | ✅ |
+| Observations | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Reports | ✅ | ✅ | ✅ | ❌ | ❌ |
 | Users | ✅ | ✅ | ❌ | ❌ | ❌ |
 

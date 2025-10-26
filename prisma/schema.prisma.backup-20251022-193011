@@ -1,0 +1,367 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                     @id @default(cuid())
+  email                 String                     @unique
+  name                  String?
+  passwordHash          String
+  role                  Role                       @default(AUDITOR)
+  status                UserStatus                 @default(ACTIVE)
+  lastLoginAt           DateTime?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  approvals             Approval[]
+  createdAudits         Audit[]                    @relation("AuditCreatedBy")
+  assignments           AuditAssignment[]
+  events                AuditEvent[]
+  invited               GuestInvite[]              @relation("InvitedBy")
+  redeemedInvites       GuestInvite[]              @relation("RedeemedBy")
+  createdObservations   Observation[]              @relation("ObservationCreatedBy")
+  changeRequestsDecided ObservationChangeRequest[] @relation("ChangeRequestDecider")
+  changeRequestsCreated ObservationChangeRequest[] @relation("ChangeRequestRequester")
+  notes                 RunningNote[]
+}
+
+model Plant {
+  id                  String                   @id @default(cuid())
+  code                String                   @unique
+  name                String
+  createdAt           DateTime                 @default(now())
+  audits              Audit[]
+  applicableChecklist ChecklistApplicability[]
+  observations        Observation[]
+}
+
+model AuditEvent {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  action     String
+  diff       Json?
+  actorId    String?
+  createdAt  DateTime   @default(now())
+  actor      User?      @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model GuestInvite {
+  id           String    @id @default(cuid())
+  email        String
+  role         Role      @default(GUEST)
+  token        String    @unique
+  scope        Json?
+  expiresAt    DateTime
+  invitedById  String?
+  redeemedById String?
+  redeemedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  invitedBy    User?     @relation("InvitedBy", fields: [invitedById], references: [id])
+  redeemedBy   User?     @relation("RedeemedBy", fields: [redeemedById], references: [id])
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+model Audit {
+  id                      String            @id @default(cuid())
+  plantId                 String
+  title                   String?
+  purpose                 String?
+  visitStartDate          DateTime?
+  visitEndDate            DateTime?
+  visitDetails            String?
+  managementResponseDate  DateTime?
+  finalPresentationDate   DateTime?
+  reportSubmittedAt       DateTime?
+  signOffAt               DateTime?
+  status                  AuditStatus       @default(PLANNED)
+  createdById             String
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  createdBy               User              @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  plant                   Plant             @relation(fields: [plantId], references: [id])
+  assignments             AuditAssignment[]
+  auditChecklists         AuditChecklist[]
+  observations            Observation[]
+}
+
+model AuditAssignment {
+  id        String   @id @default(cuid())
+  auditId   String
+  auditorId String
+  createdAt DateTime @default(now())
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditor   User     @relation(fields: [auditorId], references: [id], onDelete: Cascade)
+
+  @@unique([auditId, auditorId])
+}
+
+model Checklist {
+  id          String                   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime                 @default(now())
+  auditLinks  AuditChecklist[]
+  applicable  ChecklistApplicability[]
+  items       ChecklistItem[]
+}
+
+model ChecklistItem {
+  id           String        @id @default(cuid())
+  checklistId  String
+  title        String
+  description  String?
+  riskCategory RiskCategory?
+  process      Process?
+  isMandatory  Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  checklist    Checklist     @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+}
+
+model ChecklistApplicability {
+  id          String    @id @default(cuid())
+  checklistId String
+  plantId     String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  plant       Plant     @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@unique([checklistId, plantId])
+}
+
+model AuditChecklist {
+  id          String               @id @default(cuid())
+  auditId     String
+  checklistId String
+  createdAt   DateTime             @default(now())
+  audit       Audit                @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  checklist   Checklist            @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  items       AuditChecklistItem[]
+
+  @@unique([auditId, checklistId])
+}
+
+model AuditChecklistItem {
+  id               String              @id @default(cuid())
+  auditChecklistId String
+  checklistItemId  String
+  title            String
+  status           ChecklistItemStatus @default(PENDING)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  auditChecklist   AuditChecklist      @relation(fields: [auditChecklistId], references: [id], onDelete: Cascade)
+
+  @@index([auditChecklistId])
+}
+
+model Observation {
+  id                           String                     @id @default(cuid())
+  auditId                      String
+  plantId                      String
+  createdById                  String
+  createdAt                    DateTime                   @default(now())
+  updatedAt                    DateTime                   @updatedAt
+  observationText              String
+  risksInvolved                String?
+  riskCategory                 RiskCategory?
+  likelyImpact                 LikelyImpact?
+  concernedProcess             Process?
+  auditorPerson                String?
+  auditeePersonTier1           String?
+  auditeePersonTier2           String?
+  auditeeFeedback              String?
+  auditorResponseToAuditee     String?
+  targetDate                   DateTime?
+  personResponsibleToImplement String?
+  currentStatus                ObservationStatus          @default(PENDING_MR)
+  implementationDate           DateTime?
+  reTestResult                 ReTestResult?
+  approvalStatus               ApprovalStatus             @default(DRAFT)
+  isPublished                  Boolean                    @default(false)
+  lockedFields                 Json?
+  actionPlans                  ActionPlan[]
+  approvals                    Approval[]
+  audit                        Audit                      @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  createdBy                    User                       @relation("ObservationCreatedBy", fields: [createdById], references: [id])
+  plant                        Plant                      @relation(fields: [plantId], references: [id])
+  attachments                  ObservationAttachment[]
+  changeRequests               ObservationChangeRequest[]
+  notes                        RunningNote[]
+
+  @@index([plantId])
+  @@index([approvalStatus, isPublished])
+}
+
+model ObservationAttachment {
+  id            String         @id @default(cuid())
+  observationId String
+  kind          AttachmentKind
+  key           String
+  fileName      String
+  contentType   String?
+  size          Int?
+  createdAt     DateTime       @default(now())
+  observation   Observation    @relation(fields: [observationId], references: [id], onDelete: Cascade)
+}
+
+model Approval {
+  id            String         @id @default(cuid())
+  observationId String
+  status        ApprovalStatus
+  comment       String?
+  actorId       String
+  createdAt     DateTime       @default(now())
+  actor         User           @relation(fields: [actorId], references: [id])
+  observation   Observation    @relation(fields: [observationId], references: [id], onDelete: Cascade)
+
+  @@index([observationId, status])
+}
+
+model RunningNote {
+  id            String         @id @default(cuid())
+  observationId String
+  actorId       String
+  text          String
+  createdAt     DateTime       @default(now())
+  visibility    NoteVisibility @default(INTERNAL)
+  actor         User           @relation(fields: [actorId], references: [id])
+  observation   Observation    @relation(fields: [observationId], references: [id], onDelete: Cascade)
+
+  @@index([observationId, createdAt])
+  @@index([observationId, visibility])
+}
+
+model ActionPlan {
+  id            String             @id @default(cuid())
+  observationId String
+  plan          String
+  owner         String?
+  targetDate    DateTime?
+  status        String?
+  retest        ActionPlanRetest?
+  createdAt     DateTime           @default(now())
+  observation   Observation        @relation(fields: [observationId], references: [id], onDelete: Cascade)
+}
+
+model ObservationChangeRequest {
+  id              String              @id @default(cuid())
+  observationId   String
+  requesterId     String
+  patch           Json
+  comment         String?
+  status          ChangeRequestStatus @default(PENDING)
+  decidedById     String?
+  decidedAt       DateTime?
+  decisionComment String?
+  createdAt       DateTime            @default(now())
+  decidedBy       User?               @relation("ChangeRequestDecider", fields: [decidedById], references: [id])
+  observation     Observation         @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  requester       User                @relation("ChangeRequestRequester", fields: [requesterId], references: [id])
+
+  @@index([observationId, status])
+}
+
+enum Role {
+  ADMIN
+  AUDITOR
+  AUDITEE
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+enum EntityType {
+  USER
+  AUDIT
+  OBSERVATION
+  ATTACHMENT
+  APPROVAL
+  ACTION_PLAN
+  PLANT
+  INVITE
+}
+
+enum AuditStatus {
+  PLANNED
+  IN_PROGRESS
+  SUBMITTED
+  SIGNED_OFF
+}
+
+enum Process {
+  O2C
+  P2P
+  R2R
+  INVENTORY
+}
+
+enum RiskCategory {
+  A
+  B
+  C
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  DONE
+}
+
+enum LikelyImpact {
+  LOCAL
+  ORG_WIDE
+}
+
+enum ObservationStatus {
+  PENDING_MR
+  MR_UNDER_REVIEW
+  REFERRED_BACK
+  OBSERVATION_FINALISED
+  RESOLVED
+}
+
+enum ReTestResult {
+  PASS
+  FAIL
+}
+
+enum ActionPlanRetest {
+  RETEST_DUE
+  PASS
+  FAIL
+}
+
+enum ApprovalStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum AttachmentKind {
+  ANNEXURE
+  MGMT_DOC
+}
+
+/// ===== Phase 4 =====
+enum NoteVisibility {
+  INTERNAL
+  ALL
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}

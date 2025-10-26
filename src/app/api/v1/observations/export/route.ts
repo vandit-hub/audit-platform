@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { isAdminOrAuditor } from "@/lib/rbac";
+import { isCFO, isCXOTeam, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 import { Prisma } from "@prisma/client";
 
@@ -77,11 +77,13 @@ export async function GET(req: NextRequest) {
   let where: Prisma.ObservationWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  if (session.user.role === "ADMIN") {
-    // Admin can export all observations and filter by published flag explicitly
+  // CFO and CXO_TEAM can export all observations
+  if (isCFO(session.user.role) || isCXOTeam(session.user.role)) {
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
-  } else if (session.user.role === "AUDITOR") {
+  }
+  // AUDIT_HEAD and AUDITOR can export from assigned audits
+  else if (isAuditHead(session.user.role) || isAuditor(session.user.role)) {
     // Auditor can only export observations from audits they're assigned to
     const auditorFilter: Prisma.ObservationWhereInput = {
       audit: {

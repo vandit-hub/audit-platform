@@ -1,10 +1,11 @@
 import { DefaultSession } from "next-auth";
+import { Role } from "@prisma/client";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: "ADMIN" | "AUDITOR" | "AUDITEE" | "GUEST";
+      role: Role;
       email?: string | null;
       name?: string | null;
     } & DefaultSession["user"];
@@ -13,7 +14,7 @@ declare module "next-auth" {
 
   interface User {
     id: string;
-    role: "ADMIN" | "AUDITOR" | "AUDITEE" | "GUEST";
+    role: Role;
     status?: "ACTIVE" | "INVITED" | "DISABLED";
   }
 }
@@ -21,7 +22,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     userId?: string;
-    role?: "ADMIN" | "AUDITOR" | "AUDITEE" | "GUEST";
+    role?: Role;
     lastActivity?: number;
     expired?: boolean;
     status?: "ACTIVE" | "INVITED" | "DISABLED";

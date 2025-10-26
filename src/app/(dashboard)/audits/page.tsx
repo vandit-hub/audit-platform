@@ -9,6 +9,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import { isCFOOrCXOTeam } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
 type AuditListItem = {
@@ -21,11 +22,13 @@ type AuditListItem = {
   createdAt: string;
   assignments: { id: string; name: string | null; email: string | null }[];
   progress: { done: number; total: number };
+  isLocked?: boolean;
+  completedAt?: string | null;
 };
 
 export default function AuditsPage() {
   const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const canManageAudits = isCFOOrCXOTeam(session?.user?.role);
   const [plants, setPlants] = useState<Plant[]>([]);
   const [audits, setAudits] = useState<AuditListItem[]>([]);
   const [plantId, setPlantId] = useState("");
@@ -113,9 +116,9 @@ export default function AuditsPage() {
         <p className="text-base text-neutral-600 mt-2">Create and manage audit schedules</p>
       </div>
 
-      {isAdmin && (
+      {canManageAudits && (
         <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Audit (Admin only)</h2>
+          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Audit (CFO/CXO Team)</h2>
           {error && (
             <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
               {error}
@@ -204,20 +207,20 @@ export default function AuditsPage() {
         </Card>
       )}
 
-      {!isAdmin && (
+      {!canManageAudits && (
         <div className="bg-primary-50 border border-primary-200 rounded-lg p-5 text-sm text-primary-800">
           <div className="flex items-start gap-3">
             <svg className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p>You can view audits assigned to you below.</p>
+            <p>You can view audits assigned to you below. Only CFO and CXO Team can create new audits.</p>
           </div>
         </div>
       )}
 
       <Card padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">
-          {isAdmin ? "All Audits" : "My Assigned Audits"}
+          {canManageAudits ? "All Audits" : "My Assigned Audits"}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -227,6 +230,7 @@ export default function AuditsPage() {
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Period</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Status</th>
+                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Lock Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Progress</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Auditors</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
@@ -247,6 +251,20 @@ export default function AuditsPage() {
                     <Badge variant={statusVariant(a.status)}>
                       {a.status.replace("_", " ")}
                     </Badge>
+                  </td>
+                  <td className="py-4 px-6">
+                    {a.completedAt ? (
+                      <Badge variant="success">Completed</Badge>
+                    ) : a.isLocked ? (
+                      <Badge variant="warning">
+                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Locked
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">Open</Badge>
+                    )}
                   </td>
                   <td className="py-4 px-6 text-neutral-600">
                     <span className="font-medium text-neutral-900">{a.progress.done}</span>

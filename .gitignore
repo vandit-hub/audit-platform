@@ -46,3 +46,6 @@ next-env.d.ts
 
 # qdrant storage
 qdrant_storage/
+
+# test scripts
+test-*.js

@@ -19,7 +19,10 @@ model User {
   updatedAt             DateTime                   @updatedAt
   approvals             Approval[]
   createdAudits         Audit[]                    @relation("AuditCreatedBy")
+  auditsAsHead          Audit[]                    @relation("AuditHead")
   assignments           AuditAssignment[]
+  auditeeAssignments    ObservationAssignment[]    @relation("AuditeeAssignments")
+  assignmentsCreated    ObservationAssignment[]    @relation("AssignedBy")
   events                AuditEvent[]
   invited               GuestInvite[]              @relation("InvitedBy")
   redeemedInvites       GuestInvite[]              @relation("RedeemedBy")
@@ -72,26 +75,34 @@ model GuestInvite {
 }
 
 model Audit {
-  id                      String            @id @default(cuid())
-  plantId                 String
-  title                   String?
-  purpose                 String?
-  visitStartDate          DateTime?
-  visitEndDate            DateTime?
-  visitDetails            String?
-  managementResponseDate  DateTime?
-  finalPresentationDate   DateTime?
-  reportSubmittedAt       DateTime?
-  signOffAt               DateTime?
-  status                  AuditStatus       @default(PLANNED)
-  createdById             String
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  createdBy               User              @relation("AuditCreatedBy", fields: [createdById], references: [id])
-  plant                   Plant             @relation(fields: [plantId], references: [id])
-  assignments             AuditAssignment[]
-  auditChecklists         AuditChecklist[]
-  observations            Observation[]
+  id                     String            @id @default(cuid())
+  plantId                String
+  title                  String?
+  purpose                String?
+  visitStartDate         DateTime?
+  visitEndDate           DateTime?
+  visitDetails           String?
+  managementResponseDate DateTime?
+  finalPresentationDate  DateTime?
+  reportSubmittedAt      DateTime?
+  signOffAt              DateTime?
+  status                 AuditStatus       @default(PLANNED)
+  isLocked               Boolean           @default(false)
+  lockedAt               DateTime?
+  lockedById             String?
+  completedAt            DateTime?
+  completedById          String?
+  visibilityRules        Json? // Stores visibility configuration
+  auditHeadId            String? // References User; singles out the audit's audit head
+  createdById            String
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  createdBy              User              @relation("AuditCreatedBy", fields: [createdById], references: [id])
+  plant                  Plant             @relation(fields: [plantId], references: [id])
+  auditHead              User?             @relation("AuditHead", fields: [auditHeadId], references: [id])
+  assignments            AuditAssignment[]
+  auditChecklists        AuditChecklist[]
+  observations           Observation[]
 }
 
 model AuditAssignment {
@@ -195,9 +206,24 @@ model Observation {
   attachments                  ObservationAttachment[]
   changeRequests               ObservationChangeRequest[]
   notes                        RunningNote[]
+  assignments                  ObservationAssignment[] // Track auditee assignments
 
   @@index([plantId])
   @@index([approvalStatus, isPublished])
+}
+
+model ObservationAssignment {
+  id            String      @id @default(cuid())
+  observationId String
+  auditeeId     String
+  assignedAt    DateTime    @default(now())
+  assignedById  String? // Who assigned this auditee
+  observation   Observation @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  auditee       User        @relation("AuditeeAssignments", fields: [auditeeId], references: [id], onDelete: Cascade)
+  assignedBy    User?       @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([observationId, auditeeId])
+  @@index([auditeeId])
 }
 
 model ObservationAttachment {
@@ -240,15 +266,15 @@ model RunningNote {
 }
 
 model ActionPlan {
-  id            String             @id @default(cuid())
+  id            String            @id @default(cuid())
   observationId String
   plan          String
   owner         String?
   targetDate    DateTime?
   status        String?
   retest        ActionPlanRetest?
-  createdAt     DateTime           @default(now())
-  observation   Observation        @relation(fields: [observationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+  observation   Observation       @relation(fields: [observationId], references: [id], onDelete: Cascade)
 }
 
 model ObservationChangeRequest {
@@ -270,10 +296,12 @@ model ObservationChangeRequest {
 }
 
 enum Role {
-  ADMIN
-  AUDITOR
-  AUDITEE
-  GUEST
+  CFO // Organization superuser with full access
+  CXO_TEAM // Staff and analysts who manage audits and plants
+  AUDIT_HEAD // Approves observations and can delete while audit open
+  AUDITOR // Creates observations and submits for approval
+  AUDITEE // Assigned to observations, edits designated fields only
+  GUEST // Optional: Read-only access with scope restrictions
 }
 
 enum UserStatus {
