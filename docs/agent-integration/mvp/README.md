@@ -135,8 +135,8 @@ Once all tasks are done:
 
 Track your progress:
 
-- [ ] Task 1: Dependencies installed
-- [ ] Task 2: Types created
+- [x] Task 1: Dependencies installed ✅
+- [x] Task 2: Types created ✅
 - [ ] Task 3: RBAC functions implemented
 - [ ] Task 4: MCP server created
 - [ ] Task 5: API endpoint working
