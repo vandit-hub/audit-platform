@@ -138,8 +138,8 @@ Track your progress:
 - [x] Task 1: Dependencies installed ✅
 - [x] Task 2: Types created ✅
 - [x] Task 3: RBAC functions implemented ✅
-- [ ] Task 4: MCP server created
-- [ ] Task 5: API endpoint working
+- [x] Task 4: MCP server created ✅
+- [x] Task 5: API endpoint working ✅
 - [ ] Task 6: UI implemented
 - [ ] Task 7: Navigation added
 - [ ] Task 8: Testing complete
