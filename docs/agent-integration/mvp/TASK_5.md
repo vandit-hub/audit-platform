@@ -146,7 +146,6 @@ After completing this task:
 - [ ] Test with curl shows successful response
 - [ ] Agent correctly calls MCP tools
 - [ ] RBAC filtering works (test with different roles)
-- [ ] Estimated ~150 lines of code
 
 ## Next Task
 

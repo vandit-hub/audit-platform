@@ -45,8 +45,6 @@ export default async function AgentChatPage() {
 }
 ```
 
-**Estimated lines:** ~30 lines
-
 ---
 
 ## Part B: Client Component (Chat Interface)
@@ -102,8 +100,6 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
 4. **Example Questions**: Shown when chat is empty
 5. **Enter to Send**: Press Enter to send, Shift+Enter for new line
 
-**Estimated lines:** ~180 lines
-
 ---
 
 ## Testing
@@ -149,7 +145,6 @@ After completing this task:
 - [ ] API calls work
 - [ ] Loading states work
 - [ ] Error handling works
-- [ ] Estimated ~210 lines total (30 + 180)
 
 ## Next Task
 

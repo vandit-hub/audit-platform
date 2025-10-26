@@ -8,8 +8,6 @@ This document outlines the **Minimum Viable Product (MVP)** implementation for a
 
 **Estimated Development Time:** 3-5 days
 
-**Estimated Code:** ~800 lines across 6 new files
-
 ---
 
 ## MVP Scope
@@ -789,8 +787,6 @@ export async function GET() {
 - Returns JSON response with agent's answer
 - Includes cost tracking for monitoring
 
-**Estimated Lines:** ~150 lines
-
 ---
 
 ### Step 6: Create Chat UI
@@ -838,8 +834,6 @@ export default async function AgentChatPage() {
   );
 }
 ```
-
-**Estimated Lines:** ~30 lines
 
 ---
 
@@ -1037,8 +1031,6 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
 - Example questions shown when empty
 - Clean, functional design
 - Desktop-only (no mobile optimization in MVP)
-
-**Estimated Lines:** ~180 lines
 
 ---
 
@@ -1259,20 +1251,17 @@ npm install
 
 ### New Files Created (6 files)
 
-1. `src/lib/rbac-queries.ts` - RBAC filtering functions (~180 lines)
-2. `src/lib/types/agent.ts` - Type definitions (~50 lines)
-3. `src/agent/mcp-server.ts` - MCP server with 2 tools (~200 lines)
-4. `src/app/api/v1/agent/chat/route.ts` - API endpoint (~150 lines)
-5. `src/app/(dashboard)/agent-chat/page.tsx` - Server component (~30 lines)
-6. `src/app/(dashboard)/agent-chat/AgentChatClient.tsx` - Client component (~180 lines)
+1. `src/lib/rbac-queries.ts` - RBAC filtering functions
+2. `src/lib/types/agent.ts` - Type definitions
+3. `src/agent/mcp-server.ts` - MCP server with 2 tools
+4. `src/app/api/v1/agent/chat/route.ts` - API endpoint
+5. `src/app/(dashboard)/agent-chat/page.tsx` - Server component
+6. `src/app/(dashboard)/agent-chat/AgentChatClient.tsx` - Client component
 
 ### Modified Files (2 files)
 
-1. `src/components/NavBar.tsx` - Add navigation link (+3 lines)
-2. `package.json` - Add dependency (+1 line)
-
-**Total New Code:** ~790 lines
-**Total Modified Code:** ~4 lines
+1. `src/components/NavBar.tsx` - Add navigation link
+2. `package.json` - Add dependency
 
 ---
 

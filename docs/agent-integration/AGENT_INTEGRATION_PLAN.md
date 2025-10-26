@@ -1144,8 +1144,6 @@ export async function GET() {
 }
 ```
 
-**Estimated Lines**: ~200 lines
-
 ---
 
 ### Phase 4: Create Chat UI Page
@@ -1192,8 +1190,6 @@ export default async function AgentChatPage() {
   );
 }
 ```
-
-**Estimated Lines**: ~30 lines
 
 ---
 
@@ -1480,8 +1476,6 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
   );
 }
 ```
-
-**Estimated Lines**: ~300 lines
 
 ---
 
@@ -1978,5 +1972,3 @@ This plan provides a complete, secure, and scalable implementation of an AI conv
 6. **Production-Ready**: Includes testing, monitoring, and rollout plan
 
 **Estimated Development Time**: 2-3 weeks for full implementation
-
-**Total New Code**: ~1,400 lines across 8 new files + modifications to 3 existing files

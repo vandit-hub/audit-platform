@@ -137,7 +137,7 @@ Track your progress:
 
 - [x] Task 1: Dependencies installed ✅
 - [x] Task 2: Types created ✅
-- [ ] Task 3: RBAC functions implemented
+- [x] Task 3: RBAC functions implemented ✅
 - [ ] Task 4: MCP server created
 - [ ] Task 5: API endpoint working
 - [ ] Task 6: UI implemented
