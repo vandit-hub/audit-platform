@@ -17,11 +17,25 @@ export interface GetObservationsInput {
   riskCategory?: 'A' | 'B' | 'C';
   currentStatus?: 'PENDING_MR' | 'MR_UNDER_REVIEW' | 'REFERRED_BACK' | 'OBSERVATION_FINALISED' | 'RESOLVED';
   limit?: number;
+  // NEW Phase 2 filters
+  plantId?: string;
+  startDate?: string; // ISO date string
+  endDate?: string;   // ISO date string
+  process?: 'O2C' | 'P2P' | 'R2R' | 'INVENTORY';
+  published?: boolean;
+  searchQuery?: string;
 }
 
 export interface GetObservationStatsInput {
-  groupBy: 'approvalStatus' | 'currentStatus' | 'riskCategory';
+  groupBy: 'approvalStatus' | 'currentStatus' | 'riskCategory' | 'concernedProcess' | 'auditId';
   auditId?: string;
+}
+
+// NEW Phase 2: Audit filters
+export interface AuditFilters {
+  plantId?: string;
+  status?: 'PLANNED' | 'IN_PROGRESS' | 'SUBMITTED' | 'SIGNED_OFF';
+  limit?: number;
 }
 
 // Response types

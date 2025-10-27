@@ -93,10 +93,9 @@ Prisma + PostgreSQL
    - Better error handling and categorization
 
 4. **Code Quality & Maintainability**
-   - Refactor existing API routes to use shared RBAC functions
-   - Eliminate code duplication
    - Improve type safety
    - Add comprehensive testing
+   - Better code organization
 
 5. **Scalability & Performance**
    - Optimize database queries
@@ -465,97 +464,7 @@ groupBy: z.enum(['approvalStatus', 'currentStatus', 'riskCategory', 'concernedPr
 
 ---
 
-### Area 4: API Refactoring
-
-**Goal**: Eliminate code duplication by having existing API routes use the shared RBAC functions.
-
-#### Files to Refactor
-
-**4.1 Observations API** (`src/app/api/v1/observations/route.ts`)
-
-**Current**: ~65 lines of inline RBAC filtering logic (lines 88-148)
-
-**Target**: Replace with shared function call
-
-**Changes**:
-```typescript
-// Before (lines 88-148)
-let where: Prisma.ObservationWhereInput = ...;
-if (isCFO(session.user.role) || isCXOTeam(session.user.role)) {
-  // ... 60+ lines of role-specific logic
-}
-
-// After (~10 lines)
-import { buildObservationWhereClause } from '@/lib/rbac-queries';
-
-const where = buildObservationWhereClause(
-  session.user.id,
-  session.user.role,
-  {
-    plantId,
-    auditId,
-    startDate,
-    endDate,
-    risk,
-    process,
-    status,
-    published: published === "1" ? true : published === "0" ? false : undefined,
-    searchQuery: q
-  }
-);
-
-const observations = await prisma.observation.findMany({ where, ... });
-```
-
-**Benefits**:
-- Reduces code from ~65 lines to ~15 lines
-- Ensures consistency between API and agent
-- Single source of truth for RBAC logic
-- Easier to maintain and test
-
-**4.2 Audits API** (`src/app/api/v1/audits/route.ts`)
-
-**Current**: ~60 lines of inline RBAC filtering + post-query filtering (lines 36-93)
-
-**Target**: Replace with shared function
-
-**Changes**:
-```typescript
-// Before (lines 36-93)
-const where: any = { plantId, status };
-if (isCFO(role) || isCXOTeam(role)) {
-  // ... role-specific logic
-}
-const audits = await prisma.audit.findMany({ where });
-// ... post-query filtering for AUDIT_HEAD/AUDITOR
-
-// After (~10 lines)
-import { getAuditsForUser } from '@/lib/rbac-queries';
-
-const audits = await getAuditsForUser(
-  session.user.id,
-  session.user.role,
-  { plantId, status },
-  {
-    include: {
-      plant: true,
-      assignments: { include: { auditor: true } }
-    },
-    orderBy: { createdAt: 'desc' }
-  }
-);
-// Visibility rules now handled inside getAuditsForUser()
-```
-
-**Benefits**:
-- Simplifies API route code
-- Eliminates post-query filtering (moves to database level)
-- Better performance (database does filtering)
-- Consistency with agent RBAC
-
----
-
-### Area 5: UI/UX Improvements
+### Area 4: UI/UX Improvements
 
 **Current State**: Basic chat interface with loading spinner
 
@@ -700,9 +609,9 @@ if (parsed.type === 'error') {
 
 ---
 
-### Area 6: Production Features
+### Area 5: Production Features
 
-#### 6.1 Rate Limiting
+#### 5.1 Rate Limiting
 
 **Goal**: Prevent abuse of expensive agent queries
 
@@ -747,7 +656,7 @@ if (!checkRateLimit(session.user.id)) {
 - Adjustable via environment variables
 - Different limits per role (optional)
 
-**6.2 Audit Event Logging**
+**5.2 Audit Event Logging**
 
 **Goal**: Log all agent interactions for compliance and analytics
 
@@ -780,7 +689,7 @@ await writeAuditEvent({
 - Security audit trail
 - Troubleshooting
 
-**6.3 Structured Monitoring**
+**5.3 Structured Monitoring**
 
 **Goal**: Comprehensive observability for production operations
 
@@ -829,7 +738,7 @@ console.error(JSON.stringify({
 - `WARN`: Rate limit hits, access denials
 - `ERROR`: Failures, exceptions
 
-**6.4 Error Categorization**
+**5.4 Error Categorization**
 
 **Goal**: Better error handling and user feedback
 
@@ -891,13 +800,13 @@ try {
 
 ---
 
-### Area 7: Testing Infrastructure
+### Area 6: Testing Infrastructure
 
 **Current State**: Manual testing only
 
 **Target State**: Automated unit and integration tests
 
-#### 7.1 Unit Tests for RBAC Functions
+#### 6.1 Unit Tests for RBAC Functions
 
 **Create**: `src/lib/__tests__/rbac-queries.test.ts`
 
@@ -950,7 +859,7 @@ describe('buildObservationWhereClause', () => {
 });
 ```
 
-#### 7.2 Integration Tests for Agent Flow
+#### 6.2 Integration Tests for Agent Flow
 
 **Create**: `src/app/api/v1/agent/__tests__/chat.test.ts`
 
@@ -982,7 +891,7 @@ describe('buildObservationWhereClause', () => {
 - ✅ Returns 429 when limit exceeded
 - ✅ Resets after window expires
 
-#### 7.3 Test All Roles
+#### 6.3 Test All Roles
 
 **Test Matrix**:
 
@@ -1059,13 +968,7 @@ describe('Agent RBAC enforcement', () => {
 7. ✅ Add smooth scroll
 8. ✅ Add relative timestamps (optional)
 
-### Phase 2.5: API Refactoring
-1. ✅ Refactor `GET /api/v1/observations` to use `buildObservationWhereClause()`
-2. ✅ Refactor `GET /api/v1/audits` to use `getAuditsForUser()`
-3. ✅ Test refactored endpoints
-4. ✅ Verify no regressions
-
-### Phase 2.6: Production Features
+### Phase 2.5: Production Features
 1. ✅ Implement rate limiting
 2. ✅ Add audit event logging
 3. ✅ Add structured logging
@@ -1074,7 +977,7 @@ describe('Agent RBAC enforcement', () => {
 6. ✅ Test rate limiting
 7. ✅ Test audit logging
 
-### Phase 2.7: Testing
+### Phase 2.6: Testing
 1. ✅ Set up Jest testing framework (if not already)
 2. ✅ Create test utilities and mocks
 3. ✅ Write unit tests for RBAC functions
@@ -1249,7 +1152,6 @@ If issues arise:
 ### Code Quality Metrics
 
 - ✅ **Test Coverage**: >80% on new code
-- ✅ **Code Duplication**: Reduced by 150+ lines
 - ✅ **Type Safety**: No `any` types (except known Prisma limitations)
 - ✅ **Documentation**: All public functions documented
 
@@ -1395,7 +1297,7 @@ Once Phase 2 is stable, consider:
 - ✅ **Better UX**: Streaming responses, stop generation, clear chat
 - ✅ **More Capabilities**: 6 tools, comprehensive filtering, audit queries
 - ✅ **Production-Grade**: Rate limiting, audit logging, monitoring
-- ✅ **Higher Quality**: Refactored code, automated tests, better errors
+- ✅ **Higher Quality**: Automated tests, better errors
 - ✅ **Scalability**: Optimized queries, efficient architecture
 
 **This phase builds on the proven foundation while maintaining stability and backward compatibility.**
@@ -1404,6 +1306,6 @@ The implementation is designed to be:
 - **Incremental**: Deploy features gradually
 - **Measurable**: Clear success criteria
 - **Reversible**: Feature flags for quick rollback
-- **Sustainable**: Lower maintenance burden through refactoring
+- **Sustainable**: Lower maintenance burden through better organization
 
 **Next Steps**: Begin with Phase 2.1 (Streaming Foundation) to deliver immediate UX improvements while building toward the full Phase 2 vision.

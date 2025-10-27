@@ -258,11 +258,8 @@ No audit trail logging needed for read-only chat queries. Users asking questions
    - Currently discards streamed content on timeout
 
 #### Dependencies for Other Tasks:
-- **TASK_2** (Follow-up Questions): Can build on streaming foundation
-- **TASK_3** (Rich Formatting): Can enhance streaming text rendering
-- **TASK_4** (Conversation Context): Can extend message state management
-- **TASK_5** (UI/UX): Can improve streaming animations and display metadata
-- **TASK_6** (Production Features): Can add monitoring for streaming performance
+- **TASK_2** (Expanded MCP Tools): Can build on streaming foundation
+- **TASK_3** (Enhanced RBAC): Provides data access layer for agent tools
 
 ### Blockers & Dependencies
 
