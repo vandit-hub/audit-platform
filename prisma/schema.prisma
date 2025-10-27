@@ -319,6 +319,7 @@ enum EntityType {
   ACTION_PLAN
   PLANT
   INVITE
+  AGENT_QUERY
 }
 
 enum AuditStatus {

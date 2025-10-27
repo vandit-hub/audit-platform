@@ -18,6 +18,148 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { auth } from '@/lib/auth';
 import { auditDataMcpServer } from '@/agent/mcp-server';
 import type { AgentUserContext } from '@/lib/types/agent';
+import { agentConfig } from '@/lib/config/agent';
+import { writeAuditEvent } from '@/server/auditTrail';
+import { categorizeError } from '@/lib/errors/agent-errors';
+
+/**
+ * Rate Limiting
+ *
+ * In-memory rate limiting to prevent abuse of expensive agent queries.
+ * Uses a Map to track requests per user with automatic cleanup.
+ */
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+/**
+ * Check if user has exceeded rate limit
+ *
+ * @param userId - User ID to check
+ * @param maxRequests - Maximum requests allowed in window
+ * @param windowMs - Time window in milliseconds
+ * @returns true if request allowed, false if rate limit exceeded
+ */
+function checkRateLimit(
+  userId: string,
+  maxRequests: number,
+  windowMs: number
+): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+
+  // No entry or window expired - create new window
+  if (!entry || now - entry.windowStart > windowMs) {
+    rateLimitMap.set(userId, { count: 1, windowStart: now });
+    return true;
+  }
+
+  // Within window - check count
+  if (entry.count >= maxRequests) {
+    return false; // Rate limit exceeded
+  }
+
+  // Increment count and allow
+  entry.count++;
+  return true;
+}
+
+/**
+ * Cleanup expired rate limit entries
+ * Runs every 60 seconds to prevent memory leaks
+ */
+setInterval(() => {
+  const now = Date.now();
+  const windowMs = agentConfig.rateLimit.windowMs;
+
+  for (const [userId, entry] of rateLimitMap.entries()) {
+    if (now - entry.windowStart > windowMs) {
+      rateLimitMap.delete(userId);
+    }
+  }
+}, 60000); // Cleanup every minute
+
+/**
+ * Audit Logging
+ *
+ * Functions for logging agent queries to the audit trail for compliance and analytics.
+ */
+
+/**
+ * Extract tool names from agent messages
+ *
+ * @param agentMessages - Messages from the agent SDK query
+ * @returns Array of unique tool names used
+ */
+function extractToolsCalled(agentMessages: any[]): string[] {
+  const tools = new Set<string>();
+
+  for (const msg of agentMessages) {
+    if (msg.type === 'assistant' && msg.message?.content) {
+      for (const block of msg.message.content) {
+        if (block.type === 'tool_use' && block.name) {
+          tools.add(block.name);
+        }
+      }
+    }
+  }
+
+  return Array.from(tools);
+}
+
+/**
+ * Log agent query to audit trail
+ *
+ * Logs all queries for compliance and analytics.
+ * Never throws errors - wrapped in try-catch.
+ *
+ * @param session - User session
+ * @param message - User query text
+ * @param responseText - Agent response text
+ * @param usage - Token usage statistics
+ * @param cost - Query cost in USD
+ * @param toolsCalled - Array of tool names used
+ */
+async function logAuditEvent(
+  session: any,
+  message: string,
+  responseText: string,
+  usage: any,
+  cost: number,
+  toolsCalled: string[]
+): Promise<void> {
+  // Check feature flag
+  if (!agentConfig.features.auditLogging) {
+    return;
+  }
+
+  try {
+    await writeAuditEvent({
+      entityType: 'AGENT_QUERY',
+      entityId: session.user.id,
+      action: 'QUERY',
+      actorId: session.user.id,
+      diff: {
+        query: message.slice(0, 500), // Truncate long queries
+        responseLength: responseText.length,
+        toolsCalled,
+        usage: {
+          inputTokens: usage?.input_tokens || 0,
+          outputTokens: usage?.output_tokens || 0,
+          totalTokens: (usage?.input_tokens || 0) + (usage?.output_tokens || 0)
+        },
+        cost,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    // Never throw - just log the error
+    console.error('[Agent] Failed to write audit event:', error);
+  }
+}
 
 /**
  * GET /api/v1/agent/chat
@@ -54,9 +196,12 @@ export async function GET() {
  * }
  */
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  let session: any = null;
+
   try {
     // 1. Authenticate user
-    const session = await auth();
+    session = await auth();
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -69,6 +214,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid session: user email is required' },
         { status: 401 }
+      );
+    }
+
+    // Check rate limit
+    const rateLimitAllowed = checkRateLimit(
+      session.user.id,
+      agentConfig.rateLimit.requests,
+      agentConfig.rateLimit.windowMs
+    );
+
+    if (!rateLimitAllowed) {
+      const waitTimeSeconds = Math.ceil(agentConfig.rateLimit.windowMs / 1000);
+
+      console.log(JSON.stringify({
+        level: 'WARN',
+        type: 'rate_limit_exceeded',
+        userId: session.user.id,
+        role: session.user.role,
+        maxRequests: agentConfig.rateLimit.requests,
+        windowMs: agentConfig.rateLimit.windowMs,
+        timestamp: new Date().toISOString()
+      }));
+
+      return NextResponse.json(
+        {
+          error: `Rate limit exceeded. You can make up to ${agentConfig.rateLimit.requests} requests per minute. Please wait ${waitTimeSeconds} seconds and try again.`
+        },
+        { status: 429 }
       );
     }
 
@@ -91,7 +264,17 @@ export async function POST(req: NextRequest) {
       name: session.user.name || session.user.email
     };
 
-    console.log(`[Agent] User ${userContext.email} (${userContext.role}) asked: "${message}"${sessionId ? ` (resuming session: ${sessionId})` : ' (new session)'}`);
+    // Log query start with structured JSON
+    console.log(JSON.stringify({
+      level: 'INFO',
+      type: 'agent_query_started',
+      userId: userContext.userId,
+      role: userContext.role,
+      email: userContext.email,
+      query: message.slice(0, 100), // Truncate for logs
+      sessionId: sessionId || null,
+      timestamp: new Date().toISOString()
+    }));
 
     // 4. Create per-request MCP server instance with user context
     // The SDK MCP server needs to be created per-request to inject user context
@@ -182,8 +365,16 @@ Guidelines:
         const encoder = new TextEncoder();
         let currentSessionId: string | null = null;
 
+        // Track response data for audit logging
+        let collectedText = '';
+        let finalUsage: any = null;
+        let finalCost = 0;
+        const allMessages: any[] = [];
+
         try {
           for await (const msg of agentQuery) {
+            allMessages.push(msg); // Track all messages for audit logging
+
             // Track session ID from any message that includes it
             if (msg.session_id && !currentSessionId) {
               currentSessionId = msg.session_id;
@@ -193,6 +384,7 @@ Guidelines:
               // Stream text blocks as they arrive
               for (const block of msg.message.content) {
                 if (block.type === 'text') {
+                  collectedText += block.text; // Collect full response
                   controller.enqueue(encoder.encode(
                     `data: ${JSON.stringify({ type: 'text', content: block.text })}\n\n`
                   ));
@@ -201,6 +393,9 @@ Guidelines:
             }
 
             if (msg.type === 'result') {
+              finalUsage = msg.usage;
+              finalCost = msg.total_cost_usd || 0;
+
               // Send final metadata including session ID for context retention
               controller.enqueue(encoder.encode(
                 `data: ${JSON.stringify({
@@ -211,18 +406,62 @@ Guidelines:
                 })}\n\n`
               ));
 
-              console.log(`[Agent] Response generated. Cost: $${(msg.total_cost_usd || 0).toFixed(4)}, Session: ${currentSessionId || msg.session_id}`);
+              // Extract tools called for logging
+              const toolsCalled = extractToolsCalled(allMessages);
+
+              // Log success with structured JSON
+              console.log(JSON.stringify({
+                level: 'INFO',
+                type: 'agent_query_success',
+                userId: session.user.id,
+                role: session.user.role,
+                query: message.slice(0, 100),
+                responseTime: Date.now() - startTime,
+                cost: finalCost,
+                tokens: {
+                  input: finalUsage?.input_tokens || 0,
+                  output: finalUsage?.output_tokens || 0,
+                  total: (finalUsage?.input_tokens || 0) + (finalUsage?.output_tokens || 0)
+                },
+                toolsCalled,
+                sessionId: currentSessionId || msg.session_id,
+                timestamp: new Date().toISOString()
+              }));
             }
           }
+
+          // Log audit event after successful completion
+          const toolsCalled = extractToolsCalled(allMessages);
+          await logAuditEvent(
+            session,
+            message,
+            collectedText,
+            finalUsage,
+            finalCost,
+            toolsCalled
+          );
 
           // Signal completion
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
         } catch (error: any) {
-          // Stream error to client
-          console.error('[Agent] Streaming error:', error);
+          const categorized = categorizeError(error);
+
+          // Log streaming error with structured JSON
+          console.log(JSON.stringify({
+            level: 'ERROR',
+            type: 'agent_streaming_error',
+            category: categorized.category,
+            userId: session.user.id,
+            role: session.user.role,
+            query: message.slice(0, 100),
+            error: categorized.logMessage,
+            timestamp: new Date().toISOString()
+          }));
+
+          // Stream user-friendly error to client
           controller.enqueue(encoder.encode(
-            `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+            `data: ${JSON.stringify({ type: 'error', error: categorized.userMessage })}\n\n`
           ));
           controller.close();
         }
@@ -237,14 +476,27 @@ Guidelines:
       }
     });
   } catch (error: any) {
-    console.error('[Agent] Error:', error);
+    const categorized = categorizeError(error);
+
+    // Log categorized error with structured JSON
+    console.log(JSON.stringify({
+      level: 'ERROR',
+      type: 'agent_query_failed',
+      category: categorized.category,
+      userId: session?.user?.id || 'unknown',
+      role: session?.user?.role || 'unknown',
+      error: categorized.logMessage,
+      statusCode: categorized.statusCode,
+      timestamp: new Date().toISOString()
+    }));
+
     return NextResponse.json(
       {
         success: false,
-        error: 'An error occurred while processing your request',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: categorized.userMessage,
+        details: process.env.NODE_ENV === 'development' ? categorized.logMessage : undefined
       },
-      { status: 500 }
+      { status: categorized.statusCode }
     );
   }
 }
