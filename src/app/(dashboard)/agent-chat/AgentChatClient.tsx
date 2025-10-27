@@ -132,6 +132,7 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [isTimeout, setIsTimeout] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -211,7 +212,10 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
       const response = await fetch('/api/v1/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content }),
+        body: JSON.stringify({
+          message: userMessage.content,
+          sessionId: sessionId // Include session ID to resume conversation context
+        }),
         signal: abortController.signal
       });
 
@@ -258,8 +262,13 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
                   setStreamingContent(assistantContent);
                 } else if (parsed.type === 'error') {
                   throw new Error(parsed.error);
+                } else if (parsed.type === 'metadata') {
+                  // Store session ID for conversation context retention
+                  if (parsed.session_id) {
+                    setSessionId(parsed.session_id);
+                    console.log('[Agent Client] Session ID stored:', parsed.session_id);
+                  }
                 }
-                // Ignore metadata for now
               } catch (e) {
                 console.error('Failed to parse SSE data:', e);
               }
@@ -342,6 +351,8 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
     setMessages([]);
     setStreamingContent('');
     setInput('');
+    setSessionId(null); // Clear session ID to start fresh conversation
+    console.log('[Agent Client] Chat cleared - new conversation will start');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -352,7 +363,7 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-neutral-200 flex flex-col overflow-hidden" style={{ height: '600px' }}>
+    <div className="bg-white rounded-lg shadow-lg border border-neutral-200 flex flex-col overflow-hidden" style={{ height: '75vh', minHeight: '700px' }}>
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-neutral-200 p-4">
         <div className="flex justify-between items-center">

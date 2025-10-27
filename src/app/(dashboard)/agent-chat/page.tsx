@@ -21,7 +21,7 @@ export default async function AgentChatPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-neutral-900">AI Assistant</h1>
         <p className="text-neutral-600 mt-1">

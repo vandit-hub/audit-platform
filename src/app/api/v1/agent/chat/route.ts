@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Parse request
     const body = await req.json();
-    const { message } = body;
+    const { message, sessionId } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       name: session.user.name || session.user.email
     };
 
-    console.log(`[Agent] User ${userContext.email} (${userContext.role}) asked: "${message}"`);
+    console.log(`[Agent] User ${userContext.email} (${userContext.role}) asked: "${message}"${sessionId ? ` (resuming session: ${sessionId})` : ' (new session)'}`);
 
     // 4. Create per-request MCP server instance with user context
     // The SDK MCP server needs to be created per-request to inject user context
@@ -102,6 +102,8 @@ export async function POST(req: NextRequest) {
     const agentQuery = query({
       prompt: message,
       options: {
+        // Resume previous session if sessionId provided, otherwise start new session
+        ...(sessionId ? { resume: sessionId } : {}),
         mcpServers: {
           'audit-data': {
             type: 'sdk',
@@ -178,9 +180,15 @@ Guidelines:
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        let currentSessionId: string | null = null;
 
         try {
           for await (const msg of agentQuery) {
+            // Track session ID from any message that includes it
+            if (msg.session_id && !currentSessionId) {
+              currentSessionId = msg.session_id;
+            }
+
             if (msg.type === 'assistant') {
               // Stream text blocks as they arrive
               for (const block of msg.message.content) {
@@ -193,16 +201,17 @@ Guidelines:
             }
 
             if (msg.type === 'result') {
-              // Send final metadata
+              // Send final metadata including session ID for context retention
               controller.enqueue(encoder.encode(
                 `data: ${JSON.stringify({
                   type: 'metadata',
                   usage: msg.usage,
-                  cost: msg.total_cost_usd || 0
+                  cost: msg.total_cost_usd || 0,
+                  session_id: currentSessionId || msg.session_id
                 })}\n\n`
               ));
 
-              console.log(`[Agent] Response generated. Cost: $${(msg.total_cost_usd || 0).toFixed(4)}`);
+              console.log(`[Agent] Response generated. Cost: $${(msg.total_cost_usd || 0).toFixed(4)}, Session: ${currentSessionId || msg.session_id}`);
             }
           }
 
