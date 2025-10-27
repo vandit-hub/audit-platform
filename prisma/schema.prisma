@@ -30,6 +30,7 @@ model User {
   changeRequestsDecided ObservationChangeRequest[] @relation("ChangeRequestDecider")
   changeRequestsCreated ObservationChangeRequest[] @relation("ChangeRequestRequester")
   notes                 RunningNote[]
+  agentConversations    AgentConversation[]
 }
 
 model Plant {
@@ -393,4 +394,32 @@ enum ChangeRequestStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+// ===== Agent Conversation History =====
+model AgentConversation {
+  id        String         @id @default(cuid())
+  userId    String
+  sessionId String         @unique // Claude SDK session ID
+  title     String // Auto-generated from first message
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AgentMessage[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("AgentConversation")
+}
+
+model AgentMessage {
+  id             String            @id @default(cuid())
+  conversationId String
+  role           String // 'user' | 'assistant'
+  content        String            @db.Text
+  timestamp      DateTime          @default(now())
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, timestamp])
+  @@map("AgentMessage")
 }

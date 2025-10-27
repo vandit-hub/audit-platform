@@ -21,6 +21,7 @@ import type { AgentUserContext } from '@/lib/types/agent';
 import { agentConfig } from '@/lib/config/agent';
 import { writeAuditEvent } from '@/server/auditTrail';
 import { categorizeError } from '@/lib/errors/agent-errors';
+import { prisma } from '@/server/db';
 
 /**
  * Rate Limiting
@@ -247,7 +248,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Parse request
     const body = await req.json();
-    const { message, sessionId } = body;
+    const { message, sessionId, conversationId } = body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
@@ -273,8 +274,65 @@ export async function POST(req: NextRequest) {
       email: userContext.email,
       query: message.slice(0, 100), // Truncate for logs
       sessionId: sessionId || null,
+      conversationId: conversationId || null,
       timestamp: new Date().toISOString()
     }));
+
+    // 3a. Handle conversation management (if not a guest)
+    let currentConversationId = conversationId;
+
+    if (session.user.role !== 'GUEST') {
+      if (!currentConversationId) {
+        // Create new conversation with title from user message
+        const newConversation = await prisma.agentConversation.create({
+          data: {
+            userId: session.user.id,
+            sessionId: sessionId || `new_${Date.now()}`,
+            title: message.slice(0, 60)
+          }
+        });
+        currentConversationId = newConversation.id;
+
+        // Check conversation count and delete oldest if >= 50
+        const count = await prisma.agentConversation.count({
+          where: { userId: session.user.id }
+        });
+
+        if (count > 50) {
+          const oldest = await prisma.agentConversation.findFirst({
+            where: { userId: session.user.id },
+            orderBy: { createdAt: 'asc' }
+          });
+
+          if (oldest && oldest.id !== currentConversationId) {
+            await prisma.agentConversation.delete({
+              where: { id: oldest.id }
+            });
+          }
+        }
+      } else {
+        // Verify conversation belongs to user
+        const conversation = await prisma.agentConversation.findUnique({
+          where: { id: currentConversationId }
+        });
+
+        if (!conversation || conversation.userId !== session.user.id) {
+          return NextResponse.json(
+            { error: 'Invalid conversation ID' },
+            { status: 403 }
+          );
+        }
+      }
+
+      // Save user message to database
+      await prisma.agentMessage.create({
+        data: {
+          conversationId: currentConversationId,
+          role: 'user',
+          content: message
+        }
+      });
+    }
 
     // 4. Create per-request MCP server instance with user context
     // The SDK MCP server needs to be created per-request to inject user context
@@ -467,13 +525,14 @@ Guidelines:
               finalUsage = msg.usage;
               finalCost = msg.total_cost_usd || 0;
 
-              // Send final metadata including session ID for context retention
+              // Send final metadata including session ID and conversation ID
               controller.enqueue(encoder.encode(
                 `data: ${JSON.stringify({
                   type: 'metadata',
                   usage: msg.usage,
                   cost: msg.total_cost_usd || 0,
-                  session_id: currentSessionId || msg.session_id
+                  session_id: currentSessionId || msg.session_id,
+                  conversationId: currentConversationId
                 })}\n\n`
               ));
 
@@ -511,6 +570,23 @@ Guidelines:
             finalCost,
             toolsCalled
           );
+
+          // Save assistant message to database (if not a guest)
+          if (session.user.role !== 'GUEST' && currentConversationId && collectedText) {
+            await prisma.agentMessage.create({
+              data: {
+                conversationId: currentConversationId,
+                role: 'assistant',
+                content: collectedText
+              }
+            });
+
+            // Update conversation's updatedAt timestamp
+            await prisma.agentConversation.update({
+              where: { id: currentConversationId },
+              data: { updatedAt: new Date() }
+            });
+          }
 
           // Signal completion
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));

@@ -21,6 +21,8 @@ interface Message {
 
 interface AgentChatClientProps {
   user: User & { role: string };
+  conversationId?: string | null;
+  onConversationChange?: (id: string | null) => void;
 }
 
 const EXAMPLE_QUESTIONS = [
@@ -126,13 +128,14 @@ const categorizeError = (error: any): string => {
   return '❌ An unexpected error occurred. Please try again.';
 };
 
-export default function AgentChatClient({ user }: AgentChatClientProps) {
+export default function AgentChatClient({ user, conversationId: propConversationId, onConversationChange }: AgentChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [isTimeout, setIsTimeout] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -167,6 +170,21 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
     };
   }, [streamingContent]);
 
+  // Load conversation when prop changes
+  useEffect(() => {
+    if (propConversationId && propConversationId !== currentConversationId) {
+      loadConversation(propConversationId);
+    } else if (!propConversationId && currentConversationId) {
+      // New chat started from sidebar
+      setMessages([]);
+      setStreamingContent('');
+      setInput('');
+      setSessionId(null);
+      setCurrentConversationId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propConversationId]);
+
   // Cleanup effect
   useEffect(() => {
     return () => {
@@ -179,6 +197,29 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
       }
     };
   }, []);
+
+  const loadConversation = async (convId: string) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/v1/agent/conversations/${convId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setCurrentConversationId(data.conversation.id);
+        setSessionId(data.conversation.sessionId);
+        setMessages(data.conversation.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp)
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -214,7 +255,8 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage.content,
-          sessionId: sessionId // Include session ID to resume conversation context
+          sessionId: sessionId, // Include session ID to resume conversation context
+          conversationId: currentConversationId // Include conversation ID for persistence
         }),
         signal: abortController.signal
       });
@@ -267,6 +309,12 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
                   if (parsed.session_id) {
                     setSessionId(parsed.session_id);
                     console.log('[Agent Client] Session ID stored:', parsed.session_id);
+                  }
+                  // Store conversation ID for persistence
+                  if (parsed.conversationId) {
+                    setCurrentConversationId(parsed.conversationId);
+                    onConversationChange?.(parsed.conversationId);
+                    console.log('[Agent Client] Conversation ID stored:', parsed.conversationId);
                   }
                 }
               } catch (e) {
@@ -343,7 +391,7 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
     // Only show confirmation if there are messages
     if (messages.length > 0 || streamingContent) {
       const confirmed = window.confirm(
-        'Are you sure you want to clear the chat history? This action cannot be undone.'
+        'Are you sure you want to start a new chat? Current conversation will be saved.'
       );
       if (!confirmed) return;
     }
@@ -352,6 +400,8 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
     setStreamingContent('');
     setInput('');
     setSessionId(null); // Clear session ID to start fresh conversation
+    setCurrentConversationId(null); // Reset conversation ID
+    onConversationChange?.(null);
     console.log('[Agent Client] Chat cleared - new conversation will start');
   };
 
@@ -363,21 +413,10 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-neutral-200 flex flex-col overflow-hidden" style={{ height: '75vh', minHeight: '700px' }}>
+    <div className="bg-white rounded-lg shadow-lg border border-neutral-200 flex flex-col overflow-hidden h-full">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-neutral-200 p-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-semibold text-neutral-900">
-              AI Assistant
-            </h1>
-            <p className="text-sm text-neutral-500 mt-0.5">
-              Logged in as <span className="font-medium">{user.name || user.email}</span>
-              <span className="mx-1.5">•</span>
-              <span className="capitalize">{user.role.toLowerCase().replace(/_/g, ' ')}</span>
-            </p>
-          </div>
-
+        <div className="flex justify-end items-center">
           <button
             onClick={clearChat}
             disabled={messages.length === 0 && !streamingContent}
@@ -398,11 +437,6 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="max-w-2xl w-full space-y-6">
               <div className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                  </svg>
-                </div>
                 <h2 className="text-2xl font-semibold text-neutral-900 mb-2">
                   Ask me anything about your audits
                 </h2>
