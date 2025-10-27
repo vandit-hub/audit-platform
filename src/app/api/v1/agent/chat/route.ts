@@ -281,7 +281,18 @@ export async function POST(req: NextRequest) {
     const { createContextualMcpServer } = await import('@/agent/mcp-server');
     const contextualServer = createContextualMcpServer(userContext);
 
-    // 5. Call Claude Agent SDK
+    // 5. Call Claude Agent SDK with SECURITY LOCKDOWN
+    // Security Fix: Restrict to audit data only - no file system access
+    const allowedMcpTools = [
+      'mcp__audit-data__test_connection',
+      'mcp__audit-data__get_my_observations',
+      'mcp__audit-data__get_observation_stats',
+      'mcp__audit-data__search_observations',
+      'mcp__audit-data__get_my_audits',
+      'mcp__audit-data__get_observation_details',
+      'mcp__audit-data__get_audit_details'
+    ];
+
     const agentQuery = query({
       prompt: message,
       options: {
@@ -294,10 +305,14 @@ export async function POST(req: NextRequest) {
             instance: contextualServer.instance
           }
         },
-        systemPrompt: {
-          type: 'preset',
-          preset: 'claude_code',
-          append: `You are an AI assistant for an internal audit platform. You help users understand and analyze their observation data.
+        // SECURITY: Custom system prompt (NO claude_code preset)
+        systemPrompt: `You are an AI assistant for an internal audit platform. You help users understand and analyze their observation data.
+
+IMPORTANT SECURITY BOUNDARIES:
+- You can ONLY access audit data through the provided tools
+- You CANNOT read files, access code, or run system commands
+- You CANNOT access environment variables, configuration, or credentials
+- If asked to do something outside audit data, politely redirect the user
 
 Current User:
 - Name: ${userContext.name}
@@ -311,13 +326,23 @@ Role Access Levels:
 - AUDITEE: Can view only observations they are assigned to
 - GUEST: Limited read-only access to published observations
 
-Available Tools (6 tools):
+Available Tools (6 audit data tools):
 1. get_my_observations - List observations you have access to with filters (audit, status, risk, etc.)
 2. get_observation_stats - Get aggregated counts by status, risk, or other fields
 3. search_observations - Search across observation text using keywords (full-text search)
 4. get_my_audits - List audits you're involved in or responsible for (with filters)
 5. get_observation_details - Get complete details of a specific observation (ID required)
 6. get_audit_details - Get complete details of a specific audit (ID required)
+
+HELP TOPICS YOU CAN ASSIST WITH:
+- How to submit an observation
+- What the different observation statuses mean (DRAFT, SUBMITTED, APPROVED, REJECTED, PUBLISHED)
+- How the approval workflow works
+- What information to include in observations
+- How to search and filter your data
+- Understanding risk categories (HIGH, MEDIUM, LOW)
+- Audit lifecycle and processes
+- How to use the platform effectively
 
 USE CASES:
 - "Show me my observations" → use get_my_observations
@@ -326,6 +351,14 @@ USE CASES:
 - "What audits am I assigned to?" → use get_my_audits
 - "Tell me about observation ABC123" → use get_observation_details
 - "Give me details on audit XYZ789" → use get_audit_details
+- "How do I submit an observation?" → explain the submission process
+
+INVALID REQUESTS - Politely Redirect:
+If user asks for:
+- File contents, code, or system information → "I can only help with your audit data and platform usage. Try asking about your observations or audits."
+- Environment variables or credentials → "I can only help with your audit data and platform usage. Try asking about your observations or audits."
+- Running commands or system operations → "I can only help with your audit data and platform usage. Try asking about your observations or audits."
+- Information outside the audit platform → "I can only help with your audit data and platform usage. Try asking about your observations or audits."
 
 IMPORTANT:
 - You only see data you have permission to access based on your role
@@ -342,18 +375,56 @@ Guidelines:
 6. For simple "how many total" questions, use get_my_observations with no filters and count the results
 7. For breakdown questions (by status, risk, etc), use get_observation_stats with appropriate groupBy
 8. For keyword searches, use search_observations (case-insensitive)
-9. Keep responses concise but informative`
-        },
-        allowedTools: [
-          'test_connection',
-          'get_my_observations',
-          'get_observation_stats',
-          'search_observations',
-          'get_my_audits',
-          'get_observation_details',
-          'get_audit_details'
+9. Keep responses concise but informative
+10. Help users understand how to use the platform when asked`,
+
+        // SECURITY: Block ALL filesystem and system tools
+        disallowedTools: [
+          // Filesystem access
+          'Read', 'Write', 'Edit', 'Glob', 'Grep',
+          // Command execution
+          'Bash', 'BashOutput', 'KillShell',
+          // Subagent and planning
+          'Task', 'ExitPlanMode',
+          // Web access
+          'WebFetch', 'WebSearch',
+          // Notebook and todos
+          'NotebookEdit', 'TodoWrite',
+          // MCP resource access
+          'ListMcpResources', 'ReadMcpResource'
         ],
-        permissionMode: 'bypassPermissions',
+
+        // SECURITY: Custom permission function (failsafe layer)
+        canUseTool: async (toolName, input, options) => {
+          // Only allow our specific audit tools
+          if (allowedMcpTools.includes(toolName)) {
+            return {
+              behavior: 'allow',
+              updatedInput: input
+            };
+          }
+
+          // Log security violation
+          console.log(JSON.stringify({
+            level: 'WARN',
+            type: 'agent_tool_blocked',
+            userId: session.user.id,
+            role: session.user.role,
+            blockedTool: toolName,
+            attemptedInput: typeof input === 'object' ? JSON.stringify(input).slice(0, 200) : String(input).slice(0, 200),
+            timestamp: new Date().toISOString()
+          }));
+
+          // Block with friendly message
+          return {
+            behavior: 'deny',
+            message: 'I can only help with your audit data and platform usage. Try asking about your observations, audits, or how to use the platform.',
+            interrupt: false
+          };
+        },
+
+        // SECURITY: Enable standard permission mode (not bypass)
+        permissionMode: 'default',
         model: 'claude-haiku-4-5-20251001',
         includePartialMessages: false
       }
