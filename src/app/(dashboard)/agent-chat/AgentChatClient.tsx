@@ -9,6 +9,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { User } from 'next-auth';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   id: string;
@@ -452,10 +454,34 @@ export default function AgentChatClient({ user }: AgentChatClientProps) {
                   </div>
                 )}
 
-                <div className="flex-1 min-w-0">
-                  <div className="whitespace-pre-wrap break-words">
+                <div className="flex-1 min-w-0 break-words">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      table: ({node, ...props}) => (
+                        <table className="border-collapse border border-neutral-300 my-2 w-full" {...props} />
+                      ),
+                      th: ({node, ...props}) => (
+                        <th className="border border-neutral-300 px-2 py-1 bg-neutral-100 font-semibold text-left" {...props} />
+                      ),
+                      td: ({node, ...props}) => (
+                        <td className="border border-neutral-300 px-2 py-1" {...props} />
+                      ),
+                      p: ({node, ...props}) => (
+                        <p className="mb-2 last:mb-0" {...props} />
+                      ),
+                      strong: ({node, ...props}) => (
+                        <strong className="font-bold" {...props} />
+                      ),
+                      code: ({node, inline, ...props}: any) => (
+                        inline
+                          ? <code className="bg-neutral-200 px-1 rounded text-sm" {...props} />
+                          : <code className="block bg-neutral-200 p-2 rounded my-2 text-sm overflow-x-auto" {...props} />
+                      ),
+                    }}
+                  >
                     {message.content}
-                  </div>
+                  </ReactMarkdown>
 
                   {message.timestamp && (
                     <div className={`text-xs mt-2 ${
