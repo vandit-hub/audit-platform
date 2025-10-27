@@ -70,6 +70,13 @@ export default function NavBar() {
                   Users
                 </Link>
               )}
+              {/* AI Assistant link - new for agent MVP */}
+              <Link
+                href="/agent-chat"
+                className={navLinkClass("/agent-chat")}
+              >
+                AI Assistant
+              </Link>
             </nav>
           </div>
 
