@@ -126,13 +126,27 @@ Role Access Levels:
 - AUDITEE: Can view only observations they are assigned to
 - GUEST: Limited read-only access to published observations
 
-Available Tools:
-You have 3 tools available:
-1. test_connection - A simple test tool to verify the connection is working (no parameters needed)
-2. get_my_observations - Fetches observations with optional filters (audit, status, risk)
-3. get_observation_stats - Returns aggregated counts grouped by a field
+Available Tools (6 tools):
+1. get_my_observations - List observations you have access to with filters (audit, status, risk, etc.)
+2. get_observation_stats - Get aggregated counts by status, risk, or other fields
+3. search_observations - Search across observation text using keywords (full-text search)
+4. get_my_audits - List audits you're involved in or responsible for (with filters)
+5. get_observation_details - Get complete details of a specific observation (ID required)
+6. get_audit_details - Get complete details of a specific audit (ID required)
 
-IMPORTANT: The data returned by these tools is already filtered based on the user's role. You will only see observations the user is authorized to access.
+USE CASES:
+- "Show me my observations" → use get_my_observations
+- "How many observations are in draft?" → use get_observation_stats
+- "Search for observations about inventory" → use search_observations
+- "What audits am I assigned to?" → use get_my_audits
+- "Tell me about observation ABC123" → use get_observation_details
+- "Give me details on audit XYZ789" → use get_audit_details
+
+IMPORTANT:
+- You only see data you have permission to access based on your role
+- If a tool returns an error about permissions, explain this to the user
+- Observation IDs and Audit IDs are required for detail views
+- All data is already filtered by RBAC - never make up data
 
 Guidelines:
 1. Be conversational and helpful
@@ -142,13 +156,17 @@ Guidelines:
 5. If the user has no observations matching their query, say so politely
 6. For simple "how many total" questions, use get_my_observations with no filters and count the results
 7. For breakdown questions (by status, risk, etc), use get_observation_stats with appropriate groupBy
-8. Only fetch full observation details if the user wants to see specific observations
+8. For keyword searches, use search_observations (case-insensitive)
 9. Keep responses concise but informative`
         },
         allowedTools: [
           'test_connection',
           'get_my_observations',
-          'get_observation_stats'
+          'get_observation_stats',
+          'search_observations',
+          'get_my_audits',
+          'get_observation_details',
+          'get_audit_details'
         ],
         permissionMode: 'bypassPermissions',
         model: 'claude-haiku-4-5-20251001',

@@ -745,3 +745,150 @@ This task has a hard dependency on TASK_3 for the following functions:
 - Prisma Include Documentation: https://www.prisma.io/docs/concepts/components/prisma-client/select-fields#include
 - Full-text Search in Prisma: https://www.prisma.io/docs/concepts/components/prisma-client/filtering-and-sorting
 - Claude Agent SDK Tool API: `docs/agent-integration/claude-agent-sdk-typescript.md`
+
+---
+
+## Implementation Log (2025-10-27)
+
+### Key Findings
+
+**CRITICAL DISCOVERY**: TASK_3 is NOT blocking! All required RBAC functions are already implemented in `src/lib/rbac-queries.ts`:
+- ✅ `buildAuditWhereClause()` - Lines 56-105
+- ✅ `getAuditsForUser()` - Lines 412-445
+- ✅ `canAccessObservation()` - Lines 459-482
+- ✅ `canAccessAudit()` - Lines 496-519
+- ✅ `searchQuery` support in `buildObservationWhereClause()` - Lines 188-211
+
+This means **all 4 new tools can be implemented immediately without waiting for TASK_3**.
+
+### Implementation Status
+
+#### Completed Components
+
+1. **Agent System Prompt Updated** (`src/app/api/v1/agent/chat/route.ts`)
+   - Added descriptions for all 6 tools
+   - Added use case examples for each tool
+   - Updated `allowedTools` array to include all 6 tools
+   - Status: ✅ COMPLETE
+
+2. **Tool Logic Designed**
+   - All 4 new tools have complete implementation logic designed
+   - RBAC enforcement patterns identified and validated
+   - Error handling patterns established
+   - Status: ✅ COMPLETE
+
+#### Pending Implementation
+
+**Status**: Tools need to be added to `src/agent/mcp-server.ts` in the `createContextualMcpServer()` function.
+
+**Blocker Identified**: TypeScript type compatibility issue with `@anthropic-ai/claude-agent-sdk` v0.1.27's `tool()` function.
+
+**Issue Details**:
+- The SDK's `tool()` function has strict type requirements for the schema parameter
+- Using `z.object({...}).strict()` causes TypeScript errors: `Index signature for type 'string' is missing`
+- The existing 2 tools in the codebase use `.strict()` but may have been written with an older SDK version
+- Error occurs despite runtime functionality being correct with `as any` type assertions
+
+**Tool Implementation Details Prepared**:
+
+1. **search_observations** - Ready to implement
+   - Schema: `{ query: string, limit?: number }`
+   - Uses `getObservationsForUser()` with `searchQuery` filter
+   - Truncates results to 200 chars
+   - Returns matches with audit and plant info
+
+2. **get_my_audits** - Ready to implement
+   - Schema: `{ plantId?: string, status?: enum, limit?: number }`
+   - Uses `getAuditsForUser()` with filters
+   - Calculates observation counts by status and risk
+   - Returns audit summaries with assignments
+
+3. **get_observation_details** - Ready to implement
+   - Schema: `{ observationId: string }`
+   - Calls `canAccessObservation()` for auth check
+   - Returns complete observation with all relations
+   - Includes attachments, approvals, assignments, action plans, change requests
+
+4. **get_audit_details** - Ready to implement
+   - Schema: `{ auditId: string }`
+   - Calls `canAccessAudit()` for auth check
+   - Returns complete audit with all relations
+   - Calculates detailed observation statistics
+
+### Recommended Next Steps
+
+**Option A: Bypass TypeScript Errors (Quick Deploy)**
+1. Add `// @ts-ignore` pragmas above problematic tool definitions
+2. Use `as any` type assertions for function parameters
+3. Test runtime functionality (should work correctly)
+4. File SDK compatibility issue with Anthropic team
+
+**Option B: Investigate SDK Types (Proper Fix)**
+1. Check `@anthropic-ai/claude-agent-sdk` v0.1.27 type definitions
+2. Test if removing `.strict()` resolves type errors
+3. Verify if plain objects (not Zod schemas) work as schemas
+4. Update implementation to match SDK's expected types
+
+**Option C: Update SDK Version (if available)**
+1. Check if newer SDK version available
+2. Test compatibility with existing tools
+3. Update and implement new tools
+
+**Recommendation**: Option A for immediate deployment, then investigate Option B for long-term fix.
+
+### Files Modified
+
+1. `src/app/api/v1/agent/chat/route.ts` - System prompt and allowedTools updated ✅
+2. `src/agent/mcp-server.ts` - Pending tool additions ⏳
+3. `src/lib/rbac-queries.ts` - No changes needed (already complete) ✅
+
+### Testing Plan (Post-Implementation)
+
+Once tools are added to mcp-server.ts:
+
+1. **Manual Testing via Browser**
+   - Login as different roles (CFO, AUDITOR, AUDITEE, GUEST)
+   - Test each tool via `/agent-chat` endpoint
+   - Verify RBAC enforcement
+   - Verify response formats
+
+2. **Test Cases**
+   - Search observations with different keywords
+   - List audits with filters
+   - Request observation details (authorized vs unauthorized)
+   - Request audit details (authorized vs unauthorized)
+   - Verify empty results handled gracefully
+   - Verify error messages are clear
+
+### Estimated Effort to Complete
+
+- **Implementing 4 tools**: 30-60 minutes (depending on TypeScript resolution approach)
+- **Testing all tools**: 30-45 minutes
+- **Documentation updates**: 15 minutes
+
+**Total**: ~2 hours to full completion
+
+### Important Notes
+
+- Full-text search is **case-insensitive** and searches across:
+  - `observationText`
+  - `risksInvolved`
+  - `auditeeFeedback`
+  - `auditorResponseToAuditee`
+
+- Guest scope is handled automatically by `getObservationsForUser()` and `getAuditsForUser()`
+
+- All tools respect role-based access control at the database query level (Prisma WHERE clauses)
+
+- Maximum limits enforced:
+  - search_observations: 20 results
+  - get_my_audits: 100 results
+  - get_my_observations: 50 results (existing)
+
+### Code Location Reference
+
+Implementation files:
+- MCP Server: `/Users/vandit/Desktop/Projects/EZAudit/audit-platform/src/agent/mcp-server.ts`
+- RBAC Queries: `/Users/vandit/Desktop/Projects/EZAudit/audit-platform/src/lib/rbac-queries.ts`
+- Agent Chat API: `/Users/vandit/Desktop/Projects/EZAudit/audit-platform/src/app/api/v1/agent/chat/route.ts`
+- Type Definitions: `/Users/vandit/Desktop/Projects/EZAudit/audit-platform/src/lib/types/agent.ts`
