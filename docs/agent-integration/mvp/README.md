@@ -60,12 +60,6 @@ Follow these tasks in order:
 - Verify RBAC enforcement
 - Document bugs
 
-### ✅ Task 9: Deployment (2-3 hours)
-**File:** `TASK_9.md`
-- Deploy to production
-- Monitor initial usage
-- Set up cost tracking
-
 ## Quick Start
 
 1. Read `../MVP_PLAN.md` for full context
@@ -140,9 +134,8 @@ Track your progress:
 - [x] Task 3: RBAC functions implemented ✅
 - [x] Task 4: MCP server created ✅
 - [x] Task 5: API endpoint working ✅
-- [ ] Task 6: UI implemented
-- [ ] Task 7: Navigation added
-- [ ] Task 8: Testing complete
-- [ ] Task 9: Deployed to production
+- [x] Task 6: UI implemented ✅
+- [x] Task 7: Navigation added ✅
+- [ ] Task 8: Testing in progress
 
-**Good luck with the implementation! 🚀**
+**Next step: Complete manual testing (Task 8)**

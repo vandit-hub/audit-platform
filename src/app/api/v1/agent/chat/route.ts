@@ -2,15 +2,15 @@
  * AI Agent Chat API Endpoint
  *
  * This endpoint bridges the frontend UI with the Claude Agent SDK and MCP server.
- * Implementation follows a simple request/response pattern (no streaming) for MVP.
+ * Implementation uses Server-Sent Events (SSE) for real-time streaming responses.
  *
  * Flow:
  * 1. Authenticate user via NextAuth session
  * 2. Validate request (message must be non-empty string)
  * 3. Create user context for RBAC enforcement
  * 4. Configure Claude Agent SDK with MCP server
- * 5. Collect complete response (no streaming)
- * 6. Return JSON with response text and metadata
+ * 5. Stream response chunks via SSE as they arrive
+ * 6. Return metadata and completion signal
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -29,7 +29,7 @@ export async function GET() {
     status: 'ok',
     endpoint: '/api/v1/agent/chat',
     method: 'POST',
-    description: 'AI Agent chat endpoint (MVP - simple request/response)'
+    description: 'AI Agent chat endpoint with Server-Sent Events streaming'
   });
 }
 
@@ -64,6 +64,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate user email exists
+    if (!session.user.email) {
+      return NextResponse.json(
+        { error: 'Invalid session: user email is required' },
+        { status: 401 }
+      );
+    }
+
     // 2. Parse request
     const body = await req.json();
     const { message } = body;
@@ -79,8 +87,8 @@ export async function POST(req: NextRequest) {
     const userContext: AgentUserContext = {
       userId: session.user.id,
       role: session.user.role,
-      email: session.user.email || '',
-      name: session.user.name || session.user.email || 'Unknown User'
+      email: session.user.email, // Guaranteed to exist after validation above
+      name: session.user.name || session.user.email
     };
 
     console.log(`[Agent] User ${userContext.email} (${userContext.role}) asked: "${message}"`);
@@ -148,36 +156,57 @@ Guidelines:
       }
     });
 
-    // 6. Collect complete response (no streaming in MVP)
-    let responseText = '';
-    let usage: any = null;
-    let cost = 0;
+    // 6. Stream response via Server-Sent Events
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
 
-    for await (const msg of agentQuery) {
-      if (msg.type === 'assistant') {
-        // Extract text from assistant message
-        for (const block of msg.message.content) {
-          if (block.type === 'text') {
-            responseText += block.text;
+        try {
+          for await (const msg of agentQuery) {
+            if (msg.type === 'assistant') {
+              // Stream text blocks as they arrive
+              for (const block of msg.message.content) {
+                if (block.type === 'text') {
+                  controller.enqueue(encoder.encode(
+                    `data: ${JSON.stringify({ type: 'text', content: block.text })}\n\n`
+                  ));
+                }
+              }
+            }
+
+            if (msg.type === 'result') {
+              // Send final metadata
+              controller.enqueue(encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'metadata',
+                  usage: msg.usage,
+                  cost: msg.total_cost_usd || 0
+                })}\n\n`
+              ));
+
+              console.log(`[Agent] Response generated. Cost: $${(msg.total_cost_usd || 0).toFixed(4)}`);
+            }
           }
+
+          // Signal completion
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        } catch (error: any) {
+          // Stream error to client
+          console.error('[Agent] Streaming error:', error);
+          controller.enqueue(encoder.encode(
+            `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+          ));
+          controller.close();
         }
       }
+    });
 
-      if (msg.type === 'result') {
-        usage = msg.usage;
-        cost = msg.total_cost_usd || 0;
-      }
-    }
-
-    console.log(`[Agent] Response generated. Cost: $${cost.toFixed(4)}`);
-
-    // 7. Return complete response
-    return NextResponse.json({
-      success: true,
-      response: responseText,
-      metadata: {
-        usage,
-        cost
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
       }
     });
   } catch (error: any) {
