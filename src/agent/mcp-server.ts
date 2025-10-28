@@ -219,6 +219,7 @@ export const auditDataMcpServer = createSdkMcpServer({
  * @returns MCP server instance with context-bound tools
  */
 export function createContextualMcpServer(userContext: AgentUserContext) {
+  console.log('🚀 createContextualMcpServer called for user:', userContext.userId, userContext.role);
   // Simple test tool with no parameters
   const testTool = tool(
     'test_connection',
@@ -343,28 +344,33 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
     }
   );
 
+  console.log('🔧 Registering get_observation_stats tool...');
   const getObservationStatsToolWithContext = tool(
     'get_observation_stats',
-    'Returns aggregated observation counts grouped by a specified field (approvalStatus, currentStatus, or riskCategory). Use this to get summary statistics.',
-    z.object({
-      groupBy: z.enum(['approvalStatus', 'currentStatus', 'riskCategory'])
-        .describe('Field to group observations by'),
-      auditId: z.string().optional()
-        .describe('Optional: Filter stats to specific audit ID')
-    }).strict(),
+    'Returns aggregated observation counts grouped by a specified field (approvalStatus, currentStatus, or riskCategory). Use this to get summary statistics. IMPORTANT: Always provide groupBy parameter.',
+    {},  // Empty schema - SDK has enum compatibility issues
     async (args) => {
+      console.log('=== get_observation_stats tool called ===');
+      console.log('Args:', args);
+
+      // Default groupBy to riskCategory if not provided or invalid
+      const validGroupBy = ['approvalStatus', 'currentStatus', 'riskCategory'];
+      let groupBy = args.groupBy as string;
+      if (!groupBy || !validGroupBy.includes(groupBy)) {
+        groupBy = 'riskCategory';  // Default
+      }
       try {
         const stats = await getObservationStats(
           userContext.userId,
           userContext.role,
-          args.groupBy,
+          groupBy as any,
           {
-            auditId: args.auditId
+            auditId: args.auditId as string
           }
         );
 
         const formattedStats = stats.map(stat => ({
-          [args.groupBy]: stat[args.groupBy] || 'null',
+          [groupBy]: stat[groupBy] || 'null',
           count: stat._count._all
         }));
 
@@ -374,7 +380,7 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              groupBy: args.groupBy,
+              groupBy: groupBy,
               stats: formattedStats,
               totalCount,
               filters: {
@@ -385,6 +391,9 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
         } as CallToolResult;
       } catch (error: any) {
         console.error('Error in get_observation_stats:', error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
         return {
           content: [{
             type: 'text',
@@ -483,23 +492,36 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
   );
 
   // TOOL 4: get_my_audits
+  console.log('🔧 Registering get_my_audits tool...');
   // @ts-ignore - SDK type compatibility issue with Zod schemas
   const getMyAuditsTool = tool(
     'get_my_audits',
     'Fetch audits you have access to based on your role. Returns audit summaries with plant info, assignments, and observation counts.',
-    {
-      plantId: z.string().optional().describe('Filter by plant ID'),
-      status: z.enum(['PLANNED', 'IN_PROGRESS', 'SUBMITTED', 'SIGNED_OFF']).optional()
-        .describe('Filter by audit status'),
-      limit: z.number().optional().describe('Maximum results (default: 50, max: 100)')
-    },
+    {},  // Empty schema - no parameters for now to test if schema is the issue
     async (args) => {
+      console.log('=== get_my_audits tool called ===');
+      console.log('Args:', args);
+      console.log('User context:', userContext);
       try {
-        const limit = Math.min((args.limit as number) || 50, 100);
+        console.log('Starting to fetch audits...');
+        const limit = 50;  // Fixed limit for testing
+        console.log('Calling getAuditsForUser with limit:', limit);
         const audits = await getAuditsForUser(
           userContext.userId,
           userContext.role,
-          { plantId: args.plantId as string, status: args.status as any, limit }
+          { limit },
+          {
+            include: {
+              plant: true,
+              auditHead: { select: { id: true, name: true, email: true } },
+              assignments: {
+                include: {
+                  auditor: { select: { id: true, name: true, email: true } }
+                }
+              },
+              observations: true  // FIX: Include observations so we can count them
+            }
+          }
         ) as any;
 
         const summary = audits.map((audit: any) => {
@@ -542,16 +564,14 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
               audits: summary,
               count: audits.length,
               totalShown: summary.length,
-              hasMore: audits.length === limit,
-              filters: {
-                plantId: args.plantId,
-                status: args.status
-              }
+              hasMore: audits.length === limit
             }, null, 2)
           }]
         } as CallToolResult;
       } catch (error: any) {
         console.error('Error in get_my_audits:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error details:', JSON.stringify(error, null, 2));
         return {
           content: [{
             type: 'text',
@@ -593,7 +613,7 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
         const observation = await prisma.observation.findUnique({
           where: { id: observationId },
           include: {
-            plant: { select: { id: true, name: true, location: true } },
+            plant: { select: { id: true, name: true, code: true } },
             audit: { select: { id: true, title: true, status: true } },
             attachments: true,
             approvals: {
