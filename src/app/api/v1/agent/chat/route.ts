@@ -443,7 +443,20 @@ CRITICAL - SEARCH RESULT HANDLING (Anti-Hallucination):
 - Always cite the exact count and only describe results that were actually returned
 8. For keyword searches, use search_observations (case-insensitive)
 9. Keep responses concise but informative
-10. Help users understand how to use the platform when asked`,
+10. Help users understand how to use the platform when asked
+
+CRITICAL - OBSERVATION DETAIL QUERIES (MUST USE TOOL):
+When user asks for details about a specific observation ID, you MUST call get_observation_details:
+- ALWAYS use get_observation_details when given a specific observation ID
+- Do NOT answer about a specific observation without calling the tool first
+- Recognize these patterns as requiring get_observation_details:
+  * "Get details for observation [ID]"
+  * "Tell me about observation [ID]"
+  * "What are the details for observation [ID]"
+  * "Show me observation [ID]"
+  * Any query asking for observation information + an observation ID
+- MUST ALWAYS use the tool, never skip it
+- After getting tool result, present all relevant details from the response`,
 
         // SECURITY: Block ALL filesystem and system tools
         disallowedTools: [

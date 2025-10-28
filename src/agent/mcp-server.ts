@@ -602,18 +602,19 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
 
   // TOOL 5: get_observation_details
   console.log('🔧 Registering get_observation_details tool...');
-  // @ts-ignore - SDK type compatibility issue with Zod schemas
   const getObservationDetailsTool = tool(
     'get_observation_details',
     'Fetch complete details of a specific observation including attachments, approvals, and action plans. Requires permission to access the observation.',
-    {},  // Empty schema - SDK compatibility issue with Zod validation
+    z.object({
+      observationId: z.string().describe('The ID of the observation to fetch details for')
+    }).strict(),
     async (args) => {
       console.log('=== get_observation_details tool called ===');
       console.log('Args:', args);
 
       try {
-        // Manual validation for observationId parameter
-        const observationId = args.observationId as string;
+        // Validate observationId parameter
+        const observationId = args.observationId;
         if (!observationId || !observationId.trim()) {
           console.log('Observation ID is missing or invalid');
           return {
