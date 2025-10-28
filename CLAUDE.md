@@ -148,6 +148,30 @@ Scope-based restrictions in `src/lib/scope.ts`
 - Verified on WebSocket connection via query parameter
 - Separate auth logic in `src/websocket/auth.ts`
 
+### WebSocket Authentication & Authorization
+
+WebSocket authentication uses the same RBAC v2 logic as API routes through `src/lib/rbac-queries.ts`.
+
+**Access Control:**
+- Uses `canAccessObservation()` from rbac-queries.ts
+- Single source of truth for observation access checks
+- Automatically stays in sync with API route authorization
+
+**Authorization Flow:**
+1. Client fetches JWT token from `/api/v1/websocket/token`
+2. Client connects with token: `ws://[host]:3001?token=<jwt>`
+3. Server verifies token in `verifyWebSocketToken()`
+4. On room join, server checks access via `canAccessObservation()`
+5. Access granted/denied based on RBAC v2 rules
+
+**Role-Specific Access:**
+- CFO: All observations (short-circuit)
+- CXO_TEAM: All observations
+- AUDIT_HEAD: Observations where (audit head OR has AuditAssignment)
+- AUDITOR: Observations where has AuditAssignment
+- AUDITEE: Observations where has ObservationAssignment
+- GUEST: Observations in scope OR (published + approved)
+
 ### WebSocket System
 
 **Client Connection Flow**:

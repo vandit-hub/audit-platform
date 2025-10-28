@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/server/db';
+import { canAccessObservation as rbacCanAccessObservation } from '@/lib/rbac-queries';
 
 export interface JWTPayload {
   userId: string;
@@ -47,43 +48,32 @@ export async function verifyWebSocketToken(token: string): Promise<JWTPayload | 
   }
 }
 
+/**
+ * Check if user can access an observation via WebSocket.
+ *
+ * This function delegates to the centralized RBAC logic in rbac-queries.ts
+ * to ensure WebSocket authorization stays in sync with API route authorization.
+ *
+ * Authorization rules:
+ * - CFO: Full access to all observations (short-circuit)
+ * - CXO_TEAM: Full access to all observations
+ * - AUDIT_HEAD: Access if (audit.auditHeadId === userId) OR has AuditAssignment
+ * - AUDITOR: Access if has AuditAssignment for the audit
+ * - AUDITEE: Access if has ObservationAssignment for the observation
+ * - GUEST: Access if observation is in scope OR (published AND approved)
+ *
+ * @param userId - User ID requesting access
+ * @param role - User role from RBAC v2 (CFO, CXO_TEAM, AUDIT_HEAD, AUDITOR, AUDITEE, GUEST)
+ * @param observationId - Observation ID to check access for
+ * @returns Promise<boolean> - true if user can access, false otherwise
+ */
 export async function canAccessObservation(
   userId: string,
   role: string,
   observationId: string
 ): Promise<boolean> {
   try {
-    const observation = await prisma.observation.findUnique({
-      where: { id: observationId },
-      include: {
-        audit: {
-          include: {
-            assignments: true
-          }
-        }
-      }
-    });
-
-    if (!observation) {
-      return false;
-    }
-
-    if (role === 'ADMIN') {
-      return true;
-    }
-
-    if (role === 'AUDITOR') {
-      const isAssigned = observation.audit.assignments.some(
-        a => a.auditorId === userId
-      );
-      return isAssigned || observation.createdById === userId;
-    }
-
-    if (role === 'AUDITEE' || role === 'GUEST') {
-      return observation.isPublished;
-    }
-
-    return false;
+    return await rbacCanAccessObservation(userId, role, observationId);
   } catch (error) {
     console.error('Error checking observation access:', error);
     return false;

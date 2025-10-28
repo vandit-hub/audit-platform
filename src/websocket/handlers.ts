@@ -73,6 +73,7 @@ async function handleJoinObservation(
   }
 
   console.log(`Checking access for user ${ws.userId} (${ws.userRole}) to observation ${observationId}`);
+  // Check RBAC v2 permissions (delegates to rbac-queries.ts for centralized authorization logic)
   const hasAccess = await canAccessObservation(ws.userId, ws.userRole, observationId);
   console.log(`Access check result: ${hasAccess}`);
 
