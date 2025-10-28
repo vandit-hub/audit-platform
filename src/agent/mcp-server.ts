@@ -406,18 +406,21 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
   );
 
   // TOOL 3: search_observations
+  console.log('🔧 Registering search_observations tool...');
   // @ts-ignore - SDK type compatibility issue with Zod schemas
   const searchObservationsTool = tool(
     'search_observations',
     'Search across observation text, risks, and feedback using keywords. Returns matching observations with truncated text.',
-    {
-      query: z.string().min(1).describe('Search query to find in observations'),
-      limit: z.number().optional().describe('Maximum results (default: 20, max: 20)')
-    },
+    {},  // Empty schema - SDK compatibility issue with Zod validation
     async (args) => {
+      console.log('=== search_observations tool called ===');
+      console.log('Args:', args);
+
       try {
+        // Manual validation for query parameter
         const query = args.query as string;
         if (!query || !query.trim()) {
+          console.log('Search query is empty or invalid');
           return {
             content: [{
               type: 'text',
@@ -431,7 +434,9 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
           } as CallToolResult;
         }
 
+        // Manual validation for limit parameter with default
         const limit = Math.min((args.limit as number) || 20, 20);
+        console.log('Searching with query:', query, 'limit:', limit);
         const observations = await getObservationsForUser(
           userContext.userId,
           userContext.role,
@@ -584,16 +589,31 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
   );
 
   // TOOL 5: get_observation_details
+  console.log('🔧 Registering get_observation_details tool...');
   // @ts-ignore - SDK type compatibility issue with Zod schemas
   const getObservationDetailsTool = tool(
     'get_observation_details',
     'Fetch complete details of a specific observation including attachments, approvals, and action plans. Requires permission to access the observation.',
-    {
-      observationId: z.string().describe('The ID of the observation to fetch')
-    },
+    {},  // Empty schema - SDK compatibility issue with Zod validation
     async (args) => {
+      console.log('=== get_observation_details tool called ===');
+      console.log('Args:', args);
+
       try {
+        // Manual validation for observationId parameter
         const observationId = args.observationId as string;
+        if (!observationId || !observationId.trim()) {
+          console.log('Observation ID is missing or invalid');
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: 'observationId is required and cannot be empty'
+              }, null, 2)
+            }],
+            isError: true
+          } as CallToolResult;
+        }
         const hasAccess = await canAccessObservation(
           userContext.userId,
           userContext.role,
@@ -717,16 +737,31 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
   );
 
   // TOOL 6: get_audit_details
+  console.log('🔧 Registering get_audit_details tool...');
   // @ts-ignore - SDK type compatibility issue with Zod schemas
   const getAuditDetailsTool = tool(
     'get_audit_details',
     'Fetch complete details of a specific audit including plant, assignments, checklists, and observation statistics. Requires permission to access the audit.',
-    {
-      auditId: z.string().describe('The ID of the audit to fetch')
-    },
+    {},  // Empty schema - SDK compatibility issue with Zod validation
     async (args) => {
+      console.log('=== get_audit_details tool called ===');
+      console.log('Args:', args);
+
       try {
+        // Manual validation for auditId parameter
         const auditId = args.auditId as string;
+        if (!auditId || !auditId.trim()) {
+          console.log('Audit ID is missing or invalid');
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: 'auditId is required and cannot be empty'
+              }, null, 2)
+            }],
+            isError: true
+          } as CallToolResult;
+        }
         const hasAccess = await canAccessAudit(
           userContext.userId,
           userContext.role,
