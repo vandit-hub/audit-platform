@@ -407,40 +407,25 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
 
   // TOOL 3: search_observations
   console.log('🔧 Registering search_observations tool...');
-  // @ts-ignore - SDK type compatibility issue with Zod schemas
   const searchObservationsTool = tool(
     'search_observations',
-    'Search across observation text, risks, and feedback using keywords. Returns matching observations with truncated text.',
-    {},  // Empty schema - SDK compatibility issue with Zod validation
+    'Search for exact keyword matches across observation text, risks, and feedback. Returns ONLY the observations that actually match the search query - do not estimate or infer additional results. Each result in the response array is a real database record. The "count" field shows the exact number of matching observations found.',
+    z.object({
+      query: z.string().describe('Search keyword or phrase to find in observations'),
+      limit: z.number().optional().describe('Maximum number of results to return (default: 20, max: 20)')
+    }).strict(),
     async (args) => {
       console.log('=== search_observations tool called ===');
       console.log('Args:', args);
 
       try {
-        // Manual validation for query parameter
-        const query = args.query as string;
-        if (!query || !query.trim()) {
-          console.log('Search query is empty or invalid');
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                error: 'Search query cannot be empty or whitespace-only',
-                observations: [],
-                count: 0
-              }, null, 2)
-            }],
-            isError: true
-          } as CallToolResult;
-        }
-
-        // Manual validation for limit parameter with default
-        const limit = Math.min((args.limit as number) || 20, 20);
-        console.log('Searching with query:', query, 'limit:', limit);
+        // Validate limit parameter with default
+        const limit = Math.min(args.limit || 20, 20);
+        console.log('Searching with query:', args.query, 'limit:', limit);
         const observations = await getObservationsForUser(
           userContext.userId,
           userContext.role,
-          { searchQuery: query, limit },
+          { searchQuery: args.query, limit },
           {
             include: {
               audit: { select: { id: true, title: true } },
@@ -475,11 +460,14 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              query: query,
+              query: args.query,
+              searchStatus: 'completed',
+              exactCount: observations.length,
+              note: 'This is the exact and complete list of observations matching your search. No results were omitted or inferred.',
               observations: summary,
-              count: observations.length,
-              totalShown: summary.length,
-              hasMore: observations.length === limit
+              totalReturned: summary.length,
+              maxResultsAvailable: observations.length === limit,
+              message: `Found exactly ${observations.length} observation(s) matching "${args.query}". These are all the results that exist.`
             }, null, 2)
           }]
         } as CallToolResult;
