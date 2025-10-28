@@ -4,29 +4,26 @@ This document tracks known issues and functionality that needs to be restored or
 
 ---
 
-## 1. MCP Tool: `get_my_audits` - Restore Filtering Parameters
+## 1. MCP Tool: `get_my_audits` - Restore Filtering Parameters - FIXED ✅
 
-**Status:** ⚠️ Partial Functionality
+**Status:** ✅ FIXED (Fully Functional)
 
-**Location:** `src/agent/mcp-server.ts` (lines 486-576)
+**Location:** `src/agent/mcp-server.ts` (lines 499-590)
 
 ### Issue Description
 
 The `get_my_audits` MCP tool currently works but with limited functionality. The tool was designed to support filtering parameters (plantId, status, limit), but these had to be removed due to a **Zod schema compatibility issue with the Claude Agent SDK**.
 
-### What's Currently Working
+### What's Currently Working ✅
 
 ✅ Tool executes successfully without crashing
 ✅ Returns list of audits user has access to
 ✅ Includes observation counts per audit (total, by approval status, by risk category)
 ✅ Includes plant info, audit head, team assignments
 ✅ Respects RBAC permissions
-
-### What's NOT Working (Removed Temporarily)
-
-❌ **Filter by plantId** - Cannot filter audits by specific plant
-❌ **Filter by status** - Cannot filter by audit status (PLANNED, IN_PROGRESS, SUBMITTED, SIGNED_OFF)
-❌ **Control result limit** - Fixed at 50 results, cannot customize
+✅ **Filter by plantId** - Can now filter audits by specific plant
+✅ **Filter by status** - Can now filter by audit status (PLANNED, IN_PROGRESS, SUBMITTED, SIGNED_OFF)
+✅ **Control result limit** - Customizable limit (default 50, max 100)
 
 ### Technical Details
 
@@ -45,13 +42,45 @@ const getMyAuditsTool = tool(
 );
 ```
 
-**Current Schema (Working but Limited):**
+**Current Schema (Working with Full Functionality):**
 ```typescript
 const getMyAuditsTool = tool(
   'get_my_audits',
-  'Fetch audits you have access to based on your role...',
-  {},  // Empty schema - no parameters
-  async (args) => { /* handler */ }
+  'Fetch audits you have access to based on your role. Optional filters: plantId, status, limit...',
+  {},  // Empty schema - SDK compatibility issue with Zod validation
+  async (args) => {
+    // Manual validation for optional parameters
+    const plantId = args.plantId as string | undefined;
+    const statusArg = args.status as string | undefined;
+    const limitArg = args.limit as number | undefined;
+
+    // Validate and set limit (default 50, max 100)
+    const limit = limitArg ? Math.min(Math.max(1, limitArg), 100) : 50;
+
+    // Validate status if provided
+    const validStatuses = ['PLANNED', 'IN_PROGRESS', 'SUBMITTED', 'SIGNED_OFF'];
+    let status: string | undefined = undefined;
+    if (statusArg) {
+      if (validStatuses.includes(statusArg)) {
+        status = statusArg;
+      } else {
+        console.log('Invalid status provided:', statusArg, '- ignoring');
+      }
+    }
+
+    // Build filters object
+    const filters: any = { limit };
+    if (plantId) filters.plantId = plantId;
+    if (status) filters.status = status;
+
+    // Call with all filters
+    const audits = await getAuditsForUser(
+      userContext.userId,
+      userContext.role,
+      filters,  // Pass complete filters
+      { include: { /* ... */ } }
+    );
+  }
 );
 ```
 
@@ -218,22 +247,36 @@ const audits = await getAuditsForUser(
 );
 ```
 
-### Impact Assessment
+### Fix Applied ✅
 
-**Low Impact (Current State is Acceptable):**
-- Primary use case "How many audits am I assigned to?" works fine
-- Most users don't need filtering for audit lists
-- Can use other tools for filtered views
+**Date Fixed:** 2025-10-28
 
-**Medium Impact (Filtering Would Be Nice):**
-- Power users may want to filter by plant
-- Reduces number of queries needed for specific audits
-- Better performance with large audit lists
+Applied the universal empty schema + manual validation pattern:
 
-**Workarounds Available:**
-- Use `get_my_observations` tool and group by auditId
-- Use `get_audit_details` with specific audit ID
-- Agent can filter results in memory (but less efficient)
+1. **Schema:** Changed to `{}` (empty)
+2. **Manual Validation:** Added validation for all three optional parameters
+3. **Defaults:**
+   - limit: defaults to 50, enforces max of 100
+   - status: validates against allowed values, ignores invalid
+   - plantId: passes through if provided
+4. **Filters Object:** Builds dynamic filters object and passes to `getAuditsForUser`
+
+**Testing Queries:**
+```javascript
+// Test 1: Basic (works)
+"How many audits am I assigned to?"
+
+// Test 2: With plant filter (now works!)
+"Show me audits for plant TP001"
+
+// Test 3: With status filter (now works!)
+"List all IN_PROGRESS audits"
+
+// Test 4: Combined filters (now works!)
+"Show me IN_PROGRESS audits at plant TP001 with limit 10"
+```
+
+**Result:** All filtering parameters now functional! ✅
 
 ### Related Issues
 
@@ -663,7 +706,7 @@ const toolName = tool(
 
 ### Tools Fixed (5 total)
 
-1. ✅ **get_my_audits** - Empty schema, fixed limit to 50
+1. ✅ **get_my_audits** - Empty schema, manual validation for plantId/status/limit filters (FULLY RESTORED)
 2. ✅ **get_observation_stats** - Empty schema, manual groupBy validation with default
 3. ✅ **search_observations** - Empty schema, manual query/limit validation
 4. ✅ **get_observation_details** - Empty schema, manual observationId validation

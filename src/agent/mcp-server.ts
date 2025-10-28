@@ -501,20 +501,44 @@ export function createContextualMcpServer(userContext: AgentUserContext) {
   // @ts-ignore - SDK type compatibility issue with Zod schemas
   const getMyAuditsTool = tool(
     'get_my_audits',
-    'Fetch audits you have access to based on your role. Returns audit summaries with plant info, assignments, and observation counts.',
-    {},  // Empty schema - no parameters for now to test if schema is the issue
+    'Fetch audits you have access to based on your role. Returns audit summaries with plant info, assignments, and observation counts. Optional filters: plantId (string), status (PLANNED|IN_PROGRESS|SUBMITTED|SIGNED_OFF), limit (number, default 50, max 100).',
+    {},  // Empty schema - SDK compatibility issue with Zod validation
     async (args) => {
       console.log('=== get_my_audits tool called ===');
       console.log('Args:', args);
       console.log('User context:', userContext);
       try {
         console.log('Starting to fetch audits...');
-        const limit = 50;  // Fixed limit for testing
-        console.log('Calling getAuditsForUser with limit:', limit);
+
+        // Manual validation for optional parameters
+        const plantId = args.plantId as string | undefined;
+        const statusArg = args.status as string | undefined;
+        const limitArg = args.limit as number | undefined;
+
+        // Validate and set limit (default 50, max 100)
+        const limit = limitArg ? Math.min(Math.max(1, limitArg), 100) : 50;
+
+        // Validate status if provided
+        const validStatuses = ['PLANNED', 'IN_PROGRESS', 'SUBMITTED', 'SIGNED_OFF'];
+        let status: string | undefined = undefined;
+        if (statusArg) {
+          if (validStatuses.includes(statusArg)) {
+            status = statusArg;
+          } else {
+            console.log('Invalid status provided:', statusArg, '- ignoring');
+          }
+        }
+
+        // Build filters object
+        const filters: any = { limit };
+        if (plantId) filters.plantId = plantId;
+        if (status) filters.status = status;
+
+        console.log('Calling getAuditsForUser with filters:', filters);
         const audits = await getAuditsForUser(
           userContext.userId,
           userContext.role,
-          { limit },
+          filters,  // Use the complete filters object with plantId, status, and limit
           {
             include: {
               plant: true,
