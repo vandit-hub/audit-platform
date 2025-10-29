@@ -120,7 +120,9 @@ export async function GET(req: NextRequest) {
     status: a.status,
     createdAt: a.createdAt,
     assignments: a.assignments.map((as) => as.auditor),
-    progress: { done: resolved.get(a.id) ?? 0, total: totals.get(a.id) ?? 0 }
+    progress: { done: resolved.get(a.id) ?? 0, total: totals.get(a.id) ?? 0 },
+    isLocked: a.isLocked,
+    completedAt: a.completedAt
   }));
 
   return NextResponse.json({ ok: true, audits: shaped });

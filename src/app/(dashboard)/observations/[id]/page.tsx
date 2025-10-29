@@ -211,10 +211,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   }
 
   async function approve(isApprove: boolean) {
-    const res = await fetch(`/api/v1/observations/${id}/approve`, {
+    const endpoint = isApprove ? 'approve' : 'reject';
+    const res = await fetch(`/api/v1/observations/${id}/${endpoint}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve: isApprove })
+      headers: { "content-type": "application/json" }
     });
     if (res.ok) {
       await load();
