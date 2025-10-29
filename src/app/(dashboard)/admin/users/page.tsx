@@ -13,13 +13,13 @@ import Badge from "@/components/ui/Badge";
 export default function AdminUsersPage() {
   const { data: session } = useSession();
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"GUEST" | "AUDITEE" | "AUDITOR" | "ADMIN">("GUEST");
+  const [role, setRole] = useState<"GUEST" | "AUDITEE" | "AUDITOR" | "AUDIT_HEAD" | "CXO_TEAM" | "CFO">("GUEST");
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
-  if (session?.user?.role !== "ADMIN") {
+  if (session?.user?.role !== "CFO") {
     redirect("/");
   }
 
@@ -117,7 +117,9 @@ export default function AdminUsersPage() {
             <option value="GUEST">Guest</option>
             <option value="AUDITEE">Auditee</option>
             <option value="AUDITOR">Auditor</option>
-            <option value="ADMIN">Admin</option>
+            <option value="AUDIT_HEAD">Audit Head</option>
+            <option value="CXO_TEAM">CXO Team</option>
+            <option value="CFO">CFO (Admin)</option>
           </Select>
 
           <Input
