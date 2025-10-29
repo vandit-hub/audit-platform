@@ -17,6 +17,16 @@ import { buildScopeWhere, getUserScope } from "@/lib/scope";
 
 export const maxDuration = 30;
 
+function logToolUsage(toolName: string, userId: string | undefined, payload: unknown) {
+  try {
+    console.log(
+      `[AI Tool] ${toolName} user=${userId ?? "unknown"} payload=${JSON.stringify(payload)}`
+    );
+  } catch (err) {
+    console.log(`[AI Tool] ${toolName} user=${userId ?? "unknown"} payload=[unserializable]`);
+  }
+}
+
 // System prompt that guides the AI assistant
 const SYSTEM_PROMPT = `You are the EZAudit AI Assistant, a helpful conversational agent for an internal audit management platform.
 
@@ -173,6 +183,19 @@ export async function POST(req: NextRequest) {
 
           const count = await prisma.observation.count({ where });
 
+          logToolUsage("observations_count", session.user.id, {
+            count,
+            filters_applied: {
+              approvalStatus: args.approvalStatus || "none",
+              currentStatus: args.currentStatus || "none",
+              auditId: args.auditId || "none",
+              plantId: args.plantId || "none",
+              risk: args.risk || "none",
+              process: args.process || "none",
+              search: args.q || "none",
+            },
+          });
+
           return {
             allowed: true,
             count,
@@ -307,6 +330,15 @@ export async function POST(req: NextRequest) {
             },
           });
 
+          logToolUsage("observations_list", session.user.id, {
+            count: observations.length,
+            sample: observations.slice(0, 3).map((obs) => ({
+              id: obs.id,
+              approvalStatus: obs.approvalStatus,
+              riskCategory: obs.riskCategory,
+            })),
+          });
+
           return {
             allowed: true,
             count: observations.length,
@@ -377,6 +409,14 @@ export async function POST(req: NextRequest) {
           }
 
           const count = await prisma.audit.count({ where });
+
+          logToolUsage("audits_count", session.user.id, {
+            count,
+            filters_applied: {
+              plantId: args.plantId || "none",
+              status: args.status || "none",
+            },
+          });
 
           return {
             allowed: true,
@@ -511,6 +551,15 @@ export async function POST(req: NextRequest) {
               );
             }
           }
+
+          logToolUsage("audits_list", session.user.id, {
+            count: filteredAudits.length,
+            sample: filteredAudits.slice(0, 3).map((audit) => ({
+              id: audit.id,
+              status: audit.status,
+              plant: audit.plant?.name,
+            })),
+          });
 
           return {
             allowed: true,

@@ -3,11 +3,12 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
 
 export default function AIAssistantPage() {
   const { data: session } = useSession();
@@ -18,12 +19,25 @@ export default function AIAssistantPage() {
     }),
   });
 
+  const suggestions = [
+    "How many draft observations do I have?",
+    "List my observations with risk category A",
+    "Show me audits in progress",
+    "Count approved observations in Plant X",
+    "What audits am I assigned to?",
+  ];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || status !== "ready") return;
 
     sendMessage({ text: input });
     setInput("");
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    if (status !== "ready") return;
+    sendMessage({ text: suggestion });
   };
 
   return (
@@ -44,20 +58,6 @@ export default function AIAssistantPage() {
         )}
       </div>
 
-      <Card className="mb-4">
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
-            💡 Try asking:
-          </h3>
-          <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-            <li>• "How many draft observations do I have?"</li>
-            <li>• "List my observations with risk category A"</li>
-            <li>• "Show me audits in progress"</li>
-            <li>• "Count approved observations in Plant X"</li>
-            <li>• "What audits am I assigned to?"</li>
-          </ul>
-        </div>
-      </Card>
 
       <Card className="flex flex-col" style={{ height: "calc(100vh - 350px)" }}>
         {/* Messages Area */}
@@ -78,23 +78,42 @@ export default function AIAssistantPage() {
                 />
               </svg>
               <p className="mt-2">Start a conversation by asking a question below.</p>
+              
+              {/* Suggestion Buttons */}
+              <div className="mt-6 max-w-2xl mx-auto">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  💡 Try asking:
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {suggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSuggestionClick(suggestion)}
+                      disabled={status !== "ready"}
+                      className="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+          {messages.map((message) => {
+            const isUserMessage = message.role === "user";
+            return (
               <div
-                className={`max-w-3xl rounded-lg px-4 py-2 ${
-                  message.role === "user"
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                }`}
+                key={message.id}
+                className={`flex ${isUserMessage ? "justify-end" : "justify-start"}`}
               >
+                <div
+                  className={`max-w-3xl rounded-lg px-4 py-2 ${
+                    isUserMessage
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  }`}
+                >
                 {/* Role Label */}
                 <div className="text-xs font-semibold mb-1 opacity-75">
                   {message.role === "user" ? "You" : "AI Assistant"}
@@ -105,12 +124,90 @@ export default function AIAssistantPage() {
                   switch (part.type) {
                     case "text":
                       return (
-                        <div
+                        <ReactMarkdown
                           key={`${message.id}-${i}`}
-                          className="whitespace-pre-wrap"
+                          remarkPlugins={[remarkGfm]}
+                          className={`space-y-3 text-[0.9375rem] leading-relaxed ${
+                            isUserMessage
+                              ? "text-white"
+                              : "text-gray-900 dark:text-gray-100"
+                          }`}
+                          components={{
+                            p: ({ node: _node, ...props }) => (
+                              <p className="text-[0.9375rem] leading-relaxed" {...props} />
+                            ),
+                            ul: ({ node: _node, ...props }) => (
+                              <ul className="list-disc space-y-1 pl-5" {...props} />
+                            ),
+                            ol: ({ node: _node, ...props }) => (
+                              <ol className="list-decimal space-y-1 pl-5" {...props} />
+                            ),
+                            li: ({ node: _node, ...props }) => <li className="text-[0.9375rem]" {...props} />,
+                            strong: ({ node: _node, ...props }) => (
+                              <strong className="font-semibold" {...props} />
+                            ),
+                            table: ({ node: _node, ...props }) => (
+                              <div
+                                className={`overflow-x-auto rounded-md border ${
+                                  isUserMessage ? "border-white/40" : "border-gray-200"
+                                }`}
+                              >
+                                <table
+                                  className={`min-w-full border-collapse text-left text-xs ${
+                                    isUserMessage
+                                      ? "text-white"
+                                      : "text-gray-900 dark:text-gray-100"
+                                  }`}
+                                  {...props}
+                                />
+                              </div>
+                            ),
+                            thead: ({ node: _node, ...props }) => (
+                              <thead
+                                className={isUserMessage ? "bg-blue-600/40" : "bg-gray-50"}
+                                {...props}
+                              />
+                            ),
+                            th: ({ node: _node, ...props }) => (
+                              <th
+                                className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                                  isUserMessage
+                                    ? "border-white/30 text-white"
+                                    : "border-gray-200 text-gray-600"
+                                }`}
+                                {...props}
+                              />
+                            ),
+                            td: ({ node: _node, ...props }) => (
+                              <td
+                                className={`border px-3 py-2 ${
+                                  isUserMessage ? "border-white/20" : "border-gray-200"
+                                }`}
+                                {...props}
+                              />
+                            ),
+                            tr: ({ node: _node, ...props }) => (
+                              <tr
+                                className={
+                                  isUserMessage
+                                    ? "odd:bg-blue-500/50 even:bg-blue-500/60"
+                                    : "odd:bg-white even:bg-gray-50"
+                                }
+                                {...props}
+                              />
+                            ),
+                            code: ({ node: _node, inline, ...props }) => (
+                              <code
+                                className={`rounded px-1 py-0.5 text-[0.85rem] ${
+                                  inline ? "" : "block"
+                                } ${isUserMessage ? "bg-blue-600/50" : "bg-gray-100"}`}
+                                {...props}
+                              />
+                            ),
+                          }}
                         >
                           {part.text}
-                        </div>
+                        </ReactMarkdown>
                       );
 
                     case "tool-observations_count": {
@@ -219,9 +316,10 @@ export default function AIAssistantPage() {
                       return null;
                   }
                 })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {status === "streaming" && (
             <div className="flex justify-start">
