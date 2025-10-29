@@ -400,7 +400,7 @@ enum ChangeRequestStatus {
 model AgentConversation {
   id        String         @id @default(cuid())
   userId    String
-  sessionId String         @unique // Claude SDK session ID
+  sessionId String?        @unique // Claude SDK session ID (optional for backward compatibility)
   title     String // Auto-generated from first message
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt

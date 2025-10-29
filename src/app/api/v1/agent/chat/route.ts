@@ -273,7 +273,6 @@ export async function POST(req: NextRequest) {
       role: userContext.role,
       email: userContext.email,
       query: message.slice(0, 100), // Truncate for logs
-      sessionId: sessionId || null,
       conversationId: conversationId || null,
       timestamp: new Date().toISOString()
     }));
@@ -287,7 +286,7 @@ export async function POST(req: NextRequest) {
         const newConversation = await prisma.agentConversation.create({
           data: {
             userId: session.user.id,
-            sessionId: sessionId || `new_${Date.now()}`,
+            ...(sessionId && { sessionId }), // Only include if sessionId exists
             title: message.slice(0, 60)
           }
         });
@@ -386,11 +385,16 @@ Role Access Levels:
 
 Available Tools (6 audit data tools):
 1. get_my_observations - List observations you have access to with filters (audit, status, risk, etc.)
-2. get_observation_stats - Get aggregated counts by status, risk, or other fields
+2. get_observation_stats - Get aggregated counts by status, risk, or other fields **[USE THIS FOR COUNTING/HOW MANY QUESTIONS]**
 3. search_observations - Search across observation text using keywords (full-text search)
 4. get_my_audits - List audits you're involved in or responsible for (with filters)
 5. get_observation_details - Get complete details of a specific observation (ID required)
 6. get_audit_details - Get complete details of a specific audit (ID required)
+
+CRITICAL TOOL SELECTION RULES:
+- For ANY "how many" or counting questions → ALWAYS use get_observation_stats (it returns accurate database counts)
+- NEVER manually count observations from get_my_observations - this is error-prone and inconsistent
+- Use get_my_observations only when user wants to SEE/LIST individual observations
 
 HELP TOPICS YOU CAN ASSIST WITH:
 - How to submit an observation
