@@ -30,6 +30,7 @@ export default function NavBar() {
   const showObservations = true; // All roles can see observations
   const showReports = userRole && (isCFOOrCXOTeam(userRole) || isAuditHead(userRole));
   const showUsers = userRole && isCFOOrCXOTeam(userRole);
+  const showAI = true; // All authenticated users can access AI Assistant
 
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
@@ -68,6 +69,11 @@ export default function NavBar() {
               {showUsers && (
                 <Link href="/admin/users" className={navLinkClass("/admin")}>
                   Users
+                </Link>
+              )}
+              {showAI && (
+                <Link href="/ai" className={navLinkClass("/ai")}>
+                  AI Assistant
                 </Link>
               )}
             </nav>
