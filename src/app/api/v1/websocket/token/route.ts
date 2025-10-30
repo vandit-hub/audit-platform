@@ -16,7 +16,7 @@ export async function GET() {
       email: session.user.email
     },
     process.env.NEXTAUTH_SECRET!,
-    { expiresIn: '24h' }
+    { expiresIn: process.env.WS_TOKEN_TTL || '15m' }
   );
 
   return NextResponse.json({ token });
