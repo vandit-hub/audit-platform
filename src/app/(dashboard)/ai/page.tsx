@@ -7,13 +7,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
 import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 
 export default function AIAssistantPage() {
   const { data: session } = useSession();
   const [input, setInput] = useState("");
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, status, error, setMessages } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/v1/ai/chat",
     }),
@@ -38,6 +37,11 @@ export default function AIAssistantPage() {
   const handleSuggestionClick = (suggestion: string) => {
     if (status !== "ready") return;
     sendMessage({ text: suggestion });
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    setInput("");
   };
 
   return (
@@ -345,17 +349,30 @@ export default function AIAssistantPage() {
 
         {/* Input Area */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-          <form onSubmit={handleSubmit} className="flex space-x-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask a question about audits or observations..."
-              className="flex-1"
-              disabled={status !== "ready"}
-            />
-            <Button type="submit" disabled={status !== "ready" || !input.trim()}>
-              {status === "streaming" ? "Sending..." : "Send"}
-            </Button>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask a question about audits or observations..."
+                disabled={status !== "ready"}
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+                rows={3}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleClearChat}
+                disabled={messages.length === 0 && !input}
+              >
+                Clear chat
+              </Button>
+              <Button type="submit" disabled={status !== "ready" || !input.trim()}>
+                {status === "streaming" ? "Sending..." : "Send"}
+              </Button>
+            </div>
           </form>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
             The AI assistant respects your role permissions. You can only see data
