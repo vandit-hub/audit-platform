@@ -43,18 +43,16 @@ function logToolUsage(toolName: string, userId: string | undefined, payload: unk
 const SYSTEM_PROMPT = `You are the EZAudit AI Assistant, a helpful conversational agent for an internal audit management platform.
 
 Your role:
-- Help users query and understand their audit observations and audits data
-- Provide concise, factual answers based on the tools available to you
-- Always use tools to fetch real data rather than making assumptions
-- Be aware that users have different permission levels (CFO, CXO_TEAM, AUDIT_HEAD, AUDITOR, AUDITEE, GUEST)
+- Help users (CFO, CXO_TEAM, AUDIT_HEAD, AUDITOR, AUDITEE, GUEST) query and understand audits and observations.
+- Provide concise, factual answers based on the tools available to you.
+- Always use tools to fetch real data rather than making assumptions.
 
 Guidelines:
-- Keep answers brief and to the point unless asked for more detail
-- When a tool returns "allowed: false", politely explain the RBAC limitation
-- If filters are ambiguous, ask one clarifying question ONLY when necessary
-- Present counts and lists clearly
-- Use bullet points or numbered lists for multiple items
-- When listing observations, include key details like approval status, risk, and audit title
+- Keep answers brief and to the point unless asked for more detail.
+- When a tool returns "allowed: false", politely explain the RBAC limitation.
+- If filters are ambiguous, ask one clarifying question ONLY when necessary.
+- Present counts and lists clearly. Use compact tables for rankings.
+- When listing observations, include approval status, risk, process, audit title, and plant.
 
 Session awareness and defaults:
 - You have access to the authenticated user's role and ID on the server. Do NOT ask the user what their role is.
@@ -63,21 +61,29 @@ Session awareness and defaults:
 - When the user asks broadly (e.g., "Show audits"), default to audits they can access under RBAC without asking for their role.
 - Only ask clarifying questions when a filter is critical and cannot be reasonably defaulted (e.g., a requested plant name is ambiguous or missing).
 
-Tool usage rules:
-- Always call a tool to answer data questions.
-- For requests like "how many" or "count", use observations_count or audits_count.
-- For requests like "list" or "show", use observations_list or audits_list with appropriate filters (e.g. risk=A).
+Tool usage and multi-tool reasoning:
+- Prefer general-purpose tools that can be composed: observations_find, audits_find, observations_similar.
+- Use multiple tools in one answer if needed (e.g., overview with audits_find + drill-down via observations_find).
+- Avoid count-only answers unless explicitly requested ("how many"). If a count is requested, add 1–2 lines of useful context.
+- Keep tool inputs simple; provide only the minimum filters required.
 
 Examples:
-- User: "What audits am I assigned to?" → Call audits_list with defaults; RBAC will scope to the user's assigned audits.
-- User: "List my observations with risk A" → Call observations_list with risk=A.
+- "What audits am I assigned to?" → audits_find(metrics=per_audit) with RBAC defaults.
+- "List my observations with risk A" → observations_find(risk=A).
+- "Similar to observation X?" → observations_similar(observationId=X), then summarize.
+
+Overall summary policy:
+- For broad requests like "Give me an overall summary", first call audits_find(metrics=per_audit, limit=50) to list recent audits with plant and per-audit metrics.
+- Then call observations_find({ aggregationBy: "plant", limit: 1 }) to get counts per plant (risk/status mix if useful).
+- Optionally call audits_find(metrics=per_auditor) when the user asks about auditors’ performance.
+- Synthesize a plant → audits → observations view with 3–5 bullet insights, a compact table (Plant | #Audits | #Obs | A-risk open | Resolution %), and 2–3 recommended next steps.
 
 Role Permissions Context:
-- CFO and CXO_TEAM: Can see all audits and observations
-- AUDIT_HEAD: Can see audits they lead and observations from their audits
-- AUDITOR: Can see audits they're assigned to and observations from those audits
-- AUDITEE: Can only see observations they're assigned to (no audit listing access)
-- GUEST: Read-only access to published and approved content only
+- CFO and CXO_TEAM: Can see all audits and observations.
+- AUDIT_HEAD: Can see audits they lead and observations from their audits.
+- AUDITOR: Can see audits they're assigned to and observations from those audits.
+- AUDITEE: Can only see observations they're assigned to (no audit listing access).
+- GUEST: Read-only access to published and approved content only.
 
 Available observation statuses:
 - Approval Status: DRAFT, SUBMITTED, APPROVED, REJECTED
@@ -612,6 +618,468 @@ export async function POST(req: NextRequest) {
         };
       },
     }),
+
+    // ========================================================================
+    // GENERAL TOOL A: Observations - flexible search with optional aggregation
+    // ========================================================================
+    observations_find: tool({
+      description:
+        "Search observations with filters and optional aggregation by a single dimension.",
+      inputSchema: z.object({
+        approvalStatus: z
+          .enum(["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"]) // approval filter
+          .nullable(),
+        currentStatus: z.string().nullable().describe("Filter by current status"),
+        auditId: z.string().nullable().describe("Filter by audit ID"),
+        plantId: z.string().nullable().describe("Filter by plant ID"),
+        risk: z.enum(["A", "B", "C"]).nullable().describe("Filter by risk"),
+        process: z
+          .enum(["O2C", "P2P", "R2R", "INVENTORY"]) // concerned process
+          .nullable(),
+        responsible: z
+          .string()
+          .nullable()
+          .describe("Substring match on person responsible to implement"),
+        q: z
+          .string()
+          .nullable()
+          .describe("Free-text search across key observation fields"),
+        limit: z.number().nullable().default(20),
+        aggregationBy: z
+          .enum(["plant", "process", "risk", "status", "responsible"]) // single dimension
+          .nullable(),
+      }),
+      execute: async (args) => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const role = session.user.role;
+        const userId = session.user.id;
+
+        const filters: Prisma.ObservationWhereInput[] = [];
+        if (args.approvalStatus) filters.push({ approvalStatus: args.approvalStatus });
+        if (args.currentStatus) filters.push({ currentStatus: args.currentStatus as any });
+        if (args.auditId) filters.push({ auditId: args.auditId });
+        if (args.plantId) filters.push({ plantId: args.plantId });
+        if (args.risk) filters.push({ riskCategory: args.risk as any });
+        if (args.process) filters.push({ concernedProcess: args.process as any });
+        if (args.responsible)
+          filters.push({
+            personResponsibleToImplement: {
+              contains: args.responsible,
+              mode: "insensitive",
+            },
+          });
+        if (args.q) {
+          filters.push({
+            OR: [
+              { observationText: { contains: args.q, mode: "insensitive" } },
+              { risksInvolved: { contains: args.q, mode: "insensitive" } },
+              { auditeeFeedback: { contains: args.q, mode: "insensitive" } },
+            ],
+          });
+        }
+
+        let where: Prisma.ObservationWhereInput = filters.length > 0 ? { AND: filters } : {};
+
+        // RBAC scoping
+        if (isCFO(role) || isCXOTeam(role)) {
+          // Full access
+        } else if (isAuditHead(role)) {
+          where = {
+            AND: [
+              where,
+              {
+                audit: {
+                  OR: [
+                    { auditHeadId: userId },
+                    { assignments: { some: { auditorId: userId } } },
+                  ],
+                },
+              },
+            ],
+          };
+        } else if (isAuditor(role)) {
+          where = {
+            AND: [
+              where,
+              { audit: { assignments: { some: { auditorId: userId } } } },
+            ],
+          };
+        } else if (isAuditee(role)) {
+          where = {
+            AND: [where, { assignments: { some: { auditeeId: userId } } }],
+          };
+        } else if (isGuest(role)) {
+          const scope = await getUserScope(userId);
+          const scopeWhere = buildScopeWhere(scope);
+          const allowPublished: Prisma.ObservationWhereInput = {
+            AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }],
+          };
+          const or: Prisma.ObservationWhereInput[] = [allowPublished];
+          if (scopeWhere) or.push(scopeWhere);
+          where = { AND: [where, { OR: or }] };
+        }
+
+        const take = typeof args.limit === "number" && args.limit ? args.limit : 20;
+
+        const observations = await prisma.observation.findMany({
+          where,
+          take,
+          orderBy: { createdAt: "desc" },
+          include: {
+            audit: { select: { id: true, title: true } },
+            plant: { select: { id: true, name: true } },
+          },
+        });
+
+        let aggregation: any = undefined;
+        if (args.aggregationBy) {
+          switch (args.aggregationBy) {
+            case "plant": {
+              const grouped = await prisma.observation.groupBy({
+                by: ["plantId"],
+                where,
+                _count: { _all: true },
+              });
+              const plantIds = grouped.map((g) => g.plantId).filter(Boolean) as string[];
+              const plants = plantIds.length
+                ? await prisma.plant.findMany({ where: { id: { in: plantIds } }, select: { id: true, name: true } })
+                : [];
+              const idToName = new Map(plants.map((p) => [p.id, p.name] as const));
+              aggregation = {
+                by: "plant",
+                groups: grouped.map((g) => ({ key: idToName.get(g.plantId) ?? g.plantId ?? "unknown", count: g._count._all })),
+              };
+              break;
+            }
+            case "process": {
+              const grouped = await prisma.observation.groupBy({
+                by: ["concernedProcess"],
+                where,
+                _count: { _all: true },
+              });
+              aggregation = {
+                by: "process",
+                groups: grouped.map((g) => ({ key: (g.concernedProcess as string) ?? "unknown", count: g._count._all })),
+              };
+              break;
+            }
+            case "risk": {
+              const grouped = await prisma.observation.groupBy({
+                by: ["riskCategory"],
+                where,
+                _count: { _all: true },
+              });
+              aggregation = {
+                by: "risk",
+                groups: grouped.map((g) => ({ key: (g.riskCategory as string) ?? "unknown", count: g._count._all })),
+              };
+              break;
+            }
+            case "status": {
+              const grouped = await prisma.observation.groupBy({
+                by: ["currentStatus"],
+                where,
+                _count: { _all: true },
+              });
+              aggregation = {
+                by: "status",
+                groups: grouped.map((g) => ({ key: (g.currentStatus as string) ?? "unknown", count: g._count._all })),
+              };
+              break;
+            }
+            case "responsible": {
+              const grouped = await prisma.observation.groupBy({
+                by: ["personResponsibleToImplement"],
+                where,
+                _count: { _all: true },
+              });
+              aggregation = {
+                by: "responsible",
+                groups: grouped.map((g) => ({ key: (g.personResponsibleToImplement as string) ?? "unknown", count: g._count._all })),
+              };
+              break;
+            }
+          }
+        }
+
+        logToolUsage("observations_find", session.user.id, {
+          resultCount: observations.length,
+          aggregation: aggregation?.by ?? null,
+        });
+
+        return {
+          allowed: true,
+          count: observations.length,
+          observations: observations.map((obs) => ({
+            id: obs.id,
+            title: obs.observationText.slice(0, 160),
+            approvalStatus: obs.approvalStatus,
+            currentStatus: obs.currentStatus,
+            riskCategory: obs.riskCategory,
+            concernedProcess: obs.concernedProcess,
+            auditTitle: obs.audit?.title || "Untitled Audit",
+            plantName: obs.plant?.name || "Unknown Plant",
+            targetDate: obs.targetDate ? obs.targetDate.toISOString() : null,
+            implementationDate: obs.implementationDate ? obs.implementationDate.toISOString() : null,
+            createdAt: obs.createdAt.toISOString(),
+          })),
+          aggregation,
+        };
+      },
+    }),
+
+    // ========================================================================
+    // GENERAL TOOL B: Audits - flexible list with optional per-audit metrics
+    // ========================================================================
+    audits_find: tool({
+      description: "Search audits with filters and optional metrics.",
+      inputSchema: z.object({
+        plantId: z.string().nullable(),
+        status: z.string().nullable(),
+        limit: z.number().nullable().default(10),
+        metrics: z.enum(["none", "per_audit", "overall", "per_auditor"]).nullable().default("per_audit"),
+      }),
+      execute: async (args) => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const role = session.user.role;
+        const userId = session.user.id;
+
+        const where: any = {
+          plantId: args.plantId ?? undefined,
+          status: args.status ?? undefined,
+        };
+
+        if (isCFO(role) || isCXOTeam(role)) {
+          // full
+        } else if (isAuditHead(role)) {
+          where.OR = [
+            { auditHeadId: userId },
+            { assignments: { some: { auditorId: userId } } },
+          ];
+        } else if (isAuditor(role)) {
+          where.OR = [{ assignments: { some: { auditorId: userId } } }];
+        } else if (isAuditee(role)) {
+          // Auditee does not have audits listing access in our RBAC
+          return { allowed: false, reason: "Your role does not have access to audits." };
+        } else if (isGuest(role)) {
+          // Guests also do not have audits listing access
+          return { allowed: false, reason: "Your role does not have access to audits." };
+        }
+
+        const take = typeof args.limit === "number" && args.limit ? args.limit : 10;
+
+        const audits = await prisma.audit.findMany({
+          where,
+          take,
+          orderBy: { createdAt: "desc" },
+          include: {
+            plant: { select: { id: true, name: true } },
+            assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } },
+          },
+        });
+
+        let metrics: any = undefined;
+        if (args.metrics && (args.metrics === "per_audit" || args.metrics === "overall" || args.metrics === "per_auditor")) {
+          const auditIds = audits.map((a) => a.id);
+          const grouped = auditIds.length
+            ? await prisma.observation.groupBy({
+                by: ["auditId", "currentStatus"],
+                where: { auditId: { in: auditIds } },
+                _count: { _all: true },
+              })
+            : [];
+          const perAuditTotals = new Map<string, { total: number; resolved: number }>();
+          for (const g of grouped) {
+            const entry = perAuditTotals.get(g.auditId) ?? { total: 0, resolved: 0 };
+            entry.total += g._count._all;
+            if (g.currentStatus === "RESOLVED") entry.resolved += g._count._all;
+            perAuditTotals.set(g.auditId, entry);
+          }
+
+          if (args.metrics === "per_audit") {
+            metrics = {
+              kind: "per_audit",
+              values: audits.map((a) => {
+                const t = perAuditTotals.get(a.id) ?? { total: 0, resolved: 0 };
+                const rate = t.total > 0 ? Math.round((t.resolved / t.total) * 100) : 0;
+                return { auditId: a.id, total: t.total, resolved: t.resolved, resolutionRatePct: rate };
+              }),
+            };
+          } else if (args.metrics === "overall") {
+            const totals = Array.from(perAuditTotals.values()).reduce(
+              (acc, v) => ({ total: acc.total + v.total, resolved: acc.resolved + v.resolved }),
+              { total: 0, resolved: 0 },
+            );
+            const rate = totals.total > 0 ? Math.round((totals.resolved / totals.total) * 100) : 0;
+            metrics = { kind: "overall", total: totals.total, resolved: totals.resolved, resolutionRatePct: rate };
+          } else if (args.metrics === "per_auditor") {
+            const auditorGrouped = audits.length
+              ? await prisma.observation.groupBy({
+                  by: ["auditId", "createdById"],
+                  where: { auditId: { in: audits.map((a) => a.id) } },
+                  _count: { _all: true },
+                })
+              : [];
+            const auditorIds = Array.from(new Set(auditorGrouped.map((g) => g.createdById).filter(Boolean) as string[]));
+            const auditors = auditorIds.length
+              ? await prisma.user.findMany({ where: { id: { in: auditorIds } }, select: { id: true, name: true, email: true } })
+              : [];
+            const idToAuditor = new Map(auditors.map((u) => [u.id, u] as const));
+
+            const values = audits.map((a) => {
+              const rows = auditorGrouped.filter((g) => g.auditId === a.id);
+              const items = rows.map((r) => ({
+                auditorId: r.createdById,
+                auditorName: idToAuditor.get(r.createdById)?.name ?? "Unknown",
+                auditorEmail: idToAuditor.get(r.createdById)?.email ?? null,
+                observationsCreated: r._count._all,
+              }));
+              items.sort((x, y) => y.observationsCreated - x.observationsCreated);
+              return { auditId: a.id, auditors: items };
+            });
+
+            metrics = { kind: "per_auditor", values };
+          }
+        }
+
+        logToolUsage("audits_find", session.user.id, { count: audits.length, metrics: metrics?.kind ?? "none" });
+
+        return {
+          allowed: true,
+          count: audits.length,
+          audits: audits.map((a) => ({
+            id: a.id,
+            title: a.title || "Untitled Audit",
+            plantName: a.plant?.name || "Unknown Plant",
+            status: a.status,
+            visitStartDate: a.visitStartDate?.toISOString() || null,
+            visitEndDate: a.visitEndDate?.toISOString() || null,
+            createdAt: a.createdAt.toISOString(),
+            assignedAuditors: a.assignments.map((as) => ({ id: as.auditorId, name: as.auditor.name, email: as.auditor.email })),
+          })),
+          metrics,
+        };
+      },
+    }),
+
+    // ========================================================================
+    // GENERAL TOOL C: Observations similarity (lexical baseline)
+    // ========================================================================
+    observations_similar: tool({
+      description:
+        "Find observations similar to a given observation or text (lexical baseline).",
+      inputSchema: z.object({
+        observationId: z.string().nullable(),
+        text: z.string().nullable(),
+        limit: z.number().nullable().default(10),
+      }),
+      execute: async (args) => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const role = session.user.role;
+        const userId = session.user.id;
+
+        let baseText = args.text ?? null;
+        let excludeId: string | null = null;
+        if (!baseText && args.observationId) {
+          const base = await prisma.observation.findFirst({ where: { id: args.observationId } });
+          if (base) {
+            baseText = base.observationText;
+            excludeId = base.id;
+          }
+        }
+
+        if (!baseText) {
+          return { allowed: true, results: [], reason: "No base text or observation provided" };
+        }
+
+        // extract simple keywords
+        const tokens = baseText
+          .split(/[^a-zA-Z0-9]+/)
+          .map((t) => t.trim())
+          .filter((t) => t.length > 3)
+          .slice(0, 12);
+        const unique = Array.from(new Set(tokens)).slice(0, 6);
+
+        const orClauses = unique.map((k) => ({ observationText: { contains: k, mode: "insensitive" } }));
+        let where: Prisma.ObservationWhereInput = orClauses.length > 0 ? { OR: orClauses } : {};
+        if (excludeId) where = { AND: [where, { id: { not: excludeId } }] };
+
+        // Apply RBAC
+        if (isCFO(role) || isCXOTeam(role)) {
+          // full
+        } else if (isAuditHead(role)) {
+          where = {
+            AND: [
+              where,
+              {
+                audit: {
+                  OR: [
+                    { auditHeadId: userId },
+                    { assignments: { some: { auditorId: userId } } },
+                  ],
+                },
+              },
+            ],
+          };
+        } else if (isAuditor(role)) {
+          where = { AND: [where, { audit: { assignments: { some: { auditorId: userId } } } }] };
+        } else if (isAuditee(role)) {
+          where = { AND: [where, { assignments: { some: { auditeeId: userId } } }] };
+        } else if (isGuest(role)) {
+          const scope = await getUserScope(userId);
+          const scopeWhere = buildScopeWhere(scope);
+          const allowPublished: Prisma.ObservationWhereInput = {
+            AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }],
+          };
+          const or: Prisma.ObservationWhereInput[] = [allowPublished];
+          if (scopeWhere) or.push(scopeWhere);
+          where = { AND: [where, { OR: or }] };
+        }
+
+        const take = typeof args.limit === "number" && args.limit ? args.limit : 10;
+        const results = await prisma.observation.findMany({
+          where,
+          take,
+          orderBy: { createdAt: "desc" },
+          include: {
+            plant: { select: { name: true } },
+            audit: { select: { title: true } },
+          },
+        });
+
+        // simple similarity: number of keyword matches
+        const lower = unique.map((k) => k.toLowerCase());
+        const ranked = results
+          .map((obs) => {
+            const text = obs.observationText.toLowerCase();
+            const score = lower.reduce((acc, k) => (text.includes(k) ? acc + 1 : acc), 0);
+            return {
+              id: obs.id,
+              plant: obs.plant?.name || "Unknown Plant",
+              auditTitle: obs.audit?.title || "Untitled Audit",
+              similarity: score,
+              excerpt: obs.observationText.slice(0, 160),
+            };
+          })
+          .sort((a, b) => b.similarity - a.similarity);
+
+        logToolUsage("observations_similar", session.user.id, { count: ranked.length });
+
+        return { allowed: true, results: ranked };
+      },
+    }),
   } as const;
 
   let validatedMessages: UIMessage[];
@@ -631,7 +1099,8 @@ export async function POST(req: NextRequest) {
     model: cerebras(process.env.AI_MODEL || "gpt-oss-120b"),
     system: SYSTEM_PROMPT,
     messages: convertToModelMessages(validatedMessages),
-    stopWhen: stepCountIs(3),
+    temperature: 0,
+    stopWhen: stepCountIs(5),
     tools,
   });
 
