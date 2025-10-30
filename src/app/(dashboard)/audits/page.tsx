@@ -48,10 +48,16 @@ export default function AuditsPage() {
       fetch("/api/v1/plants", { cache: "no-store" }),
       fetch("/api/v1/audits", { cache: "no-store" })
     ]);
-    const plantsJson = await plantsRes.json();
-    const auditsJson = await auditsRes.json();
-    if (plantsRes.ok) setPlants(plantsJson.plants);
-    if (auditsRes.ok) setAudits(auditsJson.audits);
+    
+    if (plantsRes.ok) {
+      const plantsJson = await plantsRes.json();
+      setPlants(plantsJson.plants || []);
+    }
+    
+    if (auditsRes.ok) {
+      const auditsJson = await auditsRes.json();
+      setAudits(auditsJson.audits || []);
+    }
   }
 
   useEffect(() => {
