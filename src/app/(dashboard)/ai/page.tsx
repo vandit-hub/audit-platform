@@ -6,7 +6,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import ReactMarkdown from "react-markdown";
@@ -29,40 +28,15 @@ type SessionListItem = {
 
 export default function AIAssistantPage() {
   const { data: session, status: sessionStatus } = useSession();
-  const [input, setInput] = useState("");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [activeSessionMessages, setActiveSessionMessages] = useState<UIMessage[]>([]);
   const [initializing, setInitializing] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
 
-  const previousMessageCountRef = useRef(0);
-
-  const {
-    messages,
-    sendMessage,
-    status,
-    error,
-    setMessages,
-    clearError,
-  } = useChat({
-    id: activeSessionId ?? undefined,
-    transport: new DefaultChatTransport({
-      api: "/api/v1/ai/chat",
-      prepareSendMessagesRequest({ messages, id }) {
-        if (!id) {
-          throw new Error("Active chat session missing");
-        }
-        const lastMessage = messages[messages.length - 1];
-        return {
-          body: {
-            chatId: id,
-            message: lastMessage,
-          },
-        };
-      },
-    }),
-  });
+  // Chat logic is handled by ChatPane
 
   const suggestions = useMemo(
     () => [
@@ -123,8 +97,7 @@ export default function AIAssistantPage() {
         const data = await res.json();
         const sessionMessages = (data.messages as UIMessage[]) ?? [];
         setActiveSessionId(sessionId);
-        setMessages(sessionMessages);
-        previousMessageCountRef.current = sessionMessages.length;
+        setActiveSessionMessages(sessionMessages);
       } catch (err) {
         console.error(err);
         setUiError("Unable to load the selected conversation.");
@@ -132,7 +105,7 @@ export default function AIAssistantPage() {
         setLoadingMessages(false);
       }
     },
-    [setMessages],
+    [],
   );
 
   const createSession = useCallback(async () => {
@@ -153,6 +126,7 @@ export default function AIAssistantPage() {
         setInitializing(false);
         setSessions([]);
         setActiveSessionId(null);
+        setActiveSessionMessages([]);
       }
       return;
     }
@@ -187,54 +161,14 @@ export default function AIAssistantPage() {
     };
   }, [createSession, loadSession, refreshSessions, sessionStatus]);
 
-  useEffect(() => {
-    if (status === "ready" && activeSessionId) {
-      if (messages.length !== previousMessageCountRef.current) {
-        previousMessageCountRef.current = messages.length;
-        refreshSessions();
-      }
-    }
-  }, [status, messages.length, activeSessionId, refreshSessions, messages]);
+  // ChatPane will notify parent when messages change
 
   const activeSession = useMemo(
     () => sessions.find((item) => item.id === activeSessionId) || null,
     [sessions, activeSessionId],
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || status !== "ready" || !activeSessionId) return;
-
-    sendMessage({ text: input });
-    setInput("");
-    if (error) {
-      clearError?.();
-    }
-  };
-
-  const handleSuggestionClick = (suggestion: string) => {
-    if (status !== "ready" || !activeSessionId) return;
-    sendMessage({ text: suggestion });
-  };
-
-  const handleClearChat = useCallback(async () => {
-    if (!activeSessionId) return;
-    try {
-      const res = await fetch(`/api/v1/ai/sessions/${activeSessionId}/clear`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to clear conversation");
-      }
-      setMessages([]);
-      previousMessageCountRef.current = 0;
-      setInput("");
-      await refreshSessions();
-    } catch (err) {
-      console.error(err);
-      setUiError("Unable to clear this conversation.");
-    }
-  }, [activeSessionId, refreshSessions, setMessages]);
+  // ChatPane handles submit, suggestions, and clear chat
 
   const handleNewConversation = useCallback(async () => {
     try {
@@ -294,13 +228,13 @@ export default function AIAssistantPage() {
         await loadSession(list[0].id);
       } else {
         setActiveSessionId(null);
-        setMessages([]);
+        setActiveSessionMessages([]);
       }
     } catch (err) {
       console.error(err);
       setUiError("Unable to delete this conversation.");
     }
-  }, [activeSessionId, createSession, loadSession, refreshSessions, setMessages]);
+  }, [activeSessionId, createSession, loadSession, refreshSessions]);
 
   const formatTimestamp = (iso: string | null) => {
     if (!iso) return "No activity yet";
@@ -317,8 +251,7 @@ export default function AIAssistantPage() {
     }
   };
 
-  const disableSend = status !== "ready" || !input.trim() || !activeSessionId;
-  const disableClear = (messages.length === 0 && !input) || !activeSessionId;
+  // ChatPane computes input/button disabled states locally
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -348,7 +281,7 @@ export default function AIAssistantPage() {
                 {sessions.length} total
               </p>
             </div>
-            <Button size="sm" onClick={handleNewConversation} disabled={status === "streaming"}>
+            <Button size="sm" onClick={handleNewConversation} disabled={isStreaming}>
               New chat
             </Button>
           </div>
@@ -422,7 +355,7 @@ export default function AIAssistantPage() {
                 size="sm"
                 variant="ghost"
                 onClick={handleRenameConversation}
-                disabled={!activeSessionId || status === "streaming"}
+                disabled={!activeSessionId || isStreaming}
               >
                 Rename
               </Button>
@@ -430,7 +363,7 @@ export default function AIAssistantPage() {
                 size="sm"
                 variant="ghost"
                 onClick={handleDeleteConversation}
-                disabled={!activeSessionId || status === "streaming"}
+                disabled={!activeSessionId || isStreaming}
               >
                 Delete
               </Button>
@@ -441,325 +374,329 @@ export default function AIAssistantPage() {
             <div className="px-4 pt-3 text-sm text-red-600 dark:text-red-400">{uiError}</div>
           )}
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loadingMessages ? (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Loading conversation…
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="text-center text-gray-500 dark:text-gray-400 py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
-                <p className="mt-2">Start a conversation by asking a question below.</p>
-
-                <div className="mt-6 max-w-2xl mx-auto">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    💡 Try asking:
-                  </p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {suggestions.map((suggestion, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        disabled={status !== "ready" || !activeSessionId}
-                        className="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              messages.map((message) => {
-                const isUserMessage = message.role === "user";
-                return (
-                  <div
-                    key={message.id}
-                    className={`flex ${isUserMessage ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-3xl rounded-lg px-4 py-2 ${
-                        isUserMessage
-                          ? "bg-blue-500 text-white"
-                          : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                      }`}
-                    >
-                      <div className="text-xs font-semibold mb-1 opacity-75">
-                        {message.role === "user" ? "You" : "AI Assistant"}
-                      </div>
-
-                      {message.parts.map((part, i) => {
-                        switch (part.type) {
-                          case "text":
-                            return (
-                              <div
-                                key={`${message.id}-${i}`}
-                                className={`space-y-3 text-[0.9375rem] leading-relaxed ${
-                                  isUserMessage
-                                    ? "text-white"
-                                    : "text-gray-900 dark:text-gray-100"
-                                }`}
-                              >
-                                <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
-                                  components={{
-                                    p: ({ node: _node, ...props }) => (
-                                      <p className="text-[0.9375rem] leading-relaxed" {...props} />
-                                    ),
-                                    ul: ({ node: _node, ...props }) => (
-                                      <ul className="list-disc space-y-1 pl-5" {...props} />
-                                    ),
-                                    ol: ({ node: _node, ...props }) => (
-                                      <ol className="list-decimal space-y-1 pl-5" {...props} />
-                                    ),
-                                    li: ({ node: _node, ...props }) => <li className="text-[0.9375rem]" {...props} />,
-                                    strong: ({ node: _node, ...props }) => (
-                                      <strong className="font-semibold" {...props} />
-                                    ),
-                                    table: ({ node: _node, ...props }) => (
-                                      <div
-                                        className={`overflow-x-auto rounded-md border ${
-                                          isUserMessage ? "border-white/40" : "border-gray-200"
-                                        }`}
-                                      >
-                                        <table
-                                          className={`min-w-full border-collapse text-left text-xs ${
-                                            isUserMessage
-                                              ? "text-white"
-                                              : "text-gray-900 dark:text-gray-100"
-                                          }`}
-                                          {...props}
-                                        />
-                                      </div>
-                                    ),
-                                    thead: ({ node: _node, ...props }) => (
-                                      <thead
-                                        className={isUserMessage ? "bg-blue-600/40" : "bg-gray-50"}
-                                        {...props}
-                                      />
-                                    ),
-                                    th: ({ node: _node, ...props }) => (
-                                      <th
-                                        className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
-                                          isUserMessage
-                                            ? "border-white/30 text-white"
-                                            : "border-gray-200 text-gray-600"
-                                        }`}
-                                        {...props}
-                                      />
-                                    ),
-                                    td: ({ node: _node, ...props }) => (
-                                      <td
-                                        className={`border px-3 py-2 ${
-                                          isUserMessage ? "border-white/20" : "border-gray-200"
-                                        }`}
-                                        {...props}
-                                      />
-                                    ),
-                                    tr: ({ node: _node, ...props }) => (
-                                      <tr
-                                        className={
-                                          isUserMessage
-                                            ? "odd:bg-blue-500/50 even:bg-blue-500/60"
-                                            : "odd:bg-white even:bg-gray-50"
-                                        }
-                                        {...props}
-                                      />
-                                    ),
-                                    code: ({ node: _node, inline, ...props }) => (
-                                      <code
-                                        className={`rounded px-1 py-0.5 text-[0.85rem] ${
-                                          inline ? "" : "block"
-                                        } ${
-                                          isUserMessage ? "bg-blue-600/50" : "bg-gray-100"
-                                        }`}
-                                        {...props}
-                                      />
-                                    ),
-                                  }}
-                                >
-                                  {part.text}
-                                </ReactMarkdown>
-                              </div>
-                            );
-
-                          case "tool-observations_count": {
-                            const count =
-                              typeof part.output === "object" && part.output && "count" in part.output
-                                ? (part.output as any).count
-                                : null;
-                            return (
-                              <div
-                                key={`${message.id}-${i}`}
-                                className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs"
-                              >
-                                <div className="font-semibold mb-1">🔍 Observations Count Tool</div>
-                                {typeof count === "number" && (
-                                  <div>
-                                    <div>
-                                      Count: <strong>{count}</strong>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          case "tool-observations_list": {
-                            const out = (part.output as any) || {};
-                            const list: Array<any> = Array.isArray(out.observations)
-                              ? out.observations
-                              : [];
-                            return (
-                              <div
-                                key={`${message.id}-${i}`}
-                                className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs"
-                              >
-                                <div className="font-semibold mb-1">
-                                  📋 Observations List ({String(out.count ?? list.length)})
-                                </div>
-                                {list.length > 0 && (
-                                  <ul className="list-disc pl-4 space-y-1">
-                                    {list.map((o: any) => (
-                                      <li key={o.id}>
-                                        <span className="font-medium">{o.title}</span>{" "}
-                                        <span className="opacity-75">
-                                          — {o.approvalStatus} • Risk {o.riskCategory} • {o.auditTitle}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          case "tool-audits_count": {
-                            const count =
-                              typeof part.output === "object" && part.output && "count" in part.output
-                                ? (part.output as any).count
-                                : null;
-                            return (
-                              <div
-                                key={`${message.id}-${i}`}
-                                className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs"
-                              >
-                                <div className="font-semibold mb-1">🔍 Audits Count Tool</div>
-                                {typeof count === "number" && (
-                                  <div>
-                                    <div>
-                                      Count: <strong>{count}</strong>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          case "tool-audits_list": {
-                            const out = (part.output as any) || {};
-                            const list: Array<any> = Array.isArray(out.audits)
-                              ? out.audits
-                              : [];
-                            return (
-                              <div
-                                key={`${message.id}-${i}`}
-                                className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs"
-                              >
-                                <div className="font-semibold mb-1">
-                                  📋 Audits List ({String(out.count ?? list.length)})
-                                </div>
-                                {list.length > 0 && (
-                                  <ul className="list-disc pl-4 space-y-1">
-                                    {list.map((a: any) => (
-                                      <li key={a.id}>
-                                        <span className="font-medium">{a.title}</span>{" "}
-                                        <span className="opacity-75">
-                                          — {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/
-                                          {a.progress?.total ?? 0} resolved
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            );
-                          }
-
-                          default:
-                            return null;
-                        }
-                      })}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-
-            {status === "streaming" && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-bounce">●</div>
-                    <div className="animate-bounce delay-100">●</div>
-                    <div className="animate-bounce delay-200">●</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-100 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-300 px-4 py-2 rounded">
-                <strong>Error:</strong> {error.message}
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div>
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a question about audits or observations..."
-                  disabled={status !== "ready" || !activeSessionId}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
-                  rows={3}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleClearChat}
-                  disabled={disableClear}
-                >
-                  Clear chat
-                </Button>
-                <Button type="submit" disabled={disableSend}>
-                  {status === "streaming" ? "Sending..." : "Send"}
-                </Button>
-              </div>
-            </form>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-              The AI assistant respects your role permissions. You can only see data you have access to.
-            </p>
-          </div>
+          <ChatPane
+            key={activeSessionId ?? "none"}
+            sessionId={activeSessionId}
+            initialMessages={activeSessionMessages}
+            loading={loadingMessages}
+            suggestions={suggestions}
+            onMessagesChanged={refreshSessions}
+            onStreamingChange={setIsStreaming}
+          />
         </Card>
       </div>
     </div>
+  );
+}
+
+type ChatPaneProps = {
+  sessionId: string | null;
+  initialMessages: UIMessage[];
+  loading: boolean;
+  suggestions: string[];
+  onMessagesChanged: () => void;
+  onStreamingChange: (streaming: boolean) => void;
+};
+
+function ChatPane({
+  sessionId,
+  initialMessages,
+  loading,
+  suggestions,
+  onMessagesChanged,
+  onStreamingChange,
+}: ChatPaneProps) {
+  const [input, setInput] = useState("");
+
+  const { messages, sendMessage, status, error, setMessages, clearError } = useChat({
+    id: sessionId ?? undefined,
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/v1/ai/chat",
+      prepareSendMessagesRequest({ messages, id }) {
+        if (!id) {
+          throw new Error("Active chat session missing");
+        }
+        const lastMessage = messages[messages.length - 1];
+        return {
+          body: {
+            chatId: id,
+            message: lastMessage,
+          },
+        };
+      },
+    }),
+  });
+
+  useEffect(() => {
+    onStreamingChange(status === "streaming");
+  }, [status, onStreamingChange]);
+
+  useEffect(() => {
+    onMessagesChanged();
+  }, [messages.length, onMessagesChanged]);
+
+  if (!sessionId) {
+    return (
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="text-sm text-gray-500 dark:text-gray-400">Select or start a conversation.</div>
+      </div>
+    );
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || status !== "ready") return;
+    sendMessage({ text: input });
+    setInput("");
+    if (error) {
+      clearError?.();
+    }
+  };
+
+  const handleSuggestionClick = (suggestion: string) => {
+    if (status !== "ready") return;
+    sendMessage({ text: suggestion });
+  };
+
+  const handleClearChat = async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`/api/v1/ai/sessions/${sessionId}/clear`, { method: "POST" });
+      if (!res.ok) {
+        throw new Error("Failed to clear conversation");
+      }
+      setMessages([]);
+      setInput("");
+      onMessagesChanged();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const disableSend = status !== "ready" || !input.trim();
+  const disableClear = messages.length === 0 && !input;
+
+  return (
+    <>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {loading ? (
+          <div className="text-sm text-gray-500 dark:text-gray-400">Loading conversation…</div>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <p className="mt-2">Start a conversation by asking a question below.</p>
+
+            <div className="mt-6 max-w-2xl mx-auto">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">💡 Try asking:</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {suggestions.map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    disabled={status !== "ready"}
+                    className="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          messages.map((message) => {
+            const isUserMessage = message.role === "user";
+            return (
+              <div key={message.id} className={`flex ${isUserMessage ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-3xl rounded-lg px-4 py-2 ${
+                    isUserMessage ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  }`}
+                >
+                  <div className="text-xs font-semibold mb-1 opacity-75">
+                    {message.role === "user" ? "You" : "AI Assistant"}
+                  </div>
+
+                  {message.parts.map((part, i) => {
+                    switch (part.type) {
+                      case "text":
+                        return (
+                          <div
+                            key={`${message.id}-${i}`}
+                            className={`space-y-3 text-[0.9375rem] leading-relaxed ${
+                              isUserMessage ? "text-white" : "text-gray-900 dark:text-gray-100"
+                            }`}
+                          >
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                p: ({ node: _node, ...props }) => <p className="text-[0.9375rem] leading-relaxed" {...props} />,
+                                ul: ({ node: _node, ...props }) => <ul className="list-disc space-y-1 pl-5" {...props} />,
+                                ol: ({ node: _node, ...props }) => <ol className="list-decimal space-y-1 pl-5" {...props} />,
+                                li: ({ node: _node, ...props }) => <li className="text-[0.9375rem]" {...props} />,
+                                strong: ({ node: _node, ...props }) => <strong className="font-semibold" {...props} />,
+                                table: ({ node: _node, ...props }) => (
+                                  <div className={`overflow-x-auto rounded-md border ${isUserMessage ? "border-white/40" : "border-gray-200"}`}>
+                                    <table
+                                      className={`min-w-full border-collapse text-left text-xs ${
+                                        isUserMessage ? "text-white" : "text-gray-900 dark:text-gray-100"
+                                      }`}
+                                      {...props}
+                                    />
+                                  </div>
+                                ),
+                                thead: ({ node: _node, ...props }) => <thead className={isUserMessage ? "bg-blue-600/40" : "bg-gray-50"} {...props} />,
+                                th: ({ node: _node, ...props }) => (
+                                  <th
+                                    className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
+                                      isUserMessage ? "border-white/30 text-white" : "border-gray-200 text-gray-600"
+                                    }`}
+                                    {...props}
+                                  />
+                                ),
+                                td: ({ node: _node, ...props }) => (
+                                  <td className={`border px-3 py-2 ${isUserMessage ? "border-white/20" : "border-gray-200"}`} {...props} />
+                                ),
+                                tr: ({ node: _node, ...props }) => (
+                                  <tr className={isUserMessage ? "odd:bg-blue-500/50 even:bg-blue-500/60" : "odd:bg-white even:bg-gray-50"} {...props} />
+                                ),
+                                code: ({ node: _node, inline, ...props }) => (
+                                  <code className={`rounded px-1 py-0.5 text-[0.85rem] ${inline ? "" : "block"} ${isUserMessage ? "bg-blue-600/50" : "bg-gray-100"}`} {...props} />
+                                ),
+                              }}
+                            >
+                              {part.text}
+                            </ReactMarkdown>
+                          </div>
+                        );
+
+                      case "tool-observations_count": {
+                        const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🔍 Observations Count Tool</div>
+                            {typeof count === "number" && (
+                              <div>
+                                <div>
+                                  Count: <strong>{count}</strong>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-observations_list": {
+                        const out = (part.output as any) || {};
+                        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">📋 Observations List ({String(out.count ?? list.length)})</div>
+                            {list.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {list.map((o: any) => (
+                                  <li key={o.id}>
+                                    <span className="font-medium">{o.title}</span>{" "}
+                                    <span className="opacity-75">— {o.approvalStatus} • Risk {o.riskCategory} • {o.auditTitle}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-audits_count": {
+                        const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🔍 Audits Count Tool</div>
+                            {typeof count === "number" && (
+                              <div>
+                                <div>
+                                  Count: <strong>{count}</strong>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-audits_list": {
+                        const out = (part.output as any) || {};
+                        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">📋 Audits List ({String(out.count ?? list.length)})</div>
+                            {list.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {list.map((a: any) => (
+                                  <li key={a.id}>
+                                    <span className="font-medium">{a.title}</span>{" "}
+                                    <span className="opacity-75">— {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/{a.progress?.total ?? 0} resolved</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      default:
+                        return null;
+                    }
+                  })}
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {status === "streaming" && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2">
+              <div className="flex items-center space-x-2">
+                <div className="animate-bounce">●</div>
+                <div className="animate-bounce delay-100">●</div>
+                <div className="animate-bounce delay-200">●</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-100 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-300 px-4 py-2 rounded">
+            <strong>Error:</strong> {error.message}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask a question about audits or observations..."
+              disabled={status !== "ready" || !sessionId}
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+              rows={3}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Button type="button" variant="secondary" onClick={handleClearChat} disabled={disableClear}>
+              Clear chat
+            </Button>
+            <Button type="submit" disabled={disableSend}>{status === "streaming" ? "Sending..." : "Send"}</Button>
+          </div>
+        </form>
+        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+          The AI assistant respects your role permissions. You can only see data you have access to.
+        </p>
+      </div>
+    </>
   );
 }
 

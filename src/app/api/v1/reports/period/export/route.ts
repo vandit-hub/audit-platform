@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { isAdminOrAuditor } from "@/lib/rbac";
+import { isCFO, isCXOTeam, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 import { Prisma } from "@prisma/client";
 
@@ -54,12 +54,41 @@ export async function GET(req: NextRequest) {
   let where: Prisma.ObservationWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
-  // RBAC filtering
-  if (isAdminOrAuditor(session.user.role)) {
+  // RBAC filtering (aligned with /api/v1/observations)
+  const role = session.user.role;
+  const userId = session.user.id;
+
+  if (isCFO(role) || isCXOTeam(role)) {
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
-  } else {
-    const scope = await getUserScope(session.user.id);
+  } else if (isAuditHead(role)) {
+    const auditHeadFilter: Prisma.ObservationWhereInput = {
+      audit: {
+        OR: [
+          { auditHeadId: userId },
+          { assignments: { some: { auditorId: userId } } }
+        ]
+      }
+    };
+    where = { AND: [where, auditHeadFilter] };
+    if (published === "1") where = { AND: [where, { isPublished: true }] };
+    else if (published === "0") where = { AND: [where, { isPublished: false }] };
+  } else if (isAuditor(role)) {
+    const auditorFilter: Prisma.ObservationWhereInput = {
+      audit: {
+        assignments: { some: { auditorId: userId } }
+      }
+    };
+    where = { AND: [where, auditorFilter] };
+    if (published === "1") where = { AND: [where, { isPublished: true }] };
+    else if (published === "0") where = { AND: [where, { isPublished: false }] };
+  } else if (isAuditee(role)) {
+    const auditeeFilter: Prisma.ObservationWhereInput = {
+      assignments: { some: { auditeeId: userId } }
+    };
+    where = { AND: [where, auditeeFilter] };
+  } else if (isGuest(role)) {
+    const scope = await getUserScope(userId);
     const scopeWhere = buildScopeWhere(scope);
     const allowPublished: Prisma.ObservationWhereInput = {
       AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }]
