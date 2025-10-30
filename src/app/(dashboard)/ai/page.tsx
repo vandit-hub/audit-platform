@@ -81,6 +81,9 @@ export default function AIAssistantPage() {
     } catch (err) {
       console.error(err);
       setUiError("Unable to load conversations.");
+      setSessions([]);
+      setActiveSessionId(null);
+      setActiveSessionMessages([]);
       return [];
     }
   }, [fetchSessions]);

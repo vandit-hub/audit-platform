@@ -82,7 +82,7 @@ export default function NavBar() {
           <div className="flex items-center gap-3">
             {session?.user && (
               <>
-                <RoleBadge role={session.user.role} />
+                {session.user.role ? <RoleBadge role={session.user.role} /> : null}
                 <span className="text-sm text-neutral-600 hidden lg:block">
                   {session.user.email}
                 </span>

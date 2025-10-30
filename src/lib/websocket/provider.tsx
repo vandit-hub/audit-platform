@@ -53,6 +53,21 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 
         case 'error':
           console.error('WebSocket error:', message.error);
+          // If token is invalid/expired but the user still has a valid session,
+          // request a fresh token and reconnect.
+          if (
+            message.error &&
+            typeof message.error === 'string' &&
+            message.error.toLowerCase().includes('invalid or expired token') &&
+            session?.user
+          ) {
+            fetch('/api/v1/websocket/token')
+              .then((res) => res.ok ? res.json() : Promise.reject(new Error('token fetch failed')))
+              .then((data) => {
+                if (data?.token) wsClient.connect(data.token);
+              })
+              .catch(() => {/* noop */});
+          }
           break;
       }
     });

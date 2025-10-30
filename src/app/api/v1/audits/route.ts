@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
   const role = session.user.role;
   const userId = session.user.id;
 
-  // AUDITEE and GUEST have no access to audit listing
-  if (role === "AUDITEE" || role === "GUEST") {
+  // Only CFO, CXO_TEAM, AUDIT_HEAD, and AUDITOR may access audit listing
+  // Treat any unknown/undefined role as forbidden (defensive default)
+  if (!isCFO(role) && !isCXOTeam(role) && !isAuditHead(role) && !isAuditor(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

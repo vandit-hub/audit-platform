@@ -180,6 +180,15 @@ export async function POST(req: NextRequest) {
         const role = session.user.role;
         const userId = session.user.id;
 
+        const isKnownRole =
+          isCFO(role) ||
+          isCXOTeam(role) ||
+          isAuditHead(role) ||
+          isAuditor(role) ||
+          isAuditee(role) ||
+          isGuest(role);
+        if (!isKnownRole) return { allowed: false, reason: "Forbidden" };
+
         // Build base filters from arguments
         const filters: Prisma.ObservationWhereInput[] = [];
         if (args.approvalStatus) filters.push({ approvalStatus: args.approvalStatus });
@@ -311,6 +320,15 @@ export async function POST(req: NextRequest) {
         const role = session.user.role;
         const userId = session.user.id;
 
+        const isKnownRole =
+          isCFO(role) ||
+          isCXOTeam(role) ||
+          isAuditHead(role) ||
+          isAuditor(role) ||
+          isAuditee(role) ||
+          isGuest(role);
+        if (!isKnownRole) return { allowed: false, reason: "Forbidden" };
+
         const filters: Prisma.ObservationWhereInput[] = [];
         if (args.approvalStatus) filters.push({ approvalStatus: args.approvalStatus });
         if (args.currentStatus) filters.push({ currentStatus: args.currentStatus as any });
@@ -428,6 +446,15 @@ export async function POST(req: NextRequest) {
         const role = session.user.role;
         const userId = session.user.id;
 
+        const isKnownRole =
+          isCFO(role) ||
+          isCXOTeam(role) ||
+          isAuditHead(role) ||
+          isAuditor(role) ||
+          isAuditee(role) ||
+          isGuest(role);
+        if (!isKnownRole) return { allowed: false, reason: "Forbidden" };
+
         if (isAuditee(role) || isGuest(role)) {
           return {
             allowed: false,
@@ -499,6 +526,15 @@ export async function POST(req: NextRequest) {
 
         const role = session.user.role;
         const userId = session.user.id;
+
+        const isKnownRole =
+          isCFO(role) ||
+          isCXOTeam(role) ||
+          isAuditHead(role) ||
+          isAuditor(role) ||
+          isAuditee(role) ||
+          isGuest(role);
+        if (!isKnownRole) return { allowed: false, reason: "Forbidden" };
 
         if (isAuditee(role) || isGuest(role)) {
           return {
@@ -657,6 +693,15 @@ export async function POST(req: NextRequest) {
 
         const role = session.user.role;
         const userId = session.user.id;
+
+        const isKnownRole =
+          isCFO(role) ||
+          isCXOTeam(role) ||
+          isAuditHead(role) ||
+          isAuditor(role) ||
+          isAuditee(role) ||
+          isGuest(role);
+        if (!isKnownRole) return { allowed: false, reason: "Forbidden" };
 
         const filters: Prisma.ObservationWhereInput[] = [];
         if (args.approvalStatus) filters.push({ approvalStatus: args.approvalStatus });

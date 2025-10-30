@@ -84,8 +84,9 @@ export default function ObservationsPage() {
     if (sortBy) qs.set("sortBy", sortBy);
     if (sortOrder) qs.set("sortOrder", sortOrder);
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
-    const j = await res.json();
+    const j = await res.json().catch(() => ({}));
     if (res.ok) setRows(j.observations);
+    else setRows([]);
   };
 
   const load = async () => {

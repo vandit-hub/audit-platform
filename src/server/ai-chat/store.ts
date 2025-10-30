@@ -59,6 +59,9 @@ function getPreviewFromMessage(message: UIMessage | null): string | null {
 }
 
 export async function listSessionsForUser(userId: string): Promise<SessionListItem[]> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   const sessions = await prisma.aIChatSession.findMany({
     where: { userId },
     orderBy: [{ updatedAt: "desc" }],
@@ -91,6 +94,9 @@ export async function listSessionsForUser(userId: string): Promise<SessionListIt
 }
 
 export async function createSessionForUser(userId: string, title?: string | null): Promise<AIChatSession> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   return prisma.aIChatSession.create({
     data: {
       userId,
@@ -100,6 +106,9 @@ export async function createSessionForUser(userId: string, title?: string | null
 }
 
 export async function renameSession(userId: string, sessionId: string, title: string | null): Promise<AIChatSession | null> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   const session = await prisma.aIChatSession.findFirst({ where: { id: sessionId, userId } });
   if (!session) return null;
   return prisma.aIChatSession.update({
@@ -109,6 +118,9 @@ export async function renameSession(userId: string, sessionId: string, title: st
 }
 
 export async function deleteSession(userId: string, sessionId: string): Promise<boolean> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   const session = await prisma.aIChatSession.findFirst({ where: { id: sessionId, userId } });
   if (!session) return false;
   await prisma.aIChatSession.delete({ where: { id: sessionId } });
@@ -116,6 +128,9 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
 }
 
 export async function clearSessionMessages(userId: string, sessionId: string): Promise<boolean> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   const session = await prisma.aIChatSession.findFirst({ where: { id: sessionId, userId } });
   if (!session) return false;
 
@@ -134,6 +149,9 @@ export async function getSessionWithMessages(
   userId: string,
   sessionId: string,
 ): Promise<SessionWithMessages | null> {
+  if (!userId || typeof userId !== "string") {
+    throw new Error("USER_ID_REQUIRED");
+  }
   const session = await prisma.aIChatSession.findFirst({
     where: { id: sessionId, userId },
   });

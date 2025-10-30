@@ -59,6 +59,8 @@ export async function GET(req: NextRequest) {
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
     baseWhere = { OR: or };
+  } else {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
   // Build filter where clauses

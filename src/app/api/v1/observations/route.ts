@@ -146,6 +146,10 @@ export async function GET(req: NextRequest) {
 
     where = { AND: [where, { OR: or }] };
   }
+  // Defensive default: if role is missing/unknown, deny access
+  else {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  }
 
   const obs = await prisma.observation.findMany({
     where,

@@ -13,17 +13,17 @@ function errorResponse(message: string, status: number) {
 
 export async function GET() {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
   }
 
-  const sessions = await listSessionsForUser(session.user.id);
+  const sessions = await listSessionsForUser((session.user as any).id);
   return Response.json({ sessions });
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
   }
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return errorResponse("Invalid payload", 400);
   }
 
-  const created = await createSessionForUser(session.user.id, parsed.data.title ?? null);
+  const created = await createSessionForUser((session.user as any).id, parsed.data.title ?? null);
 
   return Response.json({
     session: {

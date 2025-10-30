@@ -20,12 +20,12 @@ export async function GET(
   context: { params: Promise<{ sessionId: string }> },
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
   }
 
   const { sessionId } = await context.params;
-  const data = await getSessionWithMessages(session.user.id, sessionId);
+  const data = await getSessionWithMessages((session.user as any).id, sessionId);
   if (!data) {
     return errorResponse("Session not found", 404);
   }
@@ -49,7 +49,7 @@ export async function PATCH(
   context: { params: Promise<{ sessionId: string }> },
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
   }
 
@@ -60,7 +60,7 @@ export async function PATCH(
     return errorResponse("Invalid payload", 400);
   }
 
-  const updated = await renameSession(session.user.id, sessionId, parsed.data.title ?? null);
+  const updated = await renameSession((session.user as any).id, sessionId, parsed.data.title ?? null);
   if (!updated) {
     return errorResponse("Session not found", 404);
   }
@@ -83,12 +83,12 @@ export async function DELETE(
   context: { params: Promise<{ sessionId: string }> },
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
   }
 
   const { sessionId } = await context.params;
-  const removed = await deleteSession(session.user.id, sessionId);
+  const removed = await deleteSession((session.user as any).id, sessionId);
   if (!removed) {
     return errorResponse("Session not found", 404);
   }
