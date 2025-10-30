@@ -272,6 +272,14 @@ export default function AIAssistantPage() {
 
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
+          <div className="px-4 pt-3">
+            <Button onClick={handleNewConversation} disabled={isStreaming} className="w-full justify-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                <path fillRule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clipRule="evenodd" />
+              </svg>
+              New chat
+            </Button>
+          </div>
           <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3">
             <div>
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
@@ -281,9 +289,6 @@ export default function AIAssistantPage() {
                 {sessions.length} total
               </p>
             </div>
-            <Button size="sm" onClick={handleNewConversation} disabled={isStreaming}>
-              New chat
-            </Button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {initializing ? (
@@ -315,11 +320,6 @@ export default function AIAssistantPage() {
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                             {label}
                           </span>
-                          {item.messageCount > 0 && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {item.messageCount}
-                            </span>
-                          )}
                         </div>
                         <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
                           {item.lastMessagePreview ?? "No messages yet"}
@@ -451,6 +451,18 @@ function ChatPane({
     setInput("");
     if (error) {
       clearError?.();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!input.trim() || status !== "ready") return;
+      sendMessage({ text: input });
+      setInput("");
+      if (error) {
+        clearError?.();
+      }
     }
   };
 
@@ -679,6 +691,7 @@ function ChatPane({
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Ask a question about audits or observations..."
               disabled={status !== "ready" || !sessionId}
               className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
