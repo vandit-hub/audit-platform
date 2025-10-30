@@ -29,7 +29,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         }
       })
       .catch(error => {
-        console.error('Failed to fetch WebSocket token:', error);
+        // Silently handle token fetch errors (WebSocket server may not be running)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('WebSocket token fetch failed (server may not be running)');
+        }
       });
 
     const unsubscribeMessage = wsClient.onMessage((message: WebSocketMessage) => {

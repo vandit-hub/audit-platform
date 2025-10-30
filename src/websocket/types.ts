@@ -1,8 +1,9 @@
 import { WebSocket } from 'ws';
+import { Role } from '@prisma/client';
 
 export interface AuthenticatedWebSocket extends WebSocket {
   userId?: string;
-  userRole?: string;
+  userRole?: Role | string;
   userEmail?: string;
   observationRooms?: Set<string>;
   isAlive?: boolean;
@@ -42,7 +43,7 @@ export interface ServerMessage {
 export interface PresenceData {
   userId: string;
   email: string;
-  role: string;
+  role: Role | string;
   joinedAt: string;
 }
 

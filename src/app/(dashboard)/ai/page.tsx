@@ -124,15 +124,17 @@ export default function AIAssistantPage() {
                   switch (part.type) {
                     case "text":
                       return (
-                        <ReactMarkdown
+                        <div
                           key={`${message.id}-${i}`}
-                          remarkPlugins={[remarkGfm]}
                           className={`space-y-3 text-[0.9375rem] leading-relaxed ${
                             isUserMessage
                               ? "text-white"
                               : "text-gray-900 dark:text-gray-100"
                           }`}
-                          components={{
+                        >
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
                             p: ({ node: _node, ...props }) => (
                               <p className="text-[0.9375rem] leading-relaxed" {...props} />
                             ),
@@ -208,6 +210,7 @@ export default function AIAssistantPage() {
                         >
                           {part.text}
                         </ReactMarkdown>
+                        </div>
                       );
 
                     case "tool-observations_count": {

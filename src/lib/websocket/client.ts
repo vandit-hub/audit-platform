@@ -51,7 +51,11 @@ class WebSocketClient {
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        // Silently handle WebSocket errors (server may not be running)
+        // Only log in development
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('WebSocket connection failed (server may not be running):', error);
+        }
         this.notifyStateChange('error');
       };
 
@@ -131,7 +135,9 @@ class WebSocketClient {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnection attempts reached');
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('WebSocket reconnect stopped after maximum attempts');
+      }
       return;
     }
 

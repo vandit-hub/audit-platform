@@ -1,9 +1,19 @@
 import jwt from 'jsonwebtoken';
+import { Role } from '@prisma/client';
 import { prisma } from '@/server/db';
+import {
+  isCFO,
+  isCXOTeam,
+  isAuditHead,
+  isAuditor,
+  isAuditee,
+  isGuest
+} from '@/lib/rbac';
+import { getUserScope, isObservationInScope } from '@/lib/scope';
 
 export interface JWTPayload {
   userId: string;
-  role: string;
+  role: Role | string;
   email?: string;
   iat?: number;
   exp?: number;
@@ -49,38 +59,108 @@ export async function verifyWebSocketToken(token: string): Promise<JWTPayload | 
 
 export async function canAccessObservation(
   userId: string,
-  role: string,
+  role: Role | string,
   observationId: string
 ): Promise<boolean> {
   try {
+    if (!userId || !role) {
+      return false;
+    }
+
     const observation = await prisma.observation.findUnique({
       where: { id: observationId },
-      include: {
+      select: {
+        id: true,
+        auditId: true,
+        createdById: true,
+        isPublished: true,
         audit: {
-          include: {
-            assignments: true
+          select: {
+            id: true,
+            auditHeadId: true,
+            createdAt: true,
+            visibilityRules: true,
+            assignments: {
+              select: {
+                auditorId: true
+              }
+            }
+          }
+        },
+        assignments: {
+          select: {
+            auditeeId: true
           }
         }
       }
     });
 
-    if (!observation) {
+    if (!observation || !observation.audit) {
       return false;
     }
 
-    if (role === 'ADMIN') {
+    // CFO override - always allowed
+    if (isCFO(role)) {
       return true;
     }
 
-    if (role === 'AUDITOR') {
-      const isAssigned = observation.audit.assignments.some(
-        a => a.auditorId === userId
-      );
-      return isAssigned || observation.createdById === userId;
+    // CXO Team can view all observations
+    if (isCXOTeam(role)) {
+      return true;
     }
 
-    if (role === 'AUDITEE' || role === 'GUEST') {
-      return observation.isPublished;
+    const { audit } = observation;
+
+    // Audit Heads: allowed for audits they lead, otherwise respect visibility rules
+    if (isAuditHead(role)) {
+      if (audit.auditHeadId === userId) {
+        return true;
+      }
+
+      return passesVisibilityRules(
+        audit.visibilityRules,
+        audit.createdAt,
+        observation.auditId
+      );
+    }
+
+    // Auditors: allowed if assigned to audit or creator, otherwise visibility rules
+    if (isAuditor(role)) {
+      const isAssignedAuditor = audit.assignments.some(
+        assignment => assignment.auditorId === userId
+      );
+
+      if (isAssignedAuditor || observation.createdById === userId) {
+        return true;
+      }
+
+      return passesVisibilityRules(
+        audit.visibilityRules,
+        audit.createdAt,
+        observation.auditId
+      );
+    }
+
+    // Auditees: must be directly assigned to observation
+    if (isAuditee(role)) {
+      return observation.assignments.some(
+        assignment => assignment.auditeeId === userId
+      );
+    }
+
+    // Guests: require scope-based access and published observations
+    if (isGuest(role)) {
+      const scope = await getUserScope(userId);
+      if (!scope) {
+        return false;
+      }
+
+      const inScope = isObservationInScope(
+        { id: observation.id, auditId: observation.auditId },
+        scope
+      );
+
+      return inScope && observation.isPublished;
     }
 
     return false;
@@ -88,4 +168,41 @@ export async function canAccessObservation(
     console.error('Error checking observation access:', error);
     return false;
   }
+}
+
+function passesVisibilityRules(
+  rules: any,
+  auditCreatedAt: Date | null,
+  auditId: string
+): boolean {
+  if (!rules) {
+    return false;
+  }
+
+  if (rules === 'show_all') {
+    return true;
+  }
+
+  if (rules === 'hide_all') {
+    return false;
+  }
+
+  if (rules === 'last_12m') {
+    if (!auditCreatedAt) {
+      return false;
+    }
+
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    return auditCreatedAt >= twelveMonthsAgo;
+  }
+
+  if (typeof rules === 'object') {
+    const explicit = (rules as any)?.explicit;
+    if (explicit && Array.isArray(explicit.auditIds)) {
+      return explicit.auditIds.includes(auditId);
+    }
+  }
+
+  return false;
 }
