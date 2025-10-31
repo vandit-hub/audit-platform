@@ -4,7 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import RoleBadge from "./RoleBadge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isCFOOrCXOTeam, isAuditHead, isAuditee } from "@/lib/rbac";
+import { isCFOOrCXOTeam, isAuditHead, isAuditee, isCFO } from "@/lib/rbac";
 
 export default function NavBar() {
   const { data: session } = useSession();
@@ -30,6 +30,7 @@ export default function NavBar() {
   const showObservations = true; // All roles can see observations
   const showReports = userRole && (isCFOOrCXOTeam(userRole) || isAuditHead(userRole));
   const showUsers = userRole && isCFOOrCXOTeam(userRole);
+  const showImport = userRole && isCFO(userRole); // CFO-only import feature
   const showAI = true; // All authenticated users can access AI Assistant
 
   return (
@@ -69,6 +70,11 @@ export default function NavBar() {
               {showUsers && (
                 <Link href="/admin/users" className={navLinkClass("/admin")}>
                   Users
+                </Link>
+              )}
+              {showImport && (
+                <Link href="/admin/import" className={navLinkClass("/admin/import")}>
+                  Import
                 </Link>
               )}
               {showAI && (
