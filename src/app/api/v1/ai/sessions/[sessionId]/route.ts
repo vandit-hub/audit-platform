@@ -6,6 +6,7 @@ import {
   getSessionWithMessages,
   renameSession,
 } from "@/server/ai-chat/store";
+import { isAuditee, isGuest } from "@/lib/rbac";
 
 const updateSchema = z.object({
   title: z.string().trim().max(120).optional(),
@@ -22,6 +23,12 @@ export async function GET(
   const session = await auth();
   if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
+  }
+
+  // Block Auditee and Guest roles from accessing AI Assistant
+  const role = session.user.role;
+  if (isAuditee(role) || isGuest(role)) {
+    return errorResponse("Forbidden. Your role does not have access to the AI Assistant.", 403);
   }
 
   const { sessionId } = await context.params;
@@ -51,6 +58,12 @@ export async function PATCH(
   const session = await auth();
   if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
+  }
+
+  // Block Auditee and Guest roles from accessing AI Assistant
+  const role = session.user.role;
+  if (isAuditee(role) || isGuest(role)) {
+    return errorResponse("Forbidden. Your role does not have access to the AI Assistant.", 403);
   }
 
   const { sessionId } = await context.params;
@@ -85,6 +98,12 @@ export async function DELETE(
   const session = await auth();
   if (!session?.user || typeof (session.user as any).id !== "string" || !(session.user as any).id) {
     return errorResponse("Unauthorized", 401);
+  }
+
+  // Block Auditee and Guest roles from accessing AI Assistant
+  const role = session.user.role;
+  if (isAuditee(role) || isGuest(role)) {
+    return errorResponse("Forbidden. Your role does not have access to the AI Assistant.", 403);
   }
 
   const { sessionId } = await context.params;

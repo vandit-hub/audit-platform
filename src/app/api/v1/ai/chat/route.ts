@@ -98,6 +98,15 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Block Auditee and Guest roles from accessing AI Assistant
+  const role = session.user.role;
+  if (isAuditee(role) || isGuest(role)) {
+    return Response.json(
+      { error: "Forbidden. Your role does not have access to the AI Assistant." },
+      { status: 403 }
+    );
+  }
+
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return Response.json({ error: "Invalid payload" }, { status: 400 });

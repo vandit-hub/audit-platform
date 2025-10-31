@@ -11,6 +11,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
@@ -28,6 +29,7 @@ type SessionListItem = {
 
 export default function AIAssistantPage() {
   const { data: session, status: sessionStatus } = useSession();
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeSessionMessages, setActiveSessionMessages] = useState<UIMessage[]>([]);
@@ -35,6 +37,16 @@ export default function AIAssistantPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Block Auditee and Guest roles from accessing AI Assistant
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && session?.user) {
+      const role = session.user.role;
+      if (role === "AUDITEE" || role === "GUEST") {
+        router.push("/observations"); // Redirect to observations page
+      }
+    }
+  }, [sessionStatus, session, router]);
 
   // Chat logic is handled by ChatPane
 
