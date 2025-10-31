@@ -662,7 +662,7 @@ function ChatPane({
                                 {list.map((a: any) => (
                                   <li key={a.id}>
                                     <span className="font-medium">{a.title}</span>{" "}
-                                    <span className="opacity-75">— {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/{a.progress?.total ?? 0} resolved</span>
+                                    <span className="opacity-75">— {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/{a.progress?.total ?? 0} resolved{a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}</span>
                                   </li>
                                 ))}
                               </ul>

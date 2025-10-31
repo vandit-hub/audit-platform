@@ -6,6 +6,7 @@ import {
   stepCountIs,
   convertToModelMessages,
   validateUIMessages,
+  TypeValidationError,
   createIdGenerator,
   UIMessage,
 } from "ai";
@@ -62,20 +63,25 @@ Session awareness and defaults:
 - Only ask clarifying questions when a filter is critical and cannot be reasonably defaulted (e.g., a requested plant name is ambiguous or missing).
 
 Tool usage and multi-tool reasoning:
-- Prefer general-purpose tools that can be composed: observations_find, audits_find, observations_similar.
+- Prefer general-purpose tools that can be composed: observations_find, audits_find, observations_similar, auditors_assignments_stats.
 - Use multiple tools in one answer if needed (e.g., overview with audits_find + drill-down via observations_find).
 - Avoid count-only answers unless explicitly requested ("how many"). If a count is requested, add 1–2 lines of useful context.
 - Keep tool inputs simple; provide only the minimum filters required.
+- When listing audits or asked "who is the audit head", include auditHead details from audits_list/audits_find.
+- For "how many audits is each auditor assigned to", use auditors_assignments_stats (optionally filter by plant/status).
+- If a field isn’t returned by one tool, call another tool to fetch it. Only mention RBAC when a tool returns allowed:false.
 
 Examples:
 - "What audits am I assigned to?" → audits_find(metrics=per_audit) with RBAC defaults.
 - "List my observations with risk A" → observations_find(risk=A).
 - "Similar to observation X?" → observations_similar(observationId=X), then summarize.
+- "Who is the audit head for these audits?" → audits_list with auditHead, then summarize.
+- "How many audits is each auditor assigned to?" → auditors_assignments_stats(limit=50), then list top results.
 
 Overall summary policy:
 - For broad requests like "Give me an overall summary", first call audits_find(metrics=per_audit, limit=50) to list recent audits with plant and per-audit metrics.
 - Then call observations_find({ aggregationBy: "plant", limit: 1 }) to get counts per plant (risk/status mix if useful).
-- Optionally call audits_find(metrics=per_auditor) when the user asks about auditors’ performance.
+- Optionally call audits_find(metrics=per_auditor) when the user asks about auditors’ performance, and auditors_assignments_stats for assignment coverage.
 - Synthesize a plant → audits → observations view with 3–5 bullet insights, a compact table (Plant | #Audits | #Obs | A-risk open | Resolution %), and 2–3 recommended next steps.
 
 Role Permissions Context:
@@ -209,9 +215,9 @@ export async function POST(req: NextRequest) {
         if (args.q) {
           filters.push({
             OR: [
-              { observationText: { contains: args.q, mode: "insensitive" } },
-              { risksInvolved: { contains: args.q, mode: "insensitive" } },
-              { auditeeFeedback: { contains: args.q, mode: "insensitive" } },
+              { observationText: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { risksInvolved: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { auditeeFeedback: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
             ],
           });
         }
@@ -348,9 +354,9 @@ export async function POST(req: NextRequest) {
         if (args.q) {
           filters.push({
             OR: [
-              { observationText: { contains: args.q, mode: "insensitive" } },
-              { risksInvolved: { contains: args.q, mode: "insensitive" } },
-              { auditeeFeedback: { contains: args.q, mode: "insensitive" } },
+              { observationText: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { risksInvolved: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { auditeeFeedback: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
             ],
           });
         }
@@ -574,6 +580,7 @@ export async function POST(req: NextRequest) {
           orderBy: { createdAt: "desc" },
           include: {
             plant: { select: { id: true, name: true } },
+            auditHead: { select: { id: true, name: true, email: true } },
             assignments: {
               include: {
                 auditor: { select: { id: true, name: true, email: true } },
@@ -639,7 +646,7 @@ export async function POST(req: NextRequest) {
           })),
         });
 
-        return {
+          return {
           allowed: true,
           count: filteredAudits.length,
           audits: filteredAudits.map((audit) => ({
@@ -651,6 +658,9 @@ export async function POST(req: NextRequest) {
             visitEndDate: audit.visitEndDate?.toISOString() || null,
             isLocked: audit.isLocked,
             createdAt: audit.createdAt.toISOString(),
+            auditHead: audit.auditHead
+              ? { id: audit.auditHead.id, name: audit.auditHead.name, email: audit.auditHead.email }
+              : null,
             assignedAuditors: audit.assignments.map((assignment) => ({
               name: assignment.auditor.name,
               email: assignment.auditor.email,
@@ -723,15 +733,15 @@ export async function POST(req: NextRequest) {
           filters.push({
             personResponsibleToImplement: {
               contains: args.responsible,
-              mode: "insensitive",
+              mode: Prisma.QueryMode.insensitive,
             },
           });
         if (args.q) {
           filters.push({
             OR: [
-              { observationText: { contains: args.q, mode: "insensitive" } },
-              { risksInvolved: { contains: args.q, mode: "insensitive" } },
-              { auditeeFeedback: { contains: args.q, mode: "insensitive" } },
+              { observationText: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { risksInvolved: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
+              { auditeeFeedback: { contains: args.q, mode: Prisma.QueryMode.insensitive } },
             ],
           });
         }
@@ -936,6 +946,7 @@ export async function POST(req: NextRequest) {
           orderBy: { createdAt: "desc" },
           include: {
             plant: { select: { id: true, name: true } },
+            auditHead: { select: { id: true, name: true, email: true } },
             assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } },
           },
         });
@@ -1017,10 +1028,73 @@ export async function POST(req: NextRequest) {
             visitStartDate: a.visitStartDate?.toISOString() || null,
             visitEndDate: a.visitEndDate?.toISOString() || null,
             createdAt: a.createdAt.toISOString(),
+            auditHead: a.auditHead ? { id: a.auditHead.id, name: a.auditHead.name, email: a.auditHead.email } : null,
             assignedAuditors: a.assignments.map((as) => ({ id: as.auditorId, name: as.auditor.name, email: as.auditor.email })),
           })),
           metrics,
         };
+      },
+    }),
+
+    // ========================================================================
+    // TOOL 5: Auditor assignment stats (audits per auditor)
+    // ========================================================================
+    auditors_assignments_stats: tool({
+      description:
+        "Return auditors with the number of audits they are assigned to. Useful to answer 'how many audits is each auditor assigned to?'.",
+      inputSchema: z.object({
+        plantId: z.string().optional().describe("Filter by plant ID"),
+        status: z.string().optional().describe("Filter by audit status"),
+        limit: z.number().optional().default(20).describe("Max auditors to return (default 20)"),
+      }),
+      execute: async (args) => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const role = session.user.role;
+        const userId = session.user.id;
+
+        // Only CFO and CXO_TEAM have org-wide assignment stats access
+        if (!(isCFO(role) || isCXOTeam(role))) {
+          return { allowed: false, reason: "Your role does not have access to assignment statistics." };
+        }
+
+        const auditWhere: Prisma.AuditWhereInput = {
+          plantId: args.plantId ?? undefined,
+          status: args.status as any ?? undefined,
+        };
+
+        // Group by auditorId across assignments filtered by auditWhere
+        const grouped = await prisma.auditAssignment.groupBy({
+          by: ["auditorId"],
+          where: { audit: auditWhere },
+          _count: { _all: true },
+        });
+
+        const auditorIds = grouped.map((g) => g.auditorId).filter(Boolean) as string[];
+        const auditors = auditorIds.length
+          ? await prisma.user.findMany({
+              where: { id: { in: auditorIds } },
+              select: { id: true, name: true, email: true },
+            })
+          : [];
+        const idToAuditor = new Map(auditors.map((u) => [u.id, u] as const));
+
+        const results = grouped
+          .map((row) => ({
+            auditorId: row.auditorId,
+            name: idToAuditor.get(row.auditorId)?.name ?? "Unknown",
+            email: idToAuditor.get(row.auditorId)?.email ?? null,
+            auditsAssigned: row._count._all,
+          }))
+          .sort((a, b) => b.auditsAssigned - a.auditsAssigned)
+          .slice(0, args.limit ?? 20);
+
+        logToolUsage("auditors_assignments_stats", session.user.id, { count: results.length });
+
+        return { allowed: true, results };
       },
     }),
 
@@ -1066,7 +1140,7 @@ export async function POST(req: NextRequest) {
           .slice(0, 12);
         const unique = Array.from(new Set(tokens)).slice(0, 6);
 
-        const orClauses = unique.map((k) => ({ observationText: { contains: k, mode: "insensitive" } }));
+        const orClauses = unique.map((k) => ({ observationText: { contains: k, mode: Prisma.QueryMode.insensitive } }));
         let where: Prisma.ObservationWhereInput = orClauses.length > 0 ? { OR: orClauses } : {};
         if (excludeId) where = { AND: [where, { id: { not: excludeId } }] };
 
@@ -1140,11 +1214,50 @@ export async function POST(req: NextRequest) {
   try {
     validatedMessages = await validateUIMessages({
       messages: combinedMessages,
-      tools,
+      tools: tools as any,
     });
   } catch (error) {
-    console.error("AI chat message validation failed", error);
-    return Response.json({ error: "Unable to validate message history" }, { status: 400 });
+    // Graceful recovery from schema drift between saved history and current tools
+    if (error instanceof TypeValidationError) {
+      try {
+        // Remove tool parts from historical messages and keep only safe text content
+        const sanitizedExisting: UIMessage[] = existingMessages
+          .map((m) => {
+            const safeParts = (m.parts ?? []).filter((p: any) => {
+              const t = p?.type;
+              // Keep text and any non-tool parts; drop tool-* parts which are most likely to drift
+              return typeof t === "string" && t !== undefined && !t.startsWith("tool-") && (t === "text" || true);
+            });
+            // Always keep user messages; for assistant messages, drop if nothing remains
+            if (m.role !== "user" && safeParts.length === 0) {
+              return null as unknown as UIMessage; // mark for drop
+            }
+            return { ...m, parts: safeParts };
+          })
+          .filter(Boolean) as UIMessage[];
+
+        const sanitizedCombined = [...sanitizedExisting, ...incomingMessages];
+
+        validatedMessages = await validateUIMessages({
+          messages: sanitizedCombined,
+          tools: tools as any,
+        });
+      } catch (secondaryError) {
+        // As a last resort, start with the new incoming message(s) only
+        try {
+          validatedMessages = await validateUIMessages({
+            messages: incomingMessages,
+            tools: tools as any,
+          });
+        } catch (finalError) {
+          console.error("AI chat message validation failed (final)", finalError);
+          return Response.json({ error: "Unable to validate message history" }, { status: 400 });
+        }
+      }
+    } else {
+      console.error("AI chat message validation failed", error);
+      return Response.json({ error: "Unable to validate message history" }, { status: 400 });
+    }
   }
 
   const baseCount = existingMessages.length;
@@ -1154,8 +1267,8 @@ export async function POST(req: NextRequest) {
     system: SYSTEM_PROMPT,
     messages: convertToModelMessages(validatedMessages),
     temperature: 0,
-    stopWhen: stepCountIs(5),
-    tools,
+    stopWhen: stepCountIs(8),
+    tools: tools as any,
   });
 
   return result.toUIMessageStreamResponse({
