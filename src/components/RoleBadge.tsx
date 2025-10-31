@@ -3,15 +3,15 @@ import Badge from "./ui/Badge";
 export default function RoleBadge({ role }: { role: string }) {
   const variant =
     role === "CFO"
-      ? "error"
+      ? "primary"
       : role === "CXO_TEAM"
-      ? "error"
-      : role === "AUDITOR"
       ? "primary"
       : role === "AUDIT_HEAD"
-      ? "primary"
+      ? "warning"
+      : role === "AUDITOR"
+      ? "neutral"
       : role === "AUDITEE"
-      ? "success"
+      ? "neutral"
       : "neutral";
 
   return (

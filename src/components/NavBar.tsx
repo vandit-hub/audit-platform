@@ -68,7 +68,7 @@ export default function NavBar() {
                 </Link>
               )}
               {showUsers && (
-                <Link href="/admin/users" className={navLinkClass("/admin")}>
+                <Link href="/admin/users" className={navLinkClass("/admin/users")}>
                   Users
                 </Link>
               )}
