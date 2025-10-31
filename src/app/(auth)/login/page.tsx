@@ -19,13 +19,22 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-    const res = await signIn("credentials", {
-      email,
-      password,
-      callbackUrl: "/"
-    });
-    if ((res as any)?.error) {
-      setError("Invalid email or password");
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+        callbackUrl: "/"
+      });
+      if (res?.error) {
+        setError("Invalid email or password");
+        setIsLoading(false);
+      } else if (res?.ok) {
+        // Redirect manually on success
+        window.location.href = "/";
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
   }
@@ -83,15 +92,6 @@ export default function LoginPage() {
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-neutral-200">
-            <p className="text-sm text-neutral-600 text-center">
-              Don't have an account?{" "}
-              <span className="text-primary-600 font-medium">
-                Ask an Admin to invite you
-              </span>
-            </p>
-          </div>
         </Card>
 
         <p className="text-center text-xs text-neutral-500 mt-6">
