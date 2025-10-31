@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdmin } from "@/lib/rbac";
+import { assertCFOOrCXOTeam } from "@/lib/rbac";
 
 const schema = z.object({
   userId: z.string().min(1)
@@ -11,7 +11,7 @@ const schema = z.object({
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const body = await req.json();
   const input = schema.parse(body);
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");

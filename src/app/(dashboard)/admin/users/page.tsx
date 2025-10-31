@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
+import { isCFOOrCXOTeam } from "@/lib/rbac";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -13,13 +14,13 @@ import Badge from "@/components/ui/Badge";
 export default function AdminUsersPage() {
   const { data: session } = useSession();
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"GUEST" | "AUDITEE" | "AUDITOR" | "ADMIN">("GUEST");
+  const [role, setRole] = useState<"GUEST" | "AUDITEE" | "AUDITOR">("GUEST");
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
-  if (session?.user?.role !== "ADMIN") {
+  if (!session?.user?.role || !isCFOOrCXOTeam(session.user.role)) {
     redirect("/");
   }
 
@@ -117,7 +118,6 @@ export default function AdminUsersPage() {
             <option value="GUEST">Guest</option>
             <option value="AUDITEE">Auditee</option>
             <option value="AUDITOR">Auditor</option>
-            <option value="ADMIN">Admin</option>
           </Select>
 
           <Input

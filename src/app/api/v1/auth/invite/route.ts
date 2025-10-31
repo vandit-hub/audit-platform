@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { assertAdmin } from "@/lib/rbac";
+import { assertCFOOrCXOTeam } from "@/lib/rbac";
 import crypto from "crypto";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const schema = z.object({
   email: z.string().email(),
-  role: z.enum(["GUEST", "AUDITEE", "AUDITOR", "ADMIN"]).default("GUEST"),
+  role: z.enum(["GUEST", "AUDITEE", "AUDITOR"]).default("GUEST"),
   expiresInDays: z.number().int().min(1).max(30).default(7),
   scope: z.any().optional()
 });
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const body = await req.json();
   const input = schema.parse(body);

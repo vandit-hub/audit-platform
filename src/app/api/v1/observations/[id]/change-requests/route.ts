@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { isAdmin, isAdminOrAuditor } from "@/lib/rbac";
+import { canAuthorObservations, isAuditor } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const createSchema = z.object({
@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
-  if (!isAdminOrAuditor(session.user.role)) {
+  if (!canAuthorObservations(session.user.role)) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
@@ -57,12 +57,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const userIsAuditor = isAdminOrAuditor(session.user.role) && !isAdmin(session.user.role);
-  const userIsAdmin = isAdmin(session.user.role);
-
-  if (!userIsAuditor && !userIsAdmin) {
+  if (!canAuthorObservations(session.user.role)) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
+
+  const userIsAuditor = isAuditor(session.user.role);
 
   const obs = await prisma.observation.findUnique({ where: { id } });
   if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });

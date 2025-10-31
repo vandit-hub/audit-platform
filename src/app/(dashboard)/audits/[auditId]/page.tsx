@@ -358,8 +358,8 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             <div className="text-xs text-neutral-600 bg-primary-50 border border-primary-200 rounded-lg p-3">
               <div className="font-semibold text-primary-800 mb-2">Visibility Options Explained:</div>
               <ul className="space-y-1.5 list-disc list-inside text-primary-700">
-                <li><strong>Show All Audits:</strong> Auditors and Audit Heads can see all past audits and observations (default behavior)</li>
-                <li><strong>Last 12 Months Only:</strong> Limits visibility to audits from the last 12 months only</li>
+                <li><strong>Show All Audits:</strong> Auditors and Audit Heads can see all past assigned audits and observations (default behavior)</li>
+                <li><strong>Last 12 Months Only:</strong> Limits visibility to assigned audits from the last 12 months only</li>
                 <li><strong>Hide All Historical Audits:</strong> Only the current audit is visible to assigned auditors and audit heads</li>
               </ul>
               <p className="mt-2 text-xs text-primary-600">
