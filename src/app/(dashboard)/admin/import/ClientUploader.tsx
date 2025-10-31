@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useToast } from "@/contexts/ToastContext";
 
 type Result = {
   ok: boolean;
@@ -11,6 +12,7 @@ type Result = {
 };
 
 export function ClientUploader() {
+  const { showSuccess, showError } = useToast();
   const [file, setFile] = React.useState<File | null>(null);
   const [dryRun, setDryRun] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
@@ -21,7 +23,9 @@ export function ClientUploader() {
     setError(null);
     setResult(null);
     if (!file) {
-      setError("Select a file first");
+      const msg = "Select a file first";
+      setError(msg);
+      showError(msg);
       return;
     }
     setLoading(true);
@@ -35,8 +39,35 @@ export function ClientUploader() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Import failed");
       setResult(json as Result);
+      
+      // Show toast notifications based on result
+      if (doDryRun) {
+        // Validation (dry-run)
+        if (json.ok && json.errors.length === 0) {
+          showSuccess(
+            `Validation successful! Ready to import: ${json.summary.create} create, ${json.summary.update} update`
+          );
+        } else if (json.errors.length > 0) {
+          showError(`Validation found ${json.errors.length} error(s). Please fix them before importing.`);
+        } else {
+          showError("Validation failed. Please check the errors below.");
+        }
+      } else {
+        // Actual import
+        if (json.ok && json.errors.length === 0) {
+          showSuccess(
+            `Import completed successfully! Created: ${json.summary.create}, Updated: ${json.summary.update}`
+          );
+        } else if (json.errors.length > 0) {
+          showError(`Import completed with ${json.errors.length} error(s). Some rows were skipped.`);
+        } else {
+          showError("Import failed. Please check the errors below.");
+        }
+      }
     } catch (e: any) {
-      setError(e.message || String(e));
+      const msg = e.message || String(e);
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
