@@ -345,11 +345,8 @@ export default function ObservationsPage() {
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Observation</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Risk</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Process</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Approval</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Published</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Files</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
               </tr>
             </thead>
@@ -384,9 +381,6 @@ export default function ObservationsPage() {
                       <span className="text-neutral-400">—</span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {r.concernedProcess ?? "—"}
-                  </td>
                   <td className="py-4 px-6">
                     <Badge variant={statusVariant(r.currentStatus)}>
                       {r.currentStatus.replace("_", " ")}
@@ -396,16 +390,6 @@ export default function ObservationsPage() {
                     <Badge variant={statusVariant(r.approvalStatus)}>
                       {r.approvalStatus}
                     </Badge>
-                  </td>
-                  <td className="py-4 px-6">
-                    {r.isPublished ? (
-                      <Badge variant="success">Yes</Badge>
-                    ) : (
-                      <Badge variant="neutral">No</Badge>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600">
-                    <span className="font-medium">{r.annexures + r.mgmtDocs}</span>
                   </td>
                   <td className="py-4 px-6">
                     <Link
@@ -419,7 +403,7 @@ export default function ObservationsPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="py-8 text-neutral-500 text-center" colSpan={11}>
+                  <td className="py-8 text-neutral-500 text-center" colSpan={8}>
                     No observations found. Try adjusting your filters.
                   </td>
                 </tr>
