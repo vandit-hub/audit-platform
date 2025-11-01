@@ -4,7 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import RoleBadge from "./RoleBadge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isCFOOrCXOTeam, isAuditHead, isAuditee } from "@/lib/rbac";
+import { isCFOOrCXOTeam, isAuditHead, isAuditee, isCFO, isGuest } from "@/lib/rbac";
 
 export default function NavBar() {
   const { data: session } = useSession();
@@ -30,6 +30,8 @@ export default function NavBar() {
   const showObservations = true; // All roles can see observations
   const showReports = userRole && (isCFOOrCXOTeam(userRole) || isAuditHead(userRole));
   const showUsers = userRole && isCFOOrCXOTeam(userRole);
+  const showImport = userRole && isCFO(userRole); // CFO-only import feature
+  const showAI = userRole && !isAuditee(userRole) && !isGuest(userRole);
 
   return (
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
@@ -66,8 +68,18 @@ export default function NavBar() {
                 </Link>
               )}
               {showUsers && (
-                <Link href="/admin/users" className={navLinkClass("/admin")}>
+                <Link href="/admin/users" className={navLinkClass("/admin/users")}>
                   Users
+                </Link>
+              )}
+              {showImport && (
+                <Link href="/admin/import" className={navLinkClass("/admin/import")}>
+                  Import
+                </Link>
+              )}
+              {showAI && (
+                <Link href="/ai" className={navLinkClass("/ai")}>
+                  AI Assistant
                 </Link>
               )}
             </nav>
@@ -76,7 +88,7 @@ export default function NavBar() {
           <div className="flex items-center gap-3">
             {session?.user && (
               <>
-                <RoleBadge role={session.user.role} />
+                {session.user.role ? <RoleBadge role={session.user.role} /> : null}
                 <span className="text-sm text-neutral-600 hidden lg:block">
                   {session.user.email}
                 </span>

@@ -1,4 +1,0 @@
-ObservationID,ObservationTitle,PlantCode,PlantName,AuditTitle,ActionPlan,Owner,TargetDate,RetestStatus,ObservationStatus
-cmg7t9zmy00099kfc0rxwzir4,TASK2 Test Observation - Field Layout Testing,PLANT001,Test Manufacturing Plant,IT Security Audit,Test auto-trigger action plan,Test Owner,2025-10-03,RETEST_DUE,MR_UNDER_REVIEW
-cmg7t9zmy00099kfc0rxwzir4,TASK2 Test Observation - Field Layout Testing,PLANT001,Test Manufacturing Plant,IT Security Audit,Manual retest Pass test,John Doe,2025-10-15,RETEST_DUE,MR_UNDER_REVIEW
-cmg7t9zmy00099kfc0rxwzir4,TASK2 Test Observation - Field Layout Testing,PLANT001,Test Manufacturing Plant,IT Security Audit,Retest Fail test,Jane Smith,2025-10-20,FAIL,MR_UNDER_REVIEW

@@ -30,6 +30,7 @@ model User {
   changeRequestsDecided ObservationChangeRequest[] @relation("ChangeRequestDecider")
   changeRequestsCreated ObservationChangeRequest[] @relation("ChangeRequestRequester")
   notes                 RunningNote[]
+  aiChatSessions        AIChatSession[]
 }
 
 model Plant {
@@ -76,6 +77,7 @@ model GuestInvite {
 
 model Audit {
   id                     String            @id @default(cuid())
+  code                   String?           @unique
   plantId                String
   title                  String?
   purpose                String?
@@ -175,6 +177,7 @@ model AuditChecklistItem {
 
 model Observation {
   id                           String                     @id @default(cuid())
+  code                         String?                    @unique
   auditId                      String
   plantId                      String
   createdById                  String
@@ -392,4 +395,30 @@ enum ChangeRequestStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+model AIChatSession {
+  id            String           @id @default(cuid())
+  userId        String
+  title         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  lastMessageAt DateTime?
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      AIChatMessage[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, lastMessageAt])
+}
+
+model AIChatMessage {
+  id         String        @id @default(cuid())
+  sessionId  String
+  role       String
+  parts      Json
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  session    AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
 }

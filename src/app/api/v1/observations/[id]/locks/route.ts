@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdmin } from "@/lib/rbac";
+import { assertCFOOrCXOTeam } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { notifyFieldLockChange } from "@/websocket/broadcast";
 
@@ -14,7 +14,7 @@ const schema = z.object({
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const { fields, lock } = schema.parse(await req.json());
   const o = await prisma.observation.findUnique({ where: { id } });

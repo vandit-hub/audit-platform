@@ -15,7 +15,8 @@ const updateSchema = z.object({
   finalPresentationDate: z.string().datetime().nullable().optional(),
   status: z.enum(["PLANNED", "IN_PROGRESS", "SUBMITTED", "SIGNED_OFF"]).optional(),
   reportSubmittedAt: z.string().datetime().nullable().optional(),
-  signOffAt: z.string().datetime().nullable().optional()
+  signOffAt: z.string().datetime().nullable().optional(),
+  auditHeadId: z.string().nullable().optional()
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +31,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     include: {
       plant: true,
-      assignments: { include: { auditor: { select: { id: true, name: true, email: true, role: true } } } }
+      assignments: { include: { auditor: { select: { id: true, name: true, email: true, role: true } } } },
+      auditHead: { select: { id: true, name: true, email: true, role: true } }
     }
   });
 
@@ -39,8 +41,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // Apply role-based access control
   if (isCFO(role) || isCXOTeam(role)) {
     // CFO and CXO_TEAM can view all audits - allow access
-  } else if (isAuditHead(role) && audit.auditHeadId === userId) {
-    // AUDIT_HEAD can view if they lead this audit - allow access
+  } else if (isAuditHead(role)) {
+    // AUDIT_HEAD can view if they lead this audit OR are assigned as auditor
+    const isAuditHeadForThisAudit = audit.auditHeadId === userId;
+    const hasAssignment = audit.assignments.some(a => a.auditorId === userId);
+    if (!isAuditHeadForThisAudit && !hasAssignment) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   } else if (isAuditor(role) && audit.assignments.some(a => a.auditorId === userId)) {
     // AUDITOR can view if assigned to this audit - allow access
   } else {
@@ -104,7 +111,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       reportSubmittedAt:
         input.reportSubmittedAt === undefined ? undefined : input.reportSubmittedAt ? new Date(input.reportSubmittedAt) : null,
       signOffAt:
-        input.signOffAt === undefined ? undefined : input.signOffAt ? new Date(input.signOffAt) : null
+        input.signOffAt === undefined ? undefined : input.signOffAt ? new Date(input.signOffAt) : null,
+      auditHeadId: input.auditHeadId === undefined ? undefined : input.auditHeadId
     }
   });
 

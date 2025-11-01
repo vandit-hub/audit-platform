@@ -48,10 +48,16 @@ export default function AuditsPage() {
       fetch("/api/v1/plants", { cache: "no-store" }),
       fetch("/api/v1/audits", { cache: "no-store" })
     ]);
-    const plantsJson = await plantsRes.json();
-    const auditsJson = await auditsRes.json();
-    if (plantsRes.ok) setPlants(plantsJson.plants);
-    if (auditsRes.ok) setAudits(auditsJson.audits);
+    
+    if (plantsRes.ok) {
+      const plantsJson = await plantsRes.json();
+      setPlants(plantsJson.plants || []);
+    }
+    
+    if (auditsRes.ok) {
+      const auditsJson = await auditsRes.json();
+      setAudits(auditsJson.audits || []);
+    }
   }
 
   useEffect(() => {
@@ -98,16 +104,6 @@ export default function AuditsPage() {
       setBusy(false);
     }
   }
-
-  const statusVariant = (status: string) => {
-    switch (status) {
-      case "PLANNED": return "neutral";
-      case "IN_PROGRESS": return "primary";
-      case "SUBMITTED": return "warning";
-      case "SIGNED_OFF": return "success";
-      default: return "neutral";
-    }
-  };
 
   return (
     <div className="space-y-8">
@@ -229,7 +225,6 @@ export default function AuditsPage() {
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Title</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Period</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Lock Status</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Progress</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Auditors</th>
@@ -246,11 +241,6 @@ export default function AuditsPage() {
                   <td className="py-4 px-6 text-neutral-600 text-xs">
                     {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
                     → {a.visitEndDate ? new Date(a.visitEndDate).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="py-4 px-6">
-                    <Badge variant={statusVariant(a.status)}>
-                      {a.status.replace("_", " ")}
-                    </Badge>
                   </td>
                   <td className="py-4 px-6">
                     {a.completedAt ? (

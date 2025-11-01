@@ -23,8 +23,9 @@ export async function GET(req: NextRequest) {
   const role = session.user.role;
   const userId = session.user.id;
 
-  // AUDITEE and GUEST have no access to audit listing
-  if (role === "AUDITEE" || role === "GUEST") {
+  // Only CFO, CXO_TEAM, AUDIT_HEAD, and AUDITOR may access audit listing
+  // Treat any unknown/undefined role as forbidden (defensive default)
+  if (!isCFO(role) && !isCXOTeam(role) && !isAuditHead(role) && !isAuditor(role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -42,9 +43,10 @@ export async function GET(req: NextRequest) {
   if (isCFO(role) || isCXOTeam(role)) {
     // CFO and CXO_TEAM see all audits - no additional filters
   } else if (isAuditHead(role)) {
-    // AUDIT_HEAD sees audits they lead OR audits visible per visibility rules
+    // AUDIT_HEAD sees audits they lead OR are assigned to OR audits visible per visibility rules
     where.OR = [
       { auditHeadId: userId },
+      { assignments: { some: { auditorId: userId } } },
       // Historical audits will be filtered below based on visibilityRules
     ];
   } else if (isAuditor(role)) {
@@ -69,7 +71,7 @@ export async function GET(req: NextRequest) {
   if (isAuditHead(role) || isAuditor(role)) {
     filteredAudits = audits.filter((audit) => {
       // If user is assigned to this audit, always show it
-      if (isAuditHead(role) && audit.auditHeadId === userId) return true;
+      if (isAuditHead(role) && (audit.auditHeadId === userId || audit.assignments.some(a => a.auditorId === userId))) return true;
       if (isAuditor(role) && audit.assignments.some(a => a.auditorId === userId)) return true;
 
       // Otherwise, check visibility rules

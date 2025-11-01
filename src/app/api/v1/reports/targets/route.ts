@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { isAdminOrAuditor } from "@/lib/rbac";
+import { isCFO, isCXOTeam, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 import { Prisma } from "@prisma/client";
 
@@ -26,10 +26,34 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || "";
   const published = searchParams.get("published") || "";
 
-  // Build observation-level where clause for RBAC/scope
+  // Build observation-level where clause for RBAC/scope (aligned with /api/v1/observations)
+  const role = session.user.role;
+  const userId = session.user.id;
   let observationWhere: Prisma.ObservationWhereInput = {};
-  if (!isAdminOrAuditor(session.user.role)) {
-    const scope = await getUserScope(session.user.id);
+
+  if (isCFO(role) || isCXOTeam(role)) {
+    // All observations
+  } else if (isAuditHead(role)) {
+    observationWhere = {
+      audit: {
+        OR: [
+          { auditHeadId: userId },
+          { assignments: { some: { auditorId: userId } } }
+        ]
+      }
+    };
+  } else if (isAuditor(role)) {
+    observationWhere = {
+      audit: {
+        assignments: { some: { auditorId: userId } }
+      }
+    };
+  } else if (isAuditee(role)) {
+    observationWhere = {
+      assignments: { some: { auditeeId: userId } }
+    };
+  } else if (isGuest(role)) {
+    const scope = await getUserScope(userId);
     const scopeWhere = buildScopeWhere(scope);
     const allowPublished: Prisma.ObservationWhereInput = {
       AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }]
@@ -37,6 +61,8 @@ export async function GET(req: NextRequest) {
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
     observationWhere = { OR: or };
+  } else {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
   // Build filter where clauses for observation

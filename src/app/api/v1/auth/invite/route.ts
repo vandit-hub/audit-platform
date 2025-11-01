@@ -2,23 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { assertAdmin } from "@/lib/rbac";
+import { assertCFOOrCXOTeam, isCFO } from "@/lib/rbac";
 import crypto from "crypto";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const schema = z.object({
   email: z.string().email(),
-  role: z.enum(["GUEST", "AUDITEE", "AUDITOR", "ADMIN"]).default("GUEST"),
+  role: z.enum(["GUEST", "AUDITEE", "AUDITOR", "CXO_TEAM", "AUDIT_HEAD"]).default("GUEST"),
   expiresInDays: z.number().int().min(1).max(30).default(7),
   scope: z.any().optional()
 });
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const body = await req.json();
   const input = schema.parse(body);
+
+  // Only CFO can create CXO_TEAM and AUDIT_HEAD roles
+  if ((input.role === "CXO_TEAM" || input.role === "AUDIT_HEAD") && !isCFO(session?.user?.role)) {
+    return NextResponse.json(
+      { ok: false, message: "Only CFO can create CXO_TEAM and AUDIT_HEAD users" },
+      { status: 403 }
+    );
+  }
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000);

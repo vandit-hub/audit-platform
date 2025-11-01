@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { auth } from "@/lib/auth";
 import SessionWrapper from "@/components/SessionWrapper";
 import { ToastProvider } from "@/contexts/ToastContext";
+import SessionTimeout from "@/components/SessionTimeout";
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // Server-side: read the session (serializable) and pass it into a client boundary
@@ -14,6 +15,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <SessionWrapper session={session}>
           <ToastProvider>
             {children}
+            <SessionTimeout />
           </ToastProvider>
         </SessionWrapper>
       </body>

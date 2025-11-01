@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdmin } from "@/lib/rbac";
+import { assertCFOOrCXOTeam } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const createSchema = z.object({
@@ -12,7 +12,7 @@ const createSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertCFOOrCXOTeam(session?.user?.role);
 
   const body = await req.json();
   const input = createSchema.parse(body);
@@ -33,7 +33,47 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // simple list for testing
-  const plants = await prisma.plant.findMany({ orderBy: { createdAt: "desc" } });
-  return NextResponse.json({ ok: true, plants });
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
+
+  const role = session.user.role;
+  const userId = session.user.id;
+
+  // CFO & CXO_TEAM: all plants
+  if (role === "CFO" || role === "CXO_TEAM") {
+    const plants = await prisma.plant.findMany({ orderBy: { createdAt: "desc" } });
+    return NextResponse.json({ ok: true, plants });
+  }
+
+  // AUDIT_HEAD or AUDITOR: plants from audits they lead/are assigned to
+  if (role === "AUDIT_HEAD" || role === "AUDITOR") {
+    const audits = await prisma.audit.findMany({
+      where:
+        role === "AUDIT_HEAD"
+          ? { OR: [{ auditHeadId: userId }, { assignments: { some: { auditorId: userId } } }] }
+          : { assignments: { some: { auditorId: userId } } },
+      select: { plantId: true },
+    });
+    const plantIds = Array.from(new Set(audits.map((a) => a.plantId).filter(Boolean) as string[]));
+    const plants = plantIds.length
+      ? await prisma.plant.findMany({ where: { id: { in: plantIds } }, orderBy: { name: "asc" } })
+      : [];
+    return NextResponse.json({ ok: true, plants });
+  }
+
+  // AUDITEE: plants from observations assigned to them
+  if (role === "AUDITEE") {
+    const obs = await prisma.observation.findMany({
+      where: { assignments: { some: { auditeeId: userId } } },
+      select: { plantId: true },
+    });
+    const plantIds = Array.from(new Set(obs.map((o) => o.plantId).filter(Boolean) as string[]));
+    const plants = plantIds.length
+      ? await prisma.plant.findMany({ where: { id: { in: plantIds } }, orderBy: { name: "asc" } })
+      : [];
+    return NextResponse.json({ ok: true, plants });
+  }
+
+  // GUEST or unknown roles: no access (guests don’t need plants listing)
+  return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 }

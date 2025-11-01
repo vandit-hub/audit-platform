@@ -89,6 +89,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (session.user as any).id = token.userId!;
         (session.user as any).role = token.role!;
         (session as any).lastActivity = token.lastActivity;
+        (session as any).idleTimeoutMs = IDLE_MIN * 60 * 1000;
       }
       return session;
     }

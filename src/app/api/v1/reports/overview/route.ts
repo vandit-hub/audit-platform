@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
-import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { isCFO, isCXOTeam, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
 import { buildScopeWhere, getUserScope } from "@/lib/scope";
 import { Prisma } from "@prisma/client";
 
@@ -24,10 +24,34 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status") || "";
   const publishedFilter = searchParams.get("published") || "";
 
-  // Base where (role-aware)
+  // Base where (role-aware, aligned with /api/v1/observations RBAC)
+  const role = session.user.role;
+  const userId = session.user.id;
   let baseWhere: Prisma.ObservationWhereInput = {};
-  if (!isAdminOrAuditor(session.user.role)) {
-    const scope = await getUserScope(session.user.id);
+
+  if (isCFO(role) || isCXOTeam(role)) {
+    // CFO and CXO_TEAM see all observations
+  } else if (isAuditHead(role)) {
+    baseWhere = {
+      audit: {
+        OR: [
+          { auditHeadId: userId },
+          { assignments: { some: { auditorId: userId } } }
+        ]
+      }
+    };
+  } else if (isAuditor(role)) {
+    baseWhere = {
+      audit: {
+        assignments: { some: { auditorId: userId } }
+      }
+    };
+  } else if (isAuditee(role)) {
+    baseWhere = {
+      assignments: { some: { auditeeId: userId } }
+    };
+  } else if (isGuest(role)) {
+    const scope = await getUserScope(userId);
     const scopeWhere = buildScopeWhere(scope);
     const allowPublished: Prisma.ObservationWhereInput = {
       AND: [{ approvalStatus: "APPROVED" }, { isPublished: true }]
@@ -35,6 +59,8 @@ export async function GET(req: NextRequest) {
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
     baseWhere = { OR: or };
+  } else {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
   }
 
   // Build filter where clauses

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor, isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { canAuthorObservations, isAuditee, isGuest } from "@/lib/rbac";
 import { presignPutUrl } from "@/lib/s3";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Observation not found" }, { status: 404 });
 
-  if (isAdminOrAuditor(session.user.role)) {
+  if (canAuthorObservations(session.user.role)) {
     // ok
   } else if (isAuditee(session.user.role)) {
     if (kind !== "MGMT_DOC") {

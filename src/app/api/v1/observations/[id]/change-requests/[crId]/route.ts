@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdmin } from "@/lib/rbac";
+import { assertAuditHead } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const decideSchema = z.object({
@@ -13,7 +13,7 @@ const decideSchema = z.object({
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; crId: string }> }) {
   const { id, crId } = await params;
   const session = await auth();
-  assertAdmin(session?.user?.role);
+  assertAuditHead(session?.user?.role);
 
   const { approve, decisionComment } = decideSchema.parse(await req.json());
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (approve) {
-    // Apply the patch. Admin bypasses locks.
+    // Apply the patch. Audit Head bypasses locks.
     // Only allow fields that exist on Observation and are editable by our schema.
     const allowed = new Set([
       "observationText","risksInvolved","riskCategory","likelyImpact","concernedProcess","auditorPerson",

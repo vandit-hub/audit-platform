@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertAdminOrAuditor } from "@/lib/rbac";
+import { assertAuditorOrAuditHead } from "@/lib/rbac";
 
 const schema = z.object({
   status: z.enum(["PENDING", "DONE"]).optional(),
@@ -12,7 +12,7 @@ const schema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; aciId: string }> }) {
   const { id, aciId } = await params;
   const session = await auth();
-  assertAdminOrAuditor(session?.user?.role);
+  assertAuditorOrAuditHead(session?.user?.role);
 
   const body = await req.json().catch(() => ({}));
   const input = schema.parse(body);

@@ -77,13 +77,15 @@ export async function GET(req: NextRequest) {
   let where: Prisma.ObservationWhereInput =
     filters.length > 0 ? { AND: filters } : {};
 
+  const role = session.user.role;
+
   // CFO and CXO_TEAM can export all observations
-  if (isCFO(session.user.role) || isCXOTeam(session.user.role)) {
+  if (isCFO(role) || isCXOTeam(role)) {
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
   }
   // AUDIT_HEAD and AUDITOR can export from assigned audits
-  else if (isAuditHead(session.user.role) || isAuditor(session.user.role)) {
+  else if (isAuditHead(role) || isAuditor(role)) {
     // Auditor can only export observations from audits they're assigned to
     const auditorFilter: Prisma.ObservationWhereInput = {
       audit: {
@@ -99,7 +101,13 @@ export async function GET(req: NextRequest) {
     // Auditors can also filter by published flag
     if (published === "1") where = { AND: [where, { isPublished: true }] };
     else if (published === "0") where = { AND: [where, { isPublished: false }] };
-  } else {
+  } else if (isAuditee(role)) {
+    // Auditee exports only from observations assigned to them
+    const auditeeFilter: Prisma.ObservationWhereInput = {
+      assignments: { some: { auditeeId: session.user.id } }
+    };
+    where = { AND: [where, auditeeFilter] };
+  } else if (isGuest(role)) {
     const scope = await getUserScope(session.user.id);
     const scopeWhere = buildScopeWhere(scope);
     const allowPublished: Prisma.ObservationWhereInput = {
@@ -108,6 +116,8 @@ export async function GET(req: NextRequest) {
     const or: Prisma.ObservationWhereInput[] = [allowPublished];
     if (scopeWhere) or.push(scopeWhere);
     where = { AND: [where, { OR: or }] };
+  } else {
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const rows = await prisma.observation.findMany({
