@@ -147,10 +147,10 @@ ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && git pull 
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npm install'
 ```
 
-### 10. Environment Configuration (Attempted)
-**Note**: SSH connection became unresponsive during .env.production creation. Need to restart instance.
+### 10. Environment Configuration ✅
+Created and uploaded .env.production file to the server.
 
-The .env.production file should contain:
+The .env.production file contains:
 ```env
 # --- Core ---
 DATABASE_URL="postgresql://audit_user:audit_secure_pass_2024@localhost:5432/audit_platform"
@@ -224,46 +224,69 @@ CEREBRAS_API_KEY=csk-t6chpykrepcwh9pv339fddwt2hm56njtvjjftd38t2vryyj3
 LOG_LEVEL="info"
 ```
 
-## Next Steps (After Restart)
-
-1. **Restart Lightsail Instance**
+### 11. Built the Application ✅
 ```bash
-aws lightsail reboot-instance --instance-name audit-platform
-```
+# Fresh clone from main branch
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'rm -rf ~/audit-platform'
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'git clone https://github.com/vandit-hub/audit-platform.git'
 
-2. **Wait for instance to come back online** (30-60 seconds)
+# Installed dependencies
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npm install'
 
-3. **Create .env.production file** (use simpler method)
-```bash
-# Copy from local and upload
+# Uploaded .env.production
 scp -i lightsail-key.pem .env.production ubuntu@54.163.174.152:~/audit-platform/
-```
 
-4. **Build the application**
-```bash
+# Built the application
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npm run build'
+# Output: ✓ Build completed successfully
 ```
 
-5. **Run database migrations**
+### 12. Database Migrations ✅
 ```bash
+# Copied .env.production to .env for Prisma
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && cp .env.production .env'
+
+# Ran migrations
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npx prisma migrate deploy'
+# Output: All 10 migrations have been successfully applied
 ```
 
-6. **Seed the database**
+### 13. Database Seeding ✅
 ```bash
+# Seeded the database with users
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npm run db:seed'
+# Output: ✅ Seed complete! (10 users created)
 ```
 
-7. **Start the application with PM2**
+### 14. Started Application with PM2 ✅
 ```bash
+# Started both apps
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && pm2 start ecosystem.config.js'
+
+# Saved PM2 configuration
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'pm2 save'
-ssh -i lightsail-key.pem ubuntu@54.163.174.152 'pm2 startup systemd'
+
+# Set up auto-start on reboot
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu'
+
+# Verified status
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'pm2 status'
+# Output: Both audit-platform and audit-websocket are online
 ```
 
-8. **Access the application**
-- URL: http://54.163.174.152
-- Login with CFO credentials: cfo@example.com / cfo123
+## 🎉 Deployment Complete!
+
+### Access Your Application
+- **URL**: http://54.163.174.152:3000
+- **Login Page**: http://54.163.174.152:3000/login
+
+### Default User Credentials
+- **CFO** (Full Access): cfo@example.com / cfo123
+- **CXO Team**: cxo@example.com / cxo123
+- **Audit Head**: audithead@example.com / audithead123
+- **Auditor**: auditor@example.com / auditor123
+- **Auditee**: auditee@example.com / auditee123
+- **Guest** (Read-only): guest@example.com / guest123
 
 ## Useful Commands
 
