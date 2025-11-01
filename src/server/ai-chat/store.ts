@@ -29,21 +29,20 @@ function mapDbMessageToUI(message: Pick<DbChatMessage, keyof typeof messageSelec
   return {
     id: message.id,
     role: message.role as UIMessage["role"],
-    createdAt: message.createdAt.toISOString(),
     parts: (message.parts ?? []) as UIMessage["parts"],
   };
 }
 
-function mapUIMessageToDb(message: UIMessage, sessionId: string) {
-  const createdAt = message.createdAt ? new Date(message.createdAt) : new Date();
+function mapUIMessageToDb(message: UIMessage, sessionId: string): Prisma.AIChatMessageCreateManyInput {
+  const createdAt = new Date();
   return {
     id: message.id,
     sessionId,
     role: message.role,
-    parts: message.parts as Prisma.JsonValue,
+    parts: message.parts as unknown as Prisma.InputJsonValue,
     createdAt,
     updatedAt: createdAt,
-  } satisfies Prisma.AIChatMessageCreateManyInput;
+  };
 }
 
 function getPreviewFromMessage(message: UIMessage | null): string | null {

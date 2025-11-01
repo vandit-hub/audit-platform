@@ -281,10 +281,10 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             <div className="flex gap-3 pt-2">
               {!audit.isLocked && !audit.completedAt && (
                 <>
-                  <Button variant="warning" onClick={lockAudit}>
+                  <Button variant="destructive" onClick={lockAudit}>
                     Lock Audit
                   </Button>
-                  <Button variant="success" onClick={completeAudit}>
+                  <Button variant="primary" onClick={completeAudit}>
                     Mark Complete
                   </Button>
                 </>

@@ -589,9 +589,15 @@ function ChatPane({
                                 tr: ({ node: _node, ...props }) => (
                                   <tr className={isUserMessage ? "odd:bg-blue-500/50 even:bg-blue-500/60" : "odd:bg-white even:bg-gray-50"} {...props} />
                                 ),
-                                code: ({ node: _node, inline, ...props }) => (
-                                  <code className={`rounded px-1 py-0.5 text-[0.85rem] ${inline ? "" : "block"} ${isUserMessage ? "bg-blue-600/50" : "bg-gray-100"}`} {...props} />
-                                ),
+                                code: (props: any) => {
+                                  const { inline: isInline, node: _node, ...rest } = props || {};
+                                  return (
+                                    <code
+                                      className={`rounded px-1 py-0.5 text-[0.85rem] ${isInline ? "" : "block"} ${isUserMessage ? "bg-blue-600/50" : "bg-gray-100"}`}
+                                      {...rest}
+                                    />
+                                  );
+                                },
                               }}
                             >
                               {part.text}

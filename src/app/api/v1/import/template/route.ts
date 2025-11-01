@@ -6,9 +6,13 @@ import { EXPECTED_HEADERS } from "@/types/import";
 export async function GET() {
   const wb = XLSX.utils.book_new();
 
+  const PLANTS_HEADERS: string[] = [...EXPECTED_HEADERS.Plants];
+  const AUDITS_HEADERS: string[] = [...EXPECTED_HEADERS.Audits];
+  const OBS_HEADERS: string[] = [...EXPECTED_HEADERS.Observations];
+
   // Plants sheet with sample data
-  const plantsData = [
-    EXPECTED_HEADERS.Plants,
+  const plantsData: string[][] = [
+    PLANTS_HEADERS,
     ['PLANT001', 'Mumbai Manufacturing Facility'],
     ['PLANT002', 'Delhi Production Unit'],
     ['PLANT003', 'Bangalore Technology Center'],
@@ -16,16 +20,16 @@ export async function GET() {
   ];
 
   // Audits sheet with sample data
-  const auditsData = [
-    EXPECTED_HEADERS.Audits,
+  const auditsData: string[][] = [
+    AUDITS_HEADERS,
     ['AUD2024001', 'PLANT001', 'Q4 2024 Financial Audit', 'Annual financial controls review', '2024-10-01', '2024-10-15', 'PLANNED', 'audithead@example.com'],
     ['AUD2024002', 'PLANT002', 'Operational Process Review', 'Review of procurement and inventory processes', '2024-11-01', '2024-11-10', 'IN_PROGRESS', 'audithead@example.com'],
     ['AUD2024003', 'PLANT003', 'IT Security Assessment', 'Cybersecurity and data protection audit', '2024-12-01', '2024-12-20', 'PLANNED', '']
   ];
 
   // Observations sheet with sample data
-  const observationsData = [
-    EXPECTED_HEADERS.Observations,
+  const observationsData: string[][] = [
+    OBS_HEADERS,
     [
       'OBS001', 'AUD2024001', 'PLANT001',
       'Discrepancies found in vendor payment reconciliation process. Multiple instances where payments were made without proper three-way matching.',

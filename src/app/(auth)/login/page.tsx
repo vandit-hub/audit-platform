@@ -24,14 +24,14 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
-        callbackUrl: "/"
+        callbackUrl: "/dashboard"
       });
       if (res?.error) {
         setError("Invalid email or password");
         setIsLoading(false);
       } else if (res?.ok) {
         // Redirect manually on success
-        window.location.href = "/";
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       setError("An error occurred. Please try again.");

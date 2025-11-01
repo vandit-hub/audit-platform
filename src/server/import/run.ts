@@ -10,6 +10,7 @@ import {
   ObservationRow
 } from "@/types/import";
 import {
+  ApprovalStatus,
   AuditStatus,
   EntityType,
   LikelyImpact,
@@ -407,7 +408,7 @@ export async function runImport(buffer: Buffer, uploaderUserId: string, dryRun: 
             code: r.code,
             ...dataBase,
             createdById,
-            approvalStatus: ObservationStatus.DRAFT,
+            approvalStatus: "DRAFT",
             currentStatus: dataBase.currentStatus ?? ObservationStatus.PENDING_MR,
             isPublished: false
           }

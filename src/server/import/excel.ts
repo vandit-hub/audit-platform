@@ -11,7 +11,7 @@ function normalizeHeader(header: unknown): string {
   return String(header ?? "").trim();
 }
 
-function headersEqual(actual: unknown[], expected: string[]): boolean {
+function headersEqual(actual: unknown[], expected: readonly string[]): boolean {
   if (actual.length !== expected.length) return false;
   for (let i = 0; i < expected.length; i++) {
     if (normalizeHeader(actual[i]) !== expected[i]) return false;
