@@ -155,7 +155,7 @@ The .env.production file contains:
 # --- Core ---
 DATABASE_URL="postgresql://audit_user:audit_secure_pass_2024@localhost:5432/audit_platform"
 NEXTAUTH_SECRET="15f5a6a3b8cc051164adcdf52851a5c3f7285309c2d71110eb0fbb90c4c57f36"
-NEXTAUTH_URL="http://54.163.174.152"
+NEXTAUTH_URL="http://54.163.174.152:3000"
 AUTH_TRUST_HOST=true
 
 # Session timeouts
@@ -272,6 +272,22 @@ ssh -i lightsail-key.pem ubuntu@54.163.174.152 'sudo env PATH=$PATH:/usr/bin pm2
 # Verified status
 ssh -i lightsail-key.pem ubuntu@54.163.174.152 'pm2 status'
 # Output: Both audit-platform and audit-websocket are online
+```
+
+### 15. Fixed Redirect Issue ✅
+```bash
+# Fixed localhost redirect issue in src/app/route.ts
+# Pulled latest code from GitHub with the fix
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && git stash && git pull origin main'
+
+# Rebuilt the application
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'cd ~/audit-platform && npm run build'
+
+# Restarted PM2
+ssh -i lightsail-key.pem ubuntu@54.163.174.152 'pm2 restart all'
+
+# Verified redirect now works correctly
+# Root URL now redirects to: http://54.163.174.152:3000/dashboard
 ```
 
 ## 🎉 Deployment Complete!
