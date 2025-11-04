@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "No new message provided" }, { status: 400 });
   }
 
-  const combinedMessages = [...existingMessages, ...incomingMessages];
+  let combinedMessages = [...existingMessages, ...incomingMessages];
 
   const tools = {
     // ========================================================================
@@ -1243,6 +1243,29 @@ export async function POST(req: NextRequest) {
       },
     }),
   } as const;
+
+  // If this is the first user message in the chat, pre-inject a whoami tool result
+  if (existingMessages.length === 0 && incomingMessages.length > 0) {
+    const makeId = createIdGenerator({ prefix: "msg", size: 16 });
+    const who = {
+      id: session.user.id,
+      email: (session.user as any).email ?? null,
+      name: (session.user as any).name ?? null,
+      role: session.user.role,
+    };
+    logToolUsage("whoami", session.user.id, session.user.role, { user: who });
+    const prelude: UIMessage = {
+      id: makeId(),
+      role: "assistant",
+      parts: [
+        {
+          type: "tool-whoami",
+          output: { allowed: true, user: who },
+        } as any,
+      ],
+    };
+    combinedMessages = [prelude, ...combinedMessages];
+  }
 
   let validatedMessages: UIMessage[];
   try {
