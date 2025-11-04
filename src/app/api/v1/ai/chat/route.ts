@@ -30,13 +30,22 @@ import { buildScopeWhere, getUserScope } from "@/lib/scope";
 
 export const maxDuration = 30;
 
-function logToolUsage(toolName: string, userId: string | undefined, payload: unknown) {
+function logToolUsage(
+  toolName: string,
+  userId: string | undefined,
+  role: string | undefined,
+  payload: unknown,
+) {
   try {
     console.log(
-      `[AI Tool] ${toolName} user=${userId ?? "unknown"} payload=${JSON.stringify(payload)}`
+      `[AI Tool] ${toolName} user=${userId ?? "unknown"} role=${role ?? "unknown"} payload=${JSON.stringify(
+        payload,
+      )}`
     );
   } catch (err) {
-    console.log(`[AI Tool] ${toolName} user=${userId ?? "unknown"} payload=[unserializable]`);
+    console.log(
+      `[AI Tool] ${toolName} user=${userId ?? "unknown"} role=${role ?? "unknown"} payload=[unserializable]`,
+    );
   }
 }
 
@@ -58,6 +67,7 @@ Guidelines:
 Session awareness and defaults:
 - You have access to the authenticated user's role and ID on the server. Do NOT ask the user what their role is.
 - Tools already enforce RBAC and personal assignment scoping based on the authenticated user.
+- When the user asks about their role or identity (e.g., "what's my role?", "who am I?"), call the whoami tool and answer from its result. Do not guess.
 - When the user says "my" or "assigned to me" (e.g., "What audits am I assigned to?"), default to results for the current user without asking for clarification.
 - When the user asks broadly (e.g., "Show audits"), default to audits they can access under RBAC without asking for their role.
 - Only ask clarifying questions when a filter is critical and cannot be reasonably defaulted (e.g., a requested plant name is ambiguous or missing).
@@ -156,6 +166,30 @@ export async function POST(req: NextRequest) {
   const combinedMessages = [...existingMessages, ...incomingMessages];
 
   const tools = {
+    // ========================================================================
+    // UTILITY: whoami - returns the authenticated user's identity and role
+    // ========================================================================
+    whoami: tool({
+      description:
+        "Return the authenticated user's id, email, name and role. Use this when asked 'what's my role' or similar.",
+      inputSchema: z.object({}).optional(),
+      execute: async () => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const result = {
+          id: session.user.id,
+          email: (session.user as any).email ?? null,
+          name: (session.user as any).name ?? null,
+          role: session.user.role,
+        };
+
+        logToolUsage("whoami", session.user.id, session.user.role, { user: result });
+        return { allowed: true, user: result };
+      },
+    }),
     // ========================================================================
     // TOOL 1: Count observations with filters
     // ========================================================================
@@ -262,7 +296,7 @@ export async function POST(req: NextRequest) {
 
         const count = await prisma.observation.count({ where });
 
-        logToolUsage("observations_count", session.user.id, {
+        logToolUsage("observations_count", session.user.id, session.user.role, {
           count,
           filters_applied: {
             approvalStatus: args.approvalStatus || "none",
@@ -412,7 +446,7 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        logToolUsage("observations_list", session.user.id, {
+        logToolUsage("observations_list", session.user.id, session.user.role, {
           count: observations.length,
           sample: observations.slice(0, 3).map((obs) => ({
             id: obs.id,
@@ -496,7 +530,7 @@ export async function POST(req: NextRequest) {
 
         const count = await prisma.audit.count({ where });
 
-        logToolUsage("audits_count", session.user.id, {
+        logToolUsage("audits_count", session.user.id, session.user.role, {
           count,
           filters_applied: {
             plantId: args.plantId || "none",
@@ -637,7 +671,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        logToolUsage("audits_list", session.user.id, {
+        logToolUsage("audits_list", session.user.id, session.user.role, {
           count: filteredAudits.length,
           sample: filteredAudits.slice(0, 3).map((audit) => ({
             id: audit.id,
@@ -870,7 +904,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        logToolUsage("observations_find", session.user.id, {
+        logToolUsage("observations_find", session.user.id, session.user.role, {
           resultCount: observations.length,
           aggregation: aggregation?.by ?? null,
         });
@@ -1015,7 +1049,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        logToolUsage("audits_find", session.user.id, { count: audits.length, metrics: metrics?.kind ?? "none" });
+        logToolUsage("audits_find", session.user.id, session.user.role, { count: audits.length, metrics: metrics?.kind ?? "none" });
 
         return {
           allowed: true,
@@ -1092,7 +1126,7 @@ export async function POST(req: NextRequest) {
           .sort((a, b) => b.auditsAssigned - a.auditsAssigned)
           .slice(0, args.limit ?? 20);
 
-        logToolUsage("auditors_assignments_stats", session.user.id, { count: results.length });
+        logToolUsage("auditors_assignments_stats", session.user.id, session.user.role, { count: results.length });
 
         return { allowed: true, results };
       },
@@ -1203,7 +1237,7 @@ export async function POST(req: NextRequest) {
           })
           .sort((a, b) => b.similarity - a.similarity);
 
-        logToolUsage("observations_similar", session.user.id, { count: ranked.length });
+        logToolUsage("observations_similar", session.user.id, session.user.role, { count: ranked.length });
 
         return { allowed: true, results: ranked };
       },

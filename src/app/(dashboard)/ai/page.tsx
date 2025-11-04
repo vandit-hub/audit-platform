@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
-const CHAT_CARD_HEIGHT = "calc(100vh - 260px)";
+const CHAT_CARD_HEIGHT = "calc(100vh - 150px)";
 
 type SessionListItem = {
   id: string;
@@ -269,23 +269,17 @@ export default function AIAssistantPage() {
   // ChatPane computes input/button disabled states locally
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          AI Assistant
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Ask questions about your audits and observations using natural language.
-        </p>
+    <div className="px-6 py-2 max-w-[1600px] mx-auto">
+      <div className="mb-2">
         {session?.user && (
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-500">
             Logged in as <span className="font-medium">{session.user.name}</span>{" "}
             ({session.user.role})
           </p>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+      <div className="grid gap-1 lg:grid-cols-[260px_1fr]">
         <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
           <div className="px-4 pt-3">
             <Button onClick={handleNewConversation} disabled={isStreaming} className="w-full justify-center gap-2">
