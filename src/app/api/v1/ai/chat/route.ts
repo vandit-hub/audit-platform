@@ -1326,7 +1326,7 @@ export async function POST(req: NextRequest) {
   const baseCount = existingMessages.length;
 
   const result = streamText({
-    model: cerebras(process.env.AI_MODEL || "gpt-oss-120b"),
+    model: cerebras(process.env.AI_MODEL || "qwen-3-235b-a22b-instruct-2507"),
     system: SYSTEM_PROMPT,
     messages: convertToModelMessages(validatedMessages),
     temperature: 0,
