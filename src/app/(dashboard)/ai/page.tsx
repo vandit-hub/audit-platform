@@ -601,9 +601,13 @@ function ChatPane({
 
                       case "tool-observations_count": {
                         const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+                        const input = (part.output as any)?.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">🔍 Observations Count Tool</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {typeof count === "number" && (
                               <div>
                                 <div>
@@ -618,9 +622,13 @@ function ChatPane({
                       case "tool-observations_list": {
                         const out = (part.output as any) || {};
                         const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">📋 Observations List ({String(out.count ?? list.length)})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {list.length > 0 && (
                               <ul className="list-disc pl-4 space-y-1">
                                 {list.map((o: any) => (
@@ -637,9 +645,13 @@ function ChatPane({
 
                       case "tool-audits_count": {
                         const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+                        const input = (part.output as any)?.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">🔍 Audits Count Tool</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {typeof count === "number" && (
                               <div>
                                 <div>
@@ -654,9 +666,13 @@ function ChatPane({
                       case "tool-audits_list": {
                         const out = (part.output as any) || {};
                         const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">📋 Audits List ({String(out.count ?? list.length)})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {list.length > 0 && (
                               <ul className="list-disc pl-4 space-y-1">
                                 {list.map((a: any) => (
@@ -695,9 +711,13 @@ function ChatPane({
                         const out = (part.output as any) || {};
                         const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
                         const ag = out.aggregation as any;
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">🔎 Observations Find ({String(out.count ?? list.length)})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {ag?.by && Array.isArray(ag?.groups) && ag.groups.length > 0 && (
                               <div className="mb-2">
                                 <div className="opacity-80 mb-1">Aggregation by {ag.by}</div>
@@ -726,9 +746,13 @@ function ChatPane({
                         const out = (part.output as any) || {};
                         const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
                         const metrics = out.metrics as any;
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">📊 Audits Find ({String(out.count ?? list.length)})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {metrics?.kind && (
                               <div className="mb-2 opacity-80">Metrics: {metrics.kind}</div>
                             )}
@@ -749,9 +773,13 @@ function ChatPane({
                       case "tool-auditors_assignments_stats": {
                         const out = (part.output as any) || {};
                         const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">🧑‍💼 Auditor Assignment Stats ({rows.length})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {rows.length > 0 && (
                               <ul className="list-disc pl-4 space-y-1">
                                 {rows.slice(0, 20).map((r: any, idx: number) => (
@@ -766,9 +794,13 @@ function ChatPane({
                       case "tool-observations_similar": {
                         const out = (part.output as any) || {};
                         const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+                        const input = out.input;
                         return (
                           <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
                             <div className="font-semibold mb-1">🔁 Similar Observations ({rows.length})</div>
+                            {input && (
+                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
+                            )}
                             {rows.length > 0 && (
                               <ul className="list-disc pl-4 space-y-1">
                                 {rows.slice(0, 10).map((r: any) => (

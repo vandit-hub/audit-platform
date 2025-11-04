@@ -311,6 +311,7 @@ export async function POST(req: NextRequest) {
 
         return {
           allowed: true,
+          input: args,
           count,
           filters_applied: {
             approvalStatus: args.approvalStatus || "none",
@@ -457,6 +458,7 @@ export async function POST(req: NextRequest) {
 
         return {
           allowed: true,
+          input: args,
           count: observations.length,
           observations: observations.map((obs) => ({
             id: obs.id,
@@ -540,6 +542,7 @@ export async function POST(req: NextRequest) {
 
         return {
           allowed: true,
+          input: args,
           count,
           filters_applied: {
             plantId: args.plantId || "none",
@@ -682,6 +685,7 @@ export async function POST(req: NextRequest) {
 
           return {
           allowed: true,
+          input: args,
           count: filteredAudits.length,
           audits: filteredAudits.map((audit) => ({
             id: audit.id,
@@ -911,6 +915,7 @@ export async function POST(req: NextRequest) {
 
         return {
           allowed: true,
+          input: args,
           count: observations.length,
           observations: observations.map((obs) => ({
             id: obs.id,
@@ -1053,6 +1058,7 @@ export async function POST(req: NextRequest) {
 
         return {
           allowed: true,
+          input: args,
           count: audits.length,
           audits: audits.map((a) => ({
             id: a.id,
