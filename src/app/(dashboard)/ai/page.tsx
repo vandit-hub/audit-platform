@@ -532,7 +532,7 @@ function ChatPane({
             return (
               <div key={message.id} className={`flex ${isUserMessage ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-3xl rounded-lg px-4 py-2 ${
+                  className={`max-w-6xl rounded-lg px-4 py-2 ${
                     isUserMessage ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   }`}
                 >
@@ -671,7 +671,131 @@ function ChatPane({
                         );
                       }
 
+                      case "tool-whoami": {
+                        const out = (part.output as any) || {};
+                        const u = out.user || {};
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🔐 Session Info</div>
+                            {out.allowed === false ? (
+                              <div>Unauthenticated</div>
+                            ) : (
+                              <div>
+                                <div>Role: <strong>{u.role ?? "unknown"}</strong></div>
+                                {u.email && (
+                                  <div>Email: <span className="opacity-80">{u.email}</span></div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-observations_find": {
+                        const out = (part.output as any) || {};
+                        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
+                        const ag = out.aggregation as any;
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🔎 Observations Find ({String(out.count ?? list.length)})</div>
+                            {ag?.by && Array.isArray(ag?.groups) && ag.groups.length > 0 && (
+                              <div className="mb-2">
+                                <div className="opacity-80 mb-1">Aggregation by {ag.by}</div>
+                                <ul className="list-disc pl-4 space-y-1">
+                                  {ag.groups.slice(0, 10).map((g: any, idx: number) => (
+                                    <li key={idx}>{g.key}: <strong>{g.count}</strong></li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {list.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {list.slice(0, 10).map((o: any) => (
+                                  <li key={o.id}>
+                                    <span className="font-medium">{o.title}</span>{" "}
+                                    <span className="opacity-75">— {o.approvalStatus} • {o.currentStatus} • Risk {o.riskCategory} • {o.auditTitle}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-audits_find": {
+                        const out = (part.output as any) || {};
+                        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
+                        const metrics = out.metrics as any;
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">📊 Audits Find ({String(out.count ?? list.length)})</div>
+                            {metrics?.kind && (
+                              <div className="mb-2 opacity-80">Metrics: {metrics.kind}</div>
+                            )}
+                            {list.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {list.slice(0, 10).map((a: any) => (
+                                  <li key={a.id}>
+                                    <span className="font-medium">{a.title}</span>{" "}
+                                    <span className="opacity-75">— {a.plantName} • {a.status}{a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-auditors_assignments_stats": {
+                        const out = (part.output as any) || {};
+                        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🧑‍💼 Auditor Assignment Stats ({rows.length})</div>
+                            {rows.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {rows.slice(0, 20).map((r: any, idx: number) => (
+                                  <li key={idx}>{r.name ?? r.auditorEmail ?? r.auditorId}: <strong>{r.auditsAssigned}</strong> audits</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      case "tool-observations_similar": {
+                        const out = (part.output as any) || {};
+                        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+                        return (
+                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                            <div className="font-semibold mb-1">🔁 Similar Observations ({rows.length})</div>
+                            {rows.length > 0 && (
+                              <ul className="list-disc pl-4 space-y-1">
+                                {rows.slice(0, 10).map((r: any) => (
+                                  <li key={r.id}>
+                                    <span className="font-medium">{r.auditTitle}</span>{" "}
+                                    <span className="opacity-75">— {r.plant} • Score {r.similarity}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      }
+
                       default:
+                        if (typeof (part as any)?.type === "string" && (part as any).type.startsWith("tool-")) {
+                          return (
+                            <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
+                              <div className="font-semibold mb-1">🧩 {String((part as any).type)}</div>
+                              <pre className={`whitespace-pre-wrap text-[11px] ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>
+                                {(() => {
+                                  try { return JSON.stringify((part as any).output ?? {}, null, 2); } catch { return String((part as any).output ?? ""); }
+                                })()}
+                              </pre>
+                            </div>
+                          );
+                        }
                         return null;
                     }
                   })}
