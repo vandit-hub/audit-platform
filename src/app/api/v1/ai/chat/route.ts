@@ -72,6 +72,9 @@ Session awareness and defaults:
 - When the user asks broadly (e.g., "Show audits"), default to audits they can access under RBAC without asking for their role.
 - Only ask clarifying questions when a filter is critical and cannot be reasonably defaulted (e.g., a requested plant name is ambiguous or missing).
 
+Plant resolution default:
+- When a plant is mentioned by name (e.g., "Ranchi", "Sydney"), first resolve its ID with plants_search(q) and then pass plantId to downstream tools (audits_find / observations_find) instead of relying on text-only filtering.
+
 Tool usage and multi-tool reasoning:
 - Prefer general-purpose tools that can be composed: observations_find, audits_find, observations_similar, auditors_assignments_stats.
 - Use multiple tools in one answer if needed (e.g., overview with audits_find + drill-down via observations_find).
@@ -166,6 +169,49 @@ export async function POST(req: NextRequest) {
   let combinedMessages = [...existingMessages, ...incomingMessages];
 
   const tools = {
+    // ========================================================================
+    // UTILITY: plants_search - resolve plantId(s) from name/code
+    // ========================================================================
+    plants_search: tool({
+      description:
+        "Search plants by name or code and return matching {id,name,code}. Use to resolve plantId before other tools.",
+      inputSchema: z.object({
+        q: z.string().describe("Plant name or code fragment"),
+        limit: z.number().optional().default(5).describe("Maximum number of plants to return (default 5)"),
+      }),
+      execute: async (args) => {
+        const session = await auth();
+        if (!session?.user) {
+          return { allowed: false, reason: "Unauthenticated" };
+        }
+
+        const query = args.q?.trim();
+        if (!query) {
+          return { allowed: false, reason: "Plant query required" };
+        }
+
+        const where: Prisma.PlantWhereInput = {
+          OR: [
+            { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+            { code: { contains: query, mode: Prisma.QueryMode.insensitive } },
+          ],
+        };
+
+        const plants = await prisma.plant.findMany({
+          where,
+          take: args.limit ?? 5,
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, code: true },
+        });
+
+        logToolUsage("plants_search", session.user.id, session.user.role, {
+          q: query,
+          count: plants.length,
+        });
+
+        return { allowed: true, input: { q: query, limit: args.limit ?? 5 }, count: plants.length, plants };
+      },
+    }),
     // ========================================================================
     // UTILITY: whoami - returns the authenticated user's identity and role
     // ========================================================================
@@ -1326,7 +1372,7 @@ export async function POST(req: NextRequest) {
   const baseCount = existingMessages.length;
 
   const result = streamText({
-    model: cerebras(process.env.AI_MODEL || "qwen-3-235b-a22b-instruct-2507"),
+    model: cerebras(process.env.AI_MODEL || "gpt-oss-120b"),
     system: SYSTEM_PROMPT,
     messages: convertToModelMessages(validatedMessages),
     temperature: 0,
