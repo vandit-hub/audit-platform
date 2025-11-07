@@ -698,6 +698,7 @@ Migrate existing tables to Notion style:
 
 ### 6.9 AI Page (`src/app/(dashboard)/ai/page.tsx`)
 
+- ✅ Updated 2025-11-07 — Notion-style layout for conversation list and chat pane.
 - Update chat interface with Notion styling
 - Update message bubbles (proper borders, spacing)
 - Update input area

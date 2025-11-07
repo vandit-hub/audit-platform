@@ -269,17 +269,22 @@ export default function AIAssistantPage() {
   // ChatPane computes input/button disabled states locally
 
   return (
-    <div className="px-6 py-2 max-w-[1600px] mx-auto">
-      <div className="mb-2">
-        {session?.user && (
-          <p className="text-sm text-gray-500 dark:text-gray-500">
-            Logged in as <span className="font-medium">{session.user.name}</span>{" "}
-            ({session.user.role})
+    <div className="mx-auto max-w-[1600px] space-y-8 px-5 py-6 sm:px-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">AI Assistant</h1>
+          <p className="text-sm text-text-light">
+            Ask questions about audits and observations using your existing permissions.
           </p>
+        </div>
+        {session?.user && (
+          <div className="rounded-300 border border-border-regular bg-notion-bacSec px-4 py-2 text-xs text-text-medium">
+            Logged in as <span className="font-medium text-gray-900">{session.user.name}</span> • {session.user.role}
+          </div>
         )}
       </div>
 
-      <div className="grid gap-1 lg:grid-cols-[260px_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
           <div className="px-4 pt-3">
             <Button onClick={handleNewConversation} disabled={isStreaming} className="w-full justify-center gap-2">
@@ -346,12 +351,12 @@ export default function AIAssistantPage() {
         </Card>
 
         <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-border-regular px-4 py-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900">
                 {activeSession?.title?.trim() || "Conversation"}
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-text-light">
                 {activeSession
                   ? `Last activity: ${formatTimestamp(
                       activeSession.lastMessageAt ?? activeSession.updatedAt,
@@ -362,7 +367,7 @@ export default function AIAssistantPage() {
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 onClick={handleRenameConversation}
                 disabled={!activeSessionId || isStreaming}
               >
@@ -370,7 +375,7 @@ export default function AIAssistantPage() {
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
+                variant="secondary"
                 onClick={handleDeleteConversation}
                 disabled={!activeSessionId || isStreaming}
               >
@@ -380,7 +385,7 @@ export default function AIAssistantPage() {
           </div>
 
           {uiError && (
-            <div className="px-4 pt-3 text-sm text-red-600 dark:text-red-400">{uiError}</div>
+            <div className="px-4 pt-3 text-sm text-pink-600">{uiError}</div>
           )}
 
           <ChatPane
@@ -839,8 +844,8 @@ function ChatPane({
 
         {status === "streaming" && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2">
-              <div className="flex items-center space-x-2">
+            <div className="rounded-400 bg-notion-bacSec px-4 py-2 text-xs text-text-light">
+                        <div className="flex items-center space-x-1 text-xs">
                 <div className="animate-bounce">●</div>
                 <div className="animate-bounce delay-100">●</div>
                 <div className="animate-bounce delay-200">●</div>
@@ -856,7 +861,7 @@ function ChatPane({
         )}
       </div>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="border-t border-border-regular p-4">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
             <textarea
@@ -865,7 +870,7 @@ function ChatPane({
               onKeyDown={handleKeyDown}
               placeholder="Ask a question about audits or observations..."
               disabled={!sessionId}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
+              className="w-full rounded-400 border border-notion-borPri bg-white px-4 py-3 text-sm text-notion-texPri shadow-sm transition-all duration-150 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30 disabled:cursor-not-allowed disabled:bg-gray-200"
               rows={3}
             />
           </div>
