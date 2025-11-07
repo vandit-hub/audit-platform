@@ -642,6 +642,7 @@ Migrate existing tables to Notion style:
 - Update filters and sort buttons
 
 #### `/audits/[auditId]` (detail view)
+- ✅ Updated 2025-11-07 — Detail and assignment sections restyled with Notion components.
 - Update card layouts
 - Update forms with new Input components
 - Add proper sections with Notion spacing

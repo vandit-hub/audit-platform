@@ -231,31 +231,51 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
   };
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">
-          Audit — {audit.plant.code} {audit.plant.name}
-        </h1>
-        {audit.title && (
-          <p className="text-base text-neutral-600 mt-2">{audit.title}</p>
-        )}
+    <div className="space-y-10">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Audit</h1>
+          <p className="text-sm text-text-light">
+            {audit.plant.code} — {audit.plant.name}
+          </p>
+          {audit.title && (
+            <p className="text-xs text-text-light">{audit.title}</p>
+          )}
+          <div className="flex items-center gap-3">
+            <Badge variant={statusVariant(audit.status)}>{audit.status.replace("_", " ")}</Badge>
+            <span className="text-xs text-text-light">
+              {progress.total > 0 ? `${progress.done}/${progress.total} observations resolved` : "No observations yet"}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {isConnected ? (
+            <PresenceBadge users={presence} currentUserId={userId} />
+          ) : (
+            <div className="flex items-center gap-2 rounded-300 border border-border-regular bg-notion-bacSec px-3 py-1.5 text-xs text-text-light">
+              <span className="inline-block h-2 w-2 rounded-full bg-text-extraLight" />
+              Disconnected
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg">
+        <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-600">
           {error}
         </div>
       )}
 
       {canManageAudit && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Audit Controls</h2>
+        <Card variant="feature" className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Audit controls</h2>
+            <p className="text-sm text-text-light">Lock audits, mark completion, and manage visibility.</p>
+          </div>
 
           <div className="space-y-4">
-            {/* Current Status Display */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm font-medium text-neutral-700">Current State:</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-text-light">Current state:</span>
               {audit.completedAt ? (
                 <Badge variant="success">Completed</Badge>
               ) : audit.isLocked ? (
@@ -265,186 +285,161 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
               )}
             </div>
 
-            {/* Lock/Completion Metadata */}
             {audit.isLocked && audit.lockedAt && (
-              <div className="text-sm text-neutral-600 bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <span className="font-medium">Locked:</span> {new Date(audit.lockedAt).toLocaleString()}
+              <div className="rounded-300 border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                <span className="font-semibold">Locked:</span> {new Date(audit.lockedAt).toLocaleString()}
               </div>
             )}
             {audit.completedAt && (
-              <div className="text-sm text-neutral-600 bg-green-50 border border-green-200 rounded-lg p-3">
-                <span className="font-medium">Completed:</span> {new Date(audit.completedAt).toLocaleString()}
+              <div className="rounded-300 border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+                <span className="font-semibold">Completed:</span> {new Date(audit.completedAt).toLocaleString()}
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
+            <div className="flex flex-wrap gap-3">
               {!audit.isLocked && !audit.completedAt && (
                 <>
-                  <Button variant="destructive" onClick={lockAudit}>
-                    Lock Audit
+                  <Button variant="secondary" onClick={lockAudit}>
+                    Lock audit
                   </Button>
                   <Button variant="primary" onClick={completeAudit}>
-                    Mark Complete
+                    Mark complete
                   </Button>
                 </>
               )}
               {audit.isLocked && (
                 <Button variant="primary" onClick={unlockAudit}>
-                  Unlock Audit
+                  Unlock audit
                 </Button>
               )}
             </div>
 
-            <div className="text-xs text-neutral-500 pt-2 border-t border-neutral-200">
-              <strong>Note:</strong> Locking an audit restricts most operations. Completing an audit automatically locks it. CFO can override locks.
-            </div>
+            <p className="border-t border-border-regular pt-2 text-xs text-text-light">
+              <strong>Note:</strong> locking restricts most edits. Completing an audit also locks it; CFO can override.
+            </p>
           </div>
         </Card>
       )}
 
       {canManageAudit && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Audit Visibility Configuration</h2>
+        <Card variant="feature" className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Audit visibility</h2>
+            <p className="text-sm text-text-light">Control how older audits appear to auditors and audit heads.</p>
+          </div>
 
-          <div className="space-y-4">
-            {/* Current Visibility Rules Display */}
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-neutral-700">Current Visibility Setting:</span>
-                {audit.visibilityRules?.mode === "show_all" && (
-                  <Badge variant="success">Show All Audits</Badge>
-                )}
-                {audit.visibilityRules?.mode === "last_12m" && (
-                  <Badge variant="primary">Last 12 Months Only</Badge>
-                )}
-                {audit.visibilityRules?.mode === "hide_all" && (
-                  <Badge variant="warning">Hide All Historical Audits</Badge>
-                )}
-                {!audit.visibilityRules?.mode && (
-                  <Badge variant="neutral">Default (Show All)</Badge>
-                )}
-              </div>
-            </div>
+          <div className="rounded-400 border border-border-regular bg-notion-bacSec px-4 py-3 text-sm text-text-light">
+            <span className="font-medium text-gray-900">Current setting:</span>{" "}
+            {audit.visibilityRules?.mode === "show_all" && "Show all audits"}
+            {audit.visibilityRules?.mode === "last_12m" && "Last 12 months only"}
+            {audit.visibilityRules?.mode === "hide_all" && "Hide all historical audits"}
+            {!audit.visibilityRules?.mode && "Default (show all)"}
+          </div>
 
-            {/* Visibility Configuration Form */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-3">
-                Configure Historical Audit Visibility for Auditors and Audit Heads
-              </label>
-              <div className="flex gap-3">
-                <Select
-                  label=""
-                  value={selectedVisibilityPreset}
-                  onChange={(e) => setSelectedVisibilityPreset(e.target.value)}
-                  className="flex-1"
-                >
-                  <option value="">Select visibility preset</option>
-                  <option value="show_all">Show All Audits</option>
-                  <option value="last_12m">Last 12 Months Only</option>
-                  <option value="hide_all">Hide All Historical Audits</option>
-                </Select>
-                <Button
-                  variant="primary"
-                  onClick={updateVisibility}
-                  className="mt-0"
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Select
+              label=""
+              value={selectedVisibilityPreset}
+              onChange={(e) => setSelectedVisibilityPreset(e.target.value)}
+              className="flex-1"
+            >
+              <option value="">Select visibility preset</option>
+              <option value="show_all">Show all audits</option>
+              <option value="last_12m">Last 12 months only</option>
+              <option value="hide_all">Hide all historical audits</option>
+            </Select>
+            <Button variant="primary" onClick={updateVisibility}>
+              Apply
+            </Button>
+          </div>
 
-            {/* Visibility Rules Explanation */}
-            <div className="text-xs text-neutral-600 bg-primary-50 border border-primary-200 rounded-lg p-3">
-              <div className="font-semibold text-primary-800 mb-2">Visibility Options Explained:</div>
-              <ul className="space-y-1.5 list-disc list-inside text-primary-700">
-                <li><strong>Show All Audits:</strong> Auditors and Audit Heads can see all past assigned audits and observations (default behavior)</li>
-                <li><strong>Last 12 Months Only:</strong> Limits visibility to assigned audits from the last 12 months only</li>
-                <li><strong>Hide All Historical Audits:</strong> Only the current audit is visible to assigned auditors and audit heads</li>
-              </ul>
-              <p className="mt-2 text-xs text-primary-600">
-                <strong>Note:</strong> CFO and CXO Team always have full visibility regardless of these settings.
-              </p>
-            </div>
+          <div className="rounded-300 border border-primary-200 bg-primary-50 px-4 py-3 text-xs text-primary-700">
+            <div className="font-semibold text-primary-800 mb-2">Visibility presets</div>
+            <ul className="space-y-1 list-disc list-inside">
+              <li><strong>Show all audits:</strong> auditors and audit heads can review every assignment.</li>
+              <li><strong>Last 12 months only:</strong> limits the list to audits from the past year.</li>
+              <li><strong>Hide all historical audits:</strong> restricts access to only the current audit.</li>
+            </ul>
+            <p className="mt-2 text-primary-600">
+              CFO and CXO team always retain full visibility regardless of these settings.
+            </p>
           </div>
         </Card>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Details</h2>
-          <div className="space-y-4">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card variant="feature" className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Details</h2>
+            <p className="text-sm text-text-light">Key metadata for this audit and its progress.</p>
+          </div>
+          <div className="space-y-4 text-sm">
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Title:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.title || "—"}</div>
+              <div className="col-span-1 font-medium text-text-light">Title</div>
+              <div className="col-span-2 text-gray-900">{audit.title || "—"}</div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Purpose:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.purpose || "—"}</div>
+              <div className="col-span-1 font-medium text-text-light">Purpose</div>
+              <div className="col-span-2 text-gray-900">{audit.purpose || "—"}</div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Status:</div>
+              <div className="col-span-1 font-medium text-text-light">Status</div>
               <div className="col-span-2">
                 <Badge variant={statusVariant(audit.status)}>
                   {audit.status.replace("_", " ")}
                 </Badge>
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Visit Dates:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
+              <div className="col-span-1 font-medium text-text-light">Visit window</div>
+              <div className="col-span-2 text-gray-900">
                 {audit.visitStartDate ? new Date(audit.visitStartDate).toLocaleDateString() : "—"}
-                <span className="mx-2 text-neutral-400">→</span>
+                <span className="mx-2 text-text-light">→</span>
                 {audit.visitEndDate ? new Date(audit.visitEndDate).toLocaleDateString() : "—"}
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Visit Details:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.visitDetails || "—"}</div>
+              <div className="col-span-1 font-medium text-text-light">Visit details</div>
+              <div className="col-span-2 text-gray-900">{audit.visitDetails || "—"}</div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Management Response:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
+              <div className="col-span-1 font-medium text-text-light">Management response</div>
+              <div className="col-span-2 text-gray-900">
                 {audit.managementResponseDate ? new Date(audit.managementResponseDate).toLocaleDateString() : "—"}
               </div>
             </div>
-
             <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Final Presentation:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
+              <div className="col-span-1 font-medium text-text-light">Final presentation</div>
+              <div className="col-span-2 text-gray-900">
                 {audit.finalPresentationDate ? new Date(audit.finalPresentationDate).toLocaleDateString() : "—"}
               </div>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-neutral-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-neutral-700">Progress (observations)</div>
-              <div className="text-sm font-medium text-neutral-900">
-                {progress.done}/{progress.total} resolved
-              </div>
+          <div className="space-y-3 border-t border-border-regular pt-6">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-text-light">Progress (observations)</span>
+              <span className="font-medium text-gray-900">{progress.done}/{progress.total} resolved</span>
             </div>
-            <div className="w-full bg-neutral-200 h-3 rounded-full overflow-hidden">
+            <div className="h-3 w-full overflow-hidden rounded-full bg-notion-bacSec">
               <div
-                className="bg-gradient-to-r from-primary-500 to-primary-600 h-3 rounded-full transition-all duration-500 ease-out"
+                className="h-3 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 transition-all duration-500 ease-out"
                 style={{ width: progress.total ? `${Math.round((progress.done / progress.total) * 100)}%` : "0%" }}
               />
             </div>
             {progress.total > 0 && (
-              <div className="text-xs text-neutral-600 mt-2 text-right">
+              <div className="text-right text-xs text-text-light">
                 {Math.round((progress.done / progress.total) * 100)}% complete
               </div>
             )}
           </div>
         </Card>
 
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Assignments</h2>
+        <Card variant="feature" className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Assignments</h2>
+            <p className="text-sm text-text-light">Manage the audit head and auditing team.</p>
+          </div>
 
           {/* Audit Head Section */}
           <div className="mb-6">
