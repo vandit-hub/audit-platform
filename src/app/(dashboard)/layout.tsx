@@ -11,9 +11,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
   return (
     <WebSocketProvider>
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-notion-bacPri">
         <NavBar />
-        <main className="max-w-[1650px] mx-auto px-4 sm:px-6 lg:px-8 py-8">{children}</main>
+        <main className="mx-auto max-w-6xl px-5 py-10 sm:px-8">{children}</main>
       </div>
     </WebSocketProvider>
   );

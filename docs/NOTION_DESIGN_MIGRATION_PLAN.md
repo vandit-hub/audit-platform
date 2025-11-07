@@ -615,6 +615,7 @@ Migrate existing tables to Notion style:
 
 ### 6.2 Dashboard Page (`src/app/(dashboard)/dashboard/page.tsx`)
 
+- ✅ Updated 2025-11-07 — Dashboard route renders Notion cards with shared layout.
 - Update stat cards to Notion style (gray background, large numbers)
 - Update welcome section with proper typography
 - Update quick actions with Notion buttons
