@@ -5,6 +5,7 @@ import RoleBadge from "./RoleBadge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isCFOOrCXOTeam, isAuditHead, isAuditee, isCFO, isGuest } from "@/lib/rbac";
+import Button from "@/components/ui/Button";
 
 export default function NavBar() {
   const { data: session } = useSession();
@@ -18,10 +19,10 @@ export default function NavBar() {
   };
 
   const navLinkClass = (path: string) => {
-    const base = "px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150";
+    const base = "inline-flex items-center px-3 py-2 rounded-300 text-sm font-medium transition-colors duration-200";
     return isActive(path)
-      ? `${base} bg-primary-50 text-primary-700`
-      : `${base} text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900`;
+      ? `${base} bg-gray-900 text-white`
+      : `${base} text-notion-texSec hover:bg-notion-bacHov hover:text-gray-900`;
   };
 
   // Role-based navigation visibility
@@ -34,19 +35,18 @@ export default function NavBar() {
   const showAI = userRole && !isAuditee(userRole) && !isGuest(userRole);
 
   return (
-    <header className="bg-white border-b border-neutral-200 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-8">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">IA</span>
-              </div>
-              <span className="font-semibold text-lg text-neutral-900 hidden sm:block">
-                Internal Audit
-              </span>
-            </Link>
-            <nav className="hidden md:flex items-center gap-1">
+    <header className="sticky top-0 z-50 border-b border-border-regular bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-5 sm:px-8">
+        <div className="flex items-center gap-6">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-400 bg-gray-900 text-sm font-semibold text-white">
+              IA
+            </div>
+            <span className="hidden text-lg font-semibold text-gray-900 sm:block">
+              Internal Audit
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-1 md:flex">
               {showPlants && (
                 <Link href="/plants" className={navLinkClass("/plants")}>
                   Plants
@@ -89,15 +89,16 @@ export default function NavBar() {
             {session?.user && (
               <>
                 {session.user.role ? <RoleBadge role={session.user.role} /> : null}
-                <span className="text-sm text-neutral-600 hidden lg:block">
+                <span className="hidden text-sm text-text-light lg:block">
                   {session.user.email}
                 </span>
-                <button
+                <Button
+                  variant="secondary"
+                  size="md"
                   onClick={() => signOut({ callbackUrl: "/login" })}
-                  className="btn-ghost text-sm"
                 >
                   Sign out
-                </button>
+                </Button>
               </>
             )}
           </div>
