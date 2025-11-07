@@ -7,6 +7,12 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
+import {
+  NotionTable,
+  NotionTableCell,
+  NotionTableHeader,
+  NotionTableRow
+} from "@/components/ui/NotionTable";
 
 type KPI = {
   total: number;
@@ -383,80 +389,132 @@ export default function ReportsPage() {
       )}
 
       <div className="grid md:grid-cols-2 gap-6">
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Overdue Action Plans</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plan</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Target</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Owner</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Retest</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {overdue.map((r, index) => (
-                  <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                    <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
-                    <td className="py-4 px-6 text-neutral-700 max-w-xs truncate" title={r.plan}>{r.plan}</td>
-                    <td className="py-4 px-6 text-neutral-600">{new Date(r.targetDate).toLocaleDateString()}</td>
-                    <td className="py-4 px-6 text-neutral-600">{r.owner ?? "—"}</td>
-                    <td className="py-4 px-6">
-                      {r.retest === "RETEST_DUE" && <Badge variant="warning" size="sm">Due</Badge>}
-                      {r.retest === "PASS" && <Badge variant="success" size="sm">Pass</Badge>}
-                      {r.retest === "FAIL" && <Badge variant="error" size="sm">Fail</Badge>}
-                      {!r.retest && <span className="text-neutral-400">—</span>}
-                    </td>
-                  </tr>
-                ))}
-                {overdue.length === 0 && (
-                  <tr>
-                    <td className="py-8 text-center text-neutral-500" colSpan={5}>No overdue action plans</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <Card variant="feature">
+          <NotionTableHeader
+            title="Overdue Action Plans"
+            description="Action plans past their target dates."
+            actions={
+              <span className="inline-flex items-center px-3 py-1.5 rounded-300 bg-notion-bacSec text-sm text-notion-texSec">
+                {overdue.length} item{overdue.length === 1 ? "" : "s"}
+              </span>
+            }
+          />
+          <NotionTable density="compact">
+            <thead>
+              <NotionTableRow hoverable={false}>
+                <NotionTableCell as="th" scope="col">
+                  Plant
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Plan
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Target
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Owner
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Retest
+                </NotionTableCell>
+              </NotionTableRow>
+            </thead>
+            <tbody>
+              {overdue.map((record) => (
+                <NotionTableRow key={record.id}>
+                  <NotionTableCell className="font-medium text-gray-900">
+                    {record.plant.code}
+                  </NotionTableCell>
+                  <NotionTableCell className="max-w-xs" title={record.plan}>
+                    <div className="truncate text-notion-texPri">{record.plan}</div>
+                  </NotionTableCell>
+                  <NotionTableCell muted>
+                    {new Date(record.targetDate).toLocaleDateString()}
+                  </NotionTableCell>
+                  <NotionTableCell muted>
+                    {record.owner ?? "—"}
+                  </NotionTableCell>
+                  <NotionTableCell>
+                    {record.retest === "RETEST_DUE" && <Badge variant="warning">Due</Badge>}
+                    {record.retest === "PASS" && <Badge variant="success">Pass</Badge>}
+                    {record.retest === "FAIL" && <Badge variant="error">Fail</Badge>}
+                    {!record.retest && <span className="text-text-light">—</span>}
+                  </NotionTableCell>
+                </NotionTableRow>
+              ))}
+              {overdue.length === 0 && (
+                <NotionTableRow hoverable={false}>
+                  <NotionTableCell colSpan={5} align="center" className="py-8 notion-table-cell-muted">
+                    No overdue action plans
+                  </NotionTableCell>
+                </NotionTableRow>
+              )}
+            </tbody>
+          </NotionTable>
         </Card>
 
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Due Soon (next {days} days)</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plan</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Target</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Owner</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Retest</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {dueSoon.map((r, index) => (
-                  <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                    <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
-                    <td className="py-4 px-6 text-neutral-700 max-w-xs truncate" title={r.plan}>{r.plan}</td>
-                    <td className="py-4 px-6 text-neutral-600">{new Date(r.targetDate).toLocaleDateString()}</td>
-                    <td className="py-4 px-6 text-neutral-600">{r.owner ?? "—"}</td>
-                    <td className="py-4 px-6">
-                      {r.retest === "RETEST_DUE" && <Badge variant="warning" size="sm">Due</Badge>}
-                      {r.retest === "PASS" && <Badge variant="success" size="sm">Pass</Badge>}
-                      {r.retest === "FAIL" && <Badge variant="error" size="sm">Fail</Badge>}
-                      {!r.retest && <span className="text-neutral-400">—</span>}
-                    </td>
-                  </tr>
-                ))}
-                {dueSoon.length === 0 && (
-                  <tr>
-                    <td className="py-8 text-center text-neutral-500" colSpan={5}>No action plans due soon</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <Card variant="feature">
+          <NotionTableHeader
+            title={`Due Soon (next ${days} days)`}
+            description="Upcoming actions within the selected window."
+            actions={
+              <span className="inline-flex items-center px-3 py-1.5 rounded-300 bg-notion-bacSec text-sm text-notion-texSec">
+                {dueSoon.length} item{dueSoon.length === 1 ? "" : "s"}
+              </span>
+            }
+          />
+          <NotionTable density="compact">
+            <thead>
+              <NotionTableRow hoverable={false}>
+                <NotionTableCell as="th" scope="col">
+                  Plant
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Plan
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Target
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Owner
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Retest
+                </NotionTableCell>
+              </NotionTableRow>
+            </thead>
+            <tbody>
+              {dueSoon.map((record) => (
+                <NotionTableRow key={record.id}>
+                  <NotionTableCell className="font-medium text-gray-900">
+                    {record.plant.code}
+                  </NotionTableCell>
+                  <NotionTableCell className="max-w-xs" title={record.plan}>
+                    <div className="truncate text-notion-texPri">{record.plan}</div>
+                  </NotionTableCell>
+                  <NotionTableCell muted>
+                    {new Date(record.targetDate).toLocaleDateString()}
+                  </NotionTableCell>
+                  <NotionTableCell muted>
+                    {record.owner ?? "—"}
+                  </NotionTableCell>
+                  <NotionTableCell>
+                    {record.retest === "RETEST_DUE" && <Badge variant="warning">Due</Badge>}
+                    {record.retest === "PASS" && <Badge variant="success">Pass</Badge>}
+                    {record.retest === "FAIL" && <Badge variant="error">Fail</Badge>}
+                    {!record.retest && <span className="text-text-light">—</span>}
+                  </NotionTableCell>
+                </NotionTableRow>
+              ))}
+              {dueSoon.length === 0 && (
+                <NotionTableRow hoverable={false}>
+                  <NotionTableCell colSpan={5} align="center" className="py-8 notion-table-cell-muted">
+                    No action plans due soon
+                  </NotionTableCell>
+                </NotionTableRow>
+              )}
+            </tbody>
+          </NotionTable>
         </Card>
       </div>
     </div>

@@ -2,6 +2,12 @@
 
 import React from "react";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  NotionTable,
+  NotionTableCell,
+  NotionTableHeader,
+  NotionTableRow
+} from "@/components/ui/NotionTable";
 
 type Result = {
   ok: boolean;
@@ -115,30 +121,46 @@ export function ClientUploader() {
           </div>
 
           {result.errors.length > 0 && (
-            <div>
-              <h3 className="font-semibold mb-2">Errors</h3>
-              <div className="overflow-auto max-h-96">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left">
-                      <th className="px-2 py-1">Sheet</th>
-                      <th className="px-2 py-1">Row</th>
-                      <th className="px-2 py-1">Column</th>
-                      <th className="px-2 py-1">Message</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.errors.map((e, i) => (
-                      <tr key={i} className="odd:bg-gray-50">
-                        <td className="px-2 py-1">{e.sheet}</td>
-                        <td className="px-2 py-1">{e.row}</td>
-                        <td className="px-2 py-1">{e.column || ""}</td>
-                        <td className="px-2 py-1">{e.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-2">
+              <NotionTableHeader
+                title="Errors"
+                description="Rows that need attention before import."
+                actions={
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-300 bg-notion-bacSec text-sm text-notion-texSec">
+                    {result.errors.length} issue{result.errors.length === 1 ? "" : "s"}
+                  </span>
+                }
+              />
+              <NotionTable wrapperClassName="max-h-96 overflow-y-auto" density="compact">
+                <thead>
+                  <NotionTableRow hoverable={false}>
+                    <NotionTableCell as="th" scope="col">
+                      Sheet
+                    </NotionTableCell>
+                    <NotionTableCell as="th" scope="col">
+                      Row
+                    </NotionTableCell>
+                    <NotionTableCell as="th" scope="col">
+                      Column
+                    </NotionTableCell>
+                    <NotionTableCell as="th" scope="col">
+                      Message
+                    </NotionTableCell>
+                  </NotionTableRow>
+                </thead>
+                <tbody>
+                  {result.errors.map((err, index) => (
+                    <NotionTableRow key={`${err.sheet}-${index}`}>
+                      <NotionTableCell>{err.sheet}</NotionTableCell>
+                      <NotionTableCell numeric>{err.row}</NotionTableCell>
+                      <NotionTableCell>{err.column || "—"}</NotionTableCell>
+                      <NotionTableCell className="max-w-xl notion-table-cell-muted">
+                        {err.message}
+                      </NotionTableCell>
+                    </NotionTableRow>
+                  ))}
+                </tbody>
+              </NotionTable>
             </div>
           )}
         </div>

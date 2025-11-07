@@ -2,7 +2,7 @@
 
 **Project**: EZAudit Audit Platform
 **Date**: 2025-11-07
-**Status**: Phases 1-3 complete (2025-11-07); Phase 4 in progress
+**Status**: Phases 1-4 complete (2025-11-07); Phase 5 in progress
 **Approach**: Incremental migration using Tailwind CSS with Notion design tokens
 
 ---
@@ -486,32 +486,18 @@ Add Notion-inspired component classes:
 Create new table components:
 
 #### `src/components/ui/NotionTable/NotionTable.tsx`
-- Main table wrapper
-- Responsive with horizontal scroll
-- Border: 1px solid `border-notion-borPri`
-- Border radius: 8px (`rounded-500`)
-- Padding: 24px
-- Background: white
+- Main table wrapper with white background, subtle border, 8px radius
+- Horizontal scroll support and responsive padding
 
 #### `src/components/ui/NotionTable/NotionTableHeader.tsx`
-- Table title and action buttons
-- Flexbox layout with space-between
-- Action buttons: `.notion-table-btn` style
+- Table title/action region with Notion button styling
+- Supports primary/secondary action slots
 
 #### `src/components/ui/NotionTable/NotionTableRow.tsx`
-- Row component with hover state
-- Hover background: `bg-notion-bacHov`
-- Transition: 150ms
-- Cursor: pointer
+- Row wrapper with hover state and compact spacing controls
 
 #### `src/components/ui/NotionTable/NotionTableCell.tsx`
-- Custom cell renderers for different data types:
-  - Text cells
-  - Status badge cells
-  - Tag cells
-  - Avatar/person cells
-  - Date cells
-  - Action cells (buttons)
+- Typed cell components for text, status, tags, avatars, dates, actions, checkbox
 
 ### 4.2 Table Styling Specifications
 
@@ -570,6 +556,7 @@ Migrate existing tables to Notion style:
 - ✅ NotionTableRow component
 - ✅ NotionTableCell component
 - ✅ Updated all existing tables
+- ✅ Pages updated: `plants`, `audits`, `observations`, `reports`, `admin/import`
 
 ---
 

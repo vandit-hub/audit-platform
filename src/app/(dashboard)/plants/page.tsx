@@ -6,6 +6,12 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import {
+  NotionTable,
+  NotionTableCell,
+  NotionTableHeader,
+  NotionTableRow
+} from "@/components/ui/NotionTable";
 
 type Plant = { id: string; code: string; name: string; createdAt: string };
 
@@ -88,8 +94,11 @@ export default function PlantsPage() {
         </form>
       </Card>
 
-      <Card>
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Existing Plants</h2>
+      <Card variant="feature">
+        <NotionTableHeader
+          title="Existing Plants"
+          description="Review registered facilities and their codes."
+        />
         {plants.length === 0 ? (
           <EmptyState
             title="No plants yet"
@@ -101,34 +110,34 @@ export default function PlantsPage() {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            {/* S-Tier Table: Sticky header, zebra striping, better spacing, enhanced hover */}
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10">
-                <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Code</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Name</th>
-                  <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plants.map((p, index) => (
-                  <tr
-                    key={p.id}
-                    className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${
-                      index % 2 === 0 ? "bg-white" : "bg-neutral-25"
-                    }`}
-                  >
-                    <td className="py-4 px-6 font-semibold text-neutral-900">{p.code}</td>
-                    <td className="py-4 px-6 text-neutral-700">{p.name}</td>
-                    <td className="py-4 px-6 text-neutral-500 text-xs">
-                      {new Date(p.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <NotionTable>
+            <thead>
+              <NotionTableRow hoverable={false}>
+                <NotionTableCell as="th" scope="col" nowrap>
+                  Code
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col">
+                  Name
+                </NotionTableCell>
+                <NotionTableCell as="th" scope="col" nowrap>
+                  Created
+                </NotionTableCell>
+              </NotionTableRow>
+            </thead>
+            <tbody>
+              {plants.map((plant) => (
+                <NotionTableRow key={plant.id}>
+                  <NotionTableCell className="font-semibold text-gray-900">
+                    {plant.code}
+                  </NotionTableCell>
+                  <NotionTableCell>{plant.name}</NotionTableCell>
+                  <NotionTableCell muted nowrap>
+                    {new Date(plant.createdAt).toLocaleDateString()}
+                  </NotionTableCell>
+                </NotionTableRow>
+              ))}
+            </tbody>
+          </NotionTable>
         )}
       </Card>
     </div>

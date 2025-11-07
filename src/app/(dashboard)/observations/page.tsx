@@ -9,6 +9,12 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import {
+  NotionTable,
+  NotionTableCell,
+  NotionTableHeader,
+  NotionTableRow
+} from "@/components/ui/NotionTable";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
@@ -329,88 +335,107 @@ export default function ObservationsPage() {
         </Card>
       )}
 
-      <Card padding="lg">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-neutral-900">Results</h2>
-          <span className="text-sm font-medium text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-md">
-            {rows.length} {rows.length === 1 ? 'observation' : 'observations'}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Status</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Observation</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Risk</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Status</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Approval</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {rows.map((r, index) => (
-                <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                  <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
-                  <td className="py-4 px-6 text-neutral-700 text-xs">
-                    {r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}
-                  </td>
-                  <td className="py-4 px-6">
-                    {r.audit.isLocked ? (
-                      <Badge variant="warning">
-                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Locked
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral">Open</Badge>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 max-w-xs">
-                    <div className="truncate text-neutral-800" title={r.title}>
-                      {r.title.length > 60 ? `${r.title.slice(0, 60)}...` : r.title}
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    {r.riskCategory ? (
-                      <Badge variant={riskVariant(r.riskCategory)}>{r.riskCategory}</Badge>
-                    ) : (
-                      <span className="text-neutral-400">—</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.currentStatus)}>
-                      {r.currentStatus.replace("_", " ")}
+      <Card variant="feature">
+        <NotionTableHeader
+          title="Results"
+          description="Observations matching the current filters."
+          actions={
+            <span className="inline-flex items-center px-3 py-1.5 rounded-300 bg-notion-bacSec text-sm text-notion-texSec">
+              {rows.length} {rows.length === 1 ? "observation" : "observations"}
+            </span>
+          }
+        />
+        <NotionTable>
+          <thead>
+            <NotionTableRow hoverable={false}>
+              <NotionTableCell as="th" scope="col">
+                Plant
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Audit
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Audit Status
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Observation
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Risk
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Status
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Approval
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col" align="right" className="sr-only">
+                Actions
+              </NotionTableCell>
+            </NotionTableRow>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <NotionTableRow key={row.id}>
+                <NotionTableCell className="font-medium text-gray-900">
+                  {row.plant.code}
+                </NotionTableCell>
+                <NotionTableCell className="text-xs text-text-medium">
+                  {row.audit.title || (row.audit.startDate ? row.audit.startDate.split("T")[0] : "—")}
+                </NotionTableCell>
+                <NotionTableCell>
+                  {row.audit.isLocked ? (
+                    <Badge variant="warning">
+                      <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Locked
                     </Badge>
-                  </td>
-                  <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.approvalStatus)}>
-                      {r.approvalStatus}
-                    </Badge>
-                  </td>
-                  <td className="py-4 px-6">
-                    <Link
-                      href={`/observations/${r.id}`}
-                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td className="py-8 text-neutral-500 text-center" colSpan={8}>
-                    No observations found. Try adjusting your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : (
+                    <Badge variant="neutral">Open</Badge>
+                  )}
+                </NotionTableCell>
+                <NotionTableCell className="max-w-xs">
+                  <div className="truncate text-notion-texPri" title={row.title}>
+                    {row.title.length > 60 ? `${row.title.slice(0, 60)}...` : row.title}
+                  </div>
+                </NotionTableCell>
+                <NotionTableCell>
+                  {row.riskCategory ? (
+                    <Badge variant={riskVariant(row.riskCategory)}>{row.riskCategory}</Badge>
+                  ) : (
+                    <span className="text-text-light">—</span>
+                  )}
+                </NotionTableCell>
+                <NotionTableCell>
+                  <Badge variant={statusVariant(row.currentStatus)}>
+                    {row.currentStatus.replace("_", " ")}
+                  </Badge>
+                </NotionTableCell>
+                <NotionTableCell>
+                  <Badge variant={statusVariant(row.approvalStatus)}>
+                    {row.approvalStatus}
+                  </Badge>
+                </NotionTableCell>
+                <NotionTableCell align="right" nowrap>
+                  <Link
+                    href={`/observations/${row.id}`}
+                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                  >
+                    Open →
+                  </Link>
+                </NotionTableCell>
+              </NotionTableRow>
+            ))}
+            {rows.length === 0 && (
+              <NotionTableRow hoverable={false}>
+                <NotionTableCell colSpan={8} align="center" className="py-8 notion-table-cell-muted">
+                  No observations found. Try adjusting your filters.
+                </NotionTableCell>
+              </NotionTableRow>
+            )}
+          </tbody>
+        </NotionTable>
       </Card>
     </div>
   );

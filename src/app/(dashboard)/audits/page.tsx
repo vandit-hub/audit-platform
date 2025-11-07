@@ -9,6 +9,12 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import {
+  NotionTable,
+  NotionTableCell,
+  NotionTableHeader,
+  NotionTableRow
+} from "@/components/ui/NotionTable";
 import { isCFOOrCXOTeam } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
@@ -214,68 +220,83 @@ export default function AuditsPage() {
         </div>
       )}
 
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">
-          {canManageAudits ? "All Audits" : "My Assigned Audits"}
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Title</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Period</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Lock Status</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Progress</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Auditors</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {audits.map((a, index) => (
-                <tr key={a.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                  <td className="py-4 px-6 font-medium text-neutral-900">{a.title || "—"}</td>
-                  <td className="py-4 px-6 text-neutral-700">
-                    {a.plant.code} — {a.plant.name}
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
-                    → {a.visitEndDate ? new Date(a.visitEndDate).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="py-4 px-6">
-                    {a.completedAt ? (
-                      <Badge variant="success">Completed</Badge>
-                    ) : a.isLocked ? (
-                      <Badge variant="warning">
-                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Locked
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral">Open</Badge>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600">
-                    <span className="font-medium text-neutral-900">{a.progress.done}</span>
-                    <span className="text-neutral-500">/{a.progress.total}</span>
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.assignments.map((u) => u.email ?? u.name).join(", ") || "—"}
-                  </td>
-                  <td className="py-4 px-6">
-                    <Link
-                      href={`/audits/${a.id}`}
-                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Card variant="feature">
+        <NotionTableHeader
+          title={canManageAudits ? "All Audits" : "My Assigned Audits"}
+          description="Track audit schedules, lock status, and progress at a glance."
+        />
+        <NotionTable>
+          <thead>
+            <NotionTableRow hoverable={false}>
+              <NotionTableCell as="th" scope="col">
+                Audit Title
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Plant
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Period
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Lock Status
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Progress
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col">
+                Auditors
+              </NotionTableCell>
+              <NotionTableCell as="th" scope="col" align="right" className="sr-only">
+                Actions
+              </NotionTableCell>
+            </NotionTableRow>
+          </thead>
+          <tbody>
+            {audits.map((audit) => (
+              <NotionTableRow key={audit.id}>
+                <NotionTableCell className="font-medium text-gray-900">
+                  {audit.title || "—"}
+                </NotionTableCell>
+                <NotionTableCell>
+                  {audit.plant.code} — {audit.plant.name}
+                </NotionTableCell>
+                <NotionTableCell muted nowrap>
+                  {audit.visitStartDate ? new Date(audit.visitStartDate).toLocaleDateString() : "—"} → {" "}
+                  {audit.visitEndDate ? new Date(audit.visitEndDate).toLocaleDateString() : "—"}
+                </NotionTableCell>
+                <NotionTableCell>
+                  {audit.completedAt ? (
+                    <Badge variant="success">Completed</Badge>
+                  ) : audit.isLocked ? (
+                    <Badge variant="warning">
+                      <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Locked
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral">Open</Badge>
+                  )}
+                </NotionTableCell>
+                <NotionTableCell numeric>
+                  <span className="font-semibold text-gray-900">{audit.progress.done}</span>
+                  <span className="text-text-light">/{audit.progress.total}</span>
+                </NotionTableCell>
+                <NotionTableCell muted>
+                  {audit.assignments.map((u) => u.email ?? u.name).join(", ") || "—"}
+                </NotionTableCell>
+                <NotionTableCell align="right" nowrap>
+                  <Link
+                    href={`/audits/${audit.id}`}
+                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                  >
+                    Open →
+                  </Link>
+                </NotionTableCell>
+              </NotionTableRow>
+            ))}
+          </tbody>
+        </NotionTable>
       </Card>
     </div>
   );

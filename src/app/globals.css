@@ -79,6 +79,102 @@
     @apply flex items-center justify-center text-xs font-semibold;
   }
 
+  .notion-table-wrapper {
+    @apply w-full bg-white rounded-500 border border-notion-borPri p-4 sm:p-6;
+    @apply overflow-x-auto;
+  }
+
+  .notion-table-header {
+    @apply flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between;
+  }
+
+  .notion-table-header-meta {
+    @apply flex-1 min-w-0;
+  }
+
+  .notion-table-title {
+    @apply text-lg font-semibold text-gray-900 leading-6;
+  }
+
+  .notion-table-description {
+    @apply text-sm text-text-light;
+  }
+
+  .notion-table-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .notion-table-btn {
+    @apply inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-notion-texSec;
+    @apply border border-notion-borPri rounded-300 bg-transparent transition-all duration-150;
+  }
+
+  .notion-table-btn:hover {
+    @apply bg-notion-bacHov;
+  }
+
+  .notion-database {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+  }
+
+  .notion-database thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #ffffff;
+  }
+
+  .notion-database th {
+    @apply px-3 py-2 uppercase tracking-wide text-xs font-semibold text-notion-texSec;
+    @apply bg-notion-bacSec border-b border-notion-borPri;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .notion-table-row {
+    @apply transition-all duration-150 cursor-pointer;
+  }
+
+  .notion-table-row:hover {
+    @apply bg-notion-bacHov;
+  }
+
+  .notion-table-row-static {
+    @apply cursor-default;
+  }
+
+  .notion-table-row-static:hover {
+    background: inherit;
+  }
+
+  .notion-table-cell {
+    @apply px-3 py-2.5 border-b border-notion-borPri text-notion-texPri align-middle;
+  }
+
+  .notion-table-cell-muted {
+    @apply text-text-light;
+  }
+
+  .notion-table-cell-nowrap {
+    @apply whitespace-nowrap;
+  }
+
+  .notion-table-cell-numeric {
+    @apply text-right;
+  }
+
+  .notion-database[data-density="compact"] th,
+  .notion-database[data-density="compact"] .notion-table-cell {
+    @apply py-2;
+  }
+
+  .notion-cell-checkbox {
+    @apply w-10 text-center;
+  }
+
   .notion-checkbox {
     @apply w-4 h-4 border-2 border-notion-borPri rounded-200;
     @apply cursor-pointer appearance-none transition-all duration-150;
