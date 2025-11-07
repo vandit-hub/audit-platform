@@ -659,6 +659,7 @@ Migrate existing tables to Notion style:
 - Update filters with Notion button styles
 
 #### `/observations/[id]` (detail view)
+- ✅ Updated 2025-11-07 — Header, forms, and alerts converted to Notion styling.
 - Update observation form with new components
 - Add proper card sections
 - Update attachment display
@@ -676,6 +677,7 @@ Migrate existing tables to Notion style:
 
 ### 6.7 Reports Page (`src/app/(dashboard)/reports/page.tsx`)
 
+- ✅ Updated 2025-11-07 — Overdue/due-soon tables and cards using Notion layout.
 - Update report cards with Notion style
 - Update typography hierarchy
 - Add proper spacing between sections

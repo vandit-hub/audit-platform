@@ -557,7 +557,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <button
         className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
         onClick={() => router.back()}
@@ -603,26 +603,25 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-neutral-900">Observation</h1>
-          <p className="text-base text-neutral-600 mt-2">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Observation</h1>
+          <p className="text-sm text-text-light">
             {o.plant.code} — {o.plant.name}
           </p>
-          <div className="flex items-center gap-3 mt-3">
-            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>
-              {o.approvalStatus}
-            </Badge>
-            <span className="text-sm text-neutral-500">
+          <div className="flex items-center gap-3">
+            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>{o.approvalStatus}</Badge>
+            <span className="text-xs text-text-light">
               Created {new Date(o.createdAt).toLocaleString()}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {isConnected && <PresenceBadge users={presence} currentUserId={userId} />}
-          {!isConnected && (
-            <div className="text-sm text-neutral-500 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-neutral-400 rounded-full"></span>
+          {isConnected ? (
+            <PresenceBadge users={presence} currentUserId={userId} />
+          ) : (
+            <div className="flex items-center gap-2 rounded-300 border border-border-regular bg-notion-bacSec px-3 py-1.5 text-xs text-text-light">
+              <span className="inline-block h-2 w-2 rounded-full bg-text-extraLight" />
               Disconnected
             </div>
           )}
@@ -630,12 +629,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {error && (
-        <div className="text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg">
+        <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-600">
           {error}
         </div>
       )}
 
-      <Card padding="lg">
+      <Card variant="feature">
         <form onSubmit={save} className="space-y-8">
           {/* Auditee Information Banner */}
           {isAuditee(role) && (
