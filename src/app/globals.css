@@ -5,92 +5,86 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
-    height: 100%;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  }
-
-  * {
-    @apply border-neutral-200;
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply text-neutral-900 antialiased;
+    @apply font-sans text-base text-gray-900;
+    background: #ffffff;
+  }
+
+  ::selection {
+    background: rgba(35, 131, 226, 0.28);
   }
 }
 
 @layer components {
-  /* Focus styles for accessibility */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-  }
-
-  /* Card component */
-  .card {
-    @apply bg-white rounded-lg shadow-sm border border-neutral-200;
-  }
-
-  /* Input base styles */
-  .input-base {
-    @apply w-full px-3 py-2 border border-neutral-300 rounded-md text-sm;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
-    @apply disabled:bg-neutral-100 disabled:text-neutral-500 disabled:cursor-not-allowed;
-    @apply transition-colors duration-150;
-  }
-
-  /* Button variants */
-  .btn-base {
-    @apply px-4 py-2 rounded-md font-medium text-sm transition-all duration-150;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
-    @apply disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
   .btn-primary {
-    @apply btn-base bg-primary-600 text-white;
-    @apply hover:bg-primary-700 active:bg-primary-800;
-    @apply focus:ring-primary-500;
+    @apply bg-gray-900 text-white px-4 py-2 rounded-400;
+    @apply font-medium text-sm transition-all duration-200;
+  }
+
+  .btn-primary:hover {
+    @apply bg-gray-700;
   }
 
   .btn-secondary {
-    @apply btn-base bg-white text-neutral-700 border border-neutral-300;
-    @apply hover:bg-neutral-50 active:bg-neutral-100;
-    @apply focus:ring-neutral-500;
+    @apply bg-transparent text-gray-900 px-4 py-2 rounded-400;
+    @apply font-medium text-sm transition-all duration-200;
   }
 
-  .btn-ghost {
-    @apply btn-base bg-transparent text-neutral-700;
-    @apply hover:bg-neutral-100 active:bg-neutral-200;
-    @apply focus:ring-neutral-500;
+  .btn-secondary:hover {
+    @apply bg-gray-200;
   }
 
-  .btn-destructive {
-    @apply btn-base bg-error-600 text-white;
-    @apply hover:bg-error-700 active:bg-error-800;
-    @apply focus:ring-error-500;
+  .stat-card {
+    @apply bg-gray-200 rounded-700 p-12 text-center;
   }
 
-  /* Badge variants */
-  .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium;
+  .feature-card {
+    @apply bg-white border border-border-regular rounded-700 p-8;
   }
 
-  .badge-primary {
-    @apply badge bg-primary-100 text-primary-800;
+  .notion-status {
+    @apply inline-flex items-center px-2 py-1 rounded-300;
+    @apply text-sm font-medium whitespace-nowrap;
   }
 
-  .badge-success {
-    @apply badge bg-success-100 text-success-800;
+  .status-done {
+    @apply bg-green-100 text-green-500;
   }
 
-  .badge-error {
-    @apply badge bg-error-100 text-error-800;
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-700;
   }
 
-  .badge-warning {
-    @apply badge bg-warning-100 text-warning-800;
+  .status-blocked {
+    @apply bg-pink-100 text-pink-500;
   }
 
-  .badge-neutral {
-    @apply badge bg-neutral-100 text-neutral-800;
+  .notion-tag {
+    @apply inline-flex items-center px-2 py-0.5 rounded-300;
+    @apply text-xs font-medium whitespace-nowrap;
+  }
+
+  .notion-avatar {
+    @apply w-5 h-5 rounded-full bg-blue-600 text-white;
+    @apply flex items-center justify-center text-xs font-semibold;
+  }
+
+  .notion-checkbox {
+    @apply w-4 h-4 border-2 border-notion-borPri rounded-200;
+    @apply cursor-pointer appearance-none transition-all duration-150;
+  }
+
+  .notion-checkbox:checked {
+    @apply bg-blue-600 border-blue-600;
+  }
+
+  .focus-ring {
+    @apply outline-none ring-2 ring-blue-600 ring-offset-2;
   }
 }
