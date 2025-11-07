@@ -37,74 +37,78 @@ export default function AcceptInvitePage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-to-br from-neutral-50 to-neutral-100 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4">
-            <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Accept Invitation</h1>
-          <p className="text-neutral-600">Complete your account setup to get started</p>
-        </div>
-
-        <Card padding="lg">
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg flex items-start gap-3">
-              <svg className="h-5 w-5 text-error-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+    <div className="min-h-screen bg-notion-bacPri">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center px-5 py-16 sm:px-8">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="space-y-3 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-400 bg-gray-900 text-sm font-semibold text-white">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5h16M4 5v11a2 2 0 002 2h12a2 2 0 002-2V5M10 9h4" />
               </svg>
-              <span>{error}</span>
             </div>
-          )}
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-gray-900">Accept invitation</h1>
+              <p className="text-sm text-text-light">Confirm your details to finish setting up your access</p>
+            </div>
+          </div>
 
-          <form onSubmit={onSubmit} className="space-y-6">
-            <Input
-              label="Invite Token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              required
-              placeholder="Paste your invitation token"
-              helperText="Enter the token you received from the Admin"
-            />
+          <Card variant="feature" className="space-y-6">
+            {error && (
+              <div className="flex items-start gap-2 rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-500">
+                <svg className="mt-0.5 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-11a.75.75 0 01.743.648L10.75 7v4a.75.75 0 01-1.493.102L9.25 11V7a.75.75 0 01.75-.75zm0 8a1 1 0 110 2 1 1 0 010-2z" clipRule="evenodd" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
 
-            <Input
-              label="Your Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="John Doe"
-            />
+            <form onSubmit={onSubmit} className="space-y-4">
+              <Input
+                label="Invite token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                required
+                placeholder="Paste your invitation token"
+                helperText="This token was emailed to you by the audit team"
+              />
 
-            <Input
-              type="password"
-              label="Create Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="••••••••"
-              helperText="Use at least 8 characters with letters, numbers & symbols"
-            />
+              <Input
+                label="Full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="Jane Doe"
+              />
 
-            <Button
-              type="submit"
-              variant="primary"
-              isLoading={busy}
-              className="w-full"
-            >
-              {busy ? "Setting up your account..." : "Accept Invitation"}
-            </Button>
-          </form>
-        </Card>
+              <Input
+                type="password"
+                label="Create password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                placeholder="••••••••"
+                helperText="Use at least 8 characters with letters, numbers, and symbols"
+              />
 
-        <p className="text-center mt-6 text-sm text-neutral-600">
-          Already have an account?{" "}
-          <a href="/login" className="text-primary-600 hover:text-primary-700 font-medium">
-            Sign in
-          </a>
-        </p>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={busy}
+                className="w-full"
+              >
+                {busy ? "Setting up your account..." : "Accept invitation"}
+              </Button>
+            </form>
+          </Card>
+
+          <p className="text-center text-sm text-text-light">
+            Already have an account?{" "}
+            <a href="/login" className="font-medium text-blue-600 hover:text-blue-700">
+              Sign in
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

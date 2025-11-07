@@ -40,63 +40,66 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-to-br from-primary-50 via-neutral-50 to-neutral-100 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-16 w-16 bg-primary-600 rounded-xl mb-4 shadow-lg">
-            <span className="text-white font-bold text-2xl">IA</span>
+    <div className="min-h-screen bg-notion-bacPri">
+      <div className="mx-auto flex min-h-screen max-w-6xl flex-col items-center px-5 py-16 sm:px-8">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="space-y-3 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-400 bg-gray-900 text-sm font-semibold text-white">
+              IA
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-gray-900">Sign in to EZAudit</h1>
+              <p className="text-sm text-text-light">Use your organization email address</p>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-neutral-900">Internal Audit Platform</h1>
-          <p className="text-neutral-600 mt-2">Sign in to your account</p>
+
+          <Card variant="feature" className="space-y-6">
+            {accepted && (
+              <div className="rounded-300 border border-green-500/20 bg-green-100/60 px-4 py-3 text-sm text-green-500">
+                Invite accepted successfully. Please log in to continue.
+              </div>
+            )}
+            {error && (
+              <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-500">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={onSubmit} className="space-y-4">
+              <Input
+                label="Email address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                autoFocus
+              />
+
+              <Input
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                isLoading={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+          </Card>
+
+          <p className="text-center text-xs text-text-light">
+            Secured by NextAuth • Protected access
+          </p>
         </div>
-
-        <Card padding="lg">
-          {accepted && (
-            <div className="mb-4 text-sm text-success-700 bg-success-50 border border-success-200 p-3 rounded-md">
-              ✓ Invite accepted successfully. Please log in to continue.
-            </div>
-          )}
-          {error && (
-            <div className="mb-4 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={onSubmit} className="space-y-4">
-            <Input
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              autoFocus
-            />
-
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              isLoading={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
-          </form>
-        </Card>
-
-        <p className="text-center text-xs text-neutral-500 mt-6">
-          Secured by NextAuth • Protected Access
-        </p>
       </div>
     </div>
   );

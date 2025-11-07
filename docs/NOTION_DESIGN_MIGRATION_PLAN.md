@@ -601,12 +601,14 @@ Migrate existing tables to Notion style:
 ### 6.1 Authentication Pages
 
 #### `/login` (`src/app/(auth)/login/page.tsx`)
+- ✅ Updated 2025-11-07 — Notion-styled hero, feature card, success/error messaging.
 - Update form with new Input component
 - Update buttons with Notion primary/secondary styles
 - Add proper spacing and typography hierarchy
 - Card background with subtle border
 
 #### `/accept-invite` (`src/app/(auth)/accept-invite/page.tsx`)
+- ✅ Updated 2025-11-07 — Notion layout, token helper text, refined error state.
 - Update invitation UI
 - Use Notion card styles
 - Update form inputs and buttons
