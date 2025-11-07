@@ -3,30 +3,40 @@
 import { HTMLAttributes, forwardRef } from "react";
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: "default" | "stat" | "feature";
   padding?: "none" | "sm" | "md" | "lg";
   hover?: boolean;
 }
 
 const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ padding = "md", hover = false, className = "", children, ...props }, ref) => {
-    // S-Tier: Enhanced shadows, smooth transitions, subtle hover lift
-    const baseStyles = "bg-white rounded-lg shadow-sm border border-neutral-200";
-    const hoverStyles = hover
-      ? "transition-all duration-250 ease-out hover:shadow-lg hover:-translate-y-0.5"
-      : "";
-
-    // S-Tier: More generous padding (md=6, lg=8 instead of 4, 6)
-    const paddings = {
-      none: "",
-      sm: "p-4",
-      md: "p-6",
-      lg: "p-8",
+  ({ variant = "default", padding, hover = false, className = "", children, ...props }, ref) => {
+    const baseVariants: Record<CardProps["variant"], string> = {
+      default: "bg-white border border-border-regular rounded-500",
+      stat: "bg-gray-200 rounded-700 text-center",
+      feature: "bg-white border border-border-regular rounded-700",
     };
+
+    const paddings: Record<Exclude<CardProps["padding"], undefined>, string> = {
+      none: "",
+      sm: "p-6",
+      md: "p-8",
+      lg: "p-12",
+    };
+
+    const defaultPaddingByVariant: Record<CardProps["variant"], Exclude<CardProps["padding"], undefined>> = {
+      default: "md",
+      stat: "lg",
+      feature: "md",
+    };
+
+    const resolvedPaddingKey = padding ?? defaultPaddingByVariant[variant];
+
+    const hoverStyles = hover ? "transition-all duration-200 hover:-translate-y-[1px]" : "";
 
     return (
       <div
         ref={ref}
-        className={`${baseStyles} ${hoverStyles} ${paddings[padding]} ${className}`}
+        className={`${baseVariants[variant]} ${paddings[resolvedPaddingKey]} ${hoverStyles} ${className}`}
         {...props}
       >
         {children}

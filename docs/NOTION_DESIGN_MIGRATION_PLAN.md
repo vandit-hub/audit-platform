@@ -2,7 +2,7 @@
 
 **Project**: EZAudit Audit Platform
 **Date**: 2025-11-07
-**Status**: Phases 1-2 complete (2025-11-07); Phase 3 in progress
+**Status**: Phases 1-3 complete (2025-11-07); Phase 4 in progress
 **Approach**: Incremental migration using Tailwind CSS with Notion design tokens
 
 ---
@@ -382,6 +382,8 @@ Add Notion-inspired component classes:
 
 **Objective**: Update fundamental UI components to use Notion design tokens
 
+> ✅ Completed 2025-11-07 — Core UI components aligned to Notion system (`Button`, `Card`, `Input`, `Select`, `StatusBadge`, `Avatar`, `Checkbox`, `Tag`).
+
 ### 3.1 Button Component (`src/components/ui/Button.tsx`)
 
 **Changes**:
@@ -389,8 +391,9 @@ Add Notion-inspired component classes:
   - **Primary**: Dark background (`bg-gray-900`), white text, hover to `bg-gray-700`
   - **Secondary**: Transparent with hover background (`bg-gray-200`)
   - **Ghost**: Minimal style with subtle hover
+  - **Destructive**: Pink emphasis (`bg-pink-500`)
 - Update sizes: `sm`, `md` (default), `lg`
-- Padding: 8px 16px (Notion spec)
+- Padding: ~8px × 16px (Notion spec)
 - Border radius: `rounded-400` (6px)
 - Font: 14px, weight 500
 - Transitions: 200ms
@@ -398,49 +401,51 @@ Add Notion-inspired component classes:
 ### 3.2 Card Component (`src/components/ui/Card.tsx`)
 
 **Changes**:
-- Default variant: White background, subtle border (`rgba(0,0,0,0.08)`)
-- Stat card variant: Gray background (`bg-gray-200`), 12px radius
+- Default variant: White background, subtle border (`border-border-regular`)
+- Stat card variant: Gray background (`bg-gray-200`), 12px radius, centered content
 - Feature card variant: White with border, 12px radius
-- Remove heavy shadows, use minimal elevation
-- Padding options: `p-6` (24px), `p-8` (32px), `p-12` (48px)
+- Minimal elevation, softened hover translate
+- Padding options: `p-6` (24px), `p-8` (32px), `p-12` (48px) with variant defaults
 
 ### 3.3 Input Component (`src/components/ui/Input.tsx`)
 
 **Changes**:
 - Border: `border-notion-borPri` (subtle gray)
-- Focus state: Blue border (`border-blue-600`) + focus ring
-- Font size: 14-16px
-- Padding: 8px 12px
+- Focus state: Blue highlight (`border-blue-600`) + focus ring
+- Font size: 14px body copy
+- Padding: 8px × 12px
 - Border radius: `rounded-400` (6px)
 - Placeholder: `text-gray-500`
 
 ### 3.4 Select Component (`src/components/ui/Select.tsx`)
 
 **Changes**:
-- Match Input styling
+- Matches Input styling for consistency
 - Custom dropdown chevron icon
-- Hover state: `bg-notion-bacHov`
+- Hover state: `hover:border-gray-400`
+- Focus: Blue ring treatment
 
-### 3.5 Badge Component (`src/components/ui/Badge.tsx`)
+### 3.5 Status Badge Component (`src/components/ui/StatusBadge.tsx`)
 
 **Changes**:
-- Rename to `StatusBadge` for clarity
+- Renamed legacy `Badge` to `StatusBadge`
 - Status variants:
-  - **Done**: Green background/text (`bg-green-100`, `text-green-500`)
-  - **In Progress**: Blue background/text (`bg-blue-100`, `text-blue-700`)
-  - **Not Started**: Gray background/text (`bg-notion-bacSec`, `text-notion-texSec`)
-  - **Blocked**: Pink background/text (`bg-pink-100`, `text-pink-500`)
-- Padding: 3px 8px
+  - **Done**: `bg-green-100` / `text-green-500`
+  - **In Progress**: `bg-blue-100` / `text-blue-700`
+  - **Not Started**: `bg-notion-bacSec` / `text-notion-texSec`
+  - **Blocked**: `bg-pink-100` / `text-pink-500`
+- Padding: 3px × 8px
 - Font: 13px, weight 500
 - Border radius: `rounded-300` (5px)
+- Backwards-compatible aliases (`primary`, `success`, `warning`, `error`, `neutral`)
 
-### 3.6 New Components to Create
+### 3.6 New Components
 
 #### Avatar Component (`src/components/ui/Avatar.tsx`)
 ```tsx
 // Circular avatar with initials
 // Size: 20px × 20px
-// Background: blue-600 (customizable)
+// Background: tone variants (default blue-600)
 // Text: 10px, weight 600, white
 ```
 
@@ -448,7 +453,7 @@ Add Notion-inspired component classes:
 ```tsx
 // Custom Notion-style checkbox
 // Size: 16px × 16px
-// Border: 1.5px solid gray
+// Border: uses Notion border token
 // Checked: Blue background with white checkmark
 ```
 
@@ -456,7 +461,7 @@ Add Notion-inspired component classes:
 ```tsx
 // Multi-select tag component
 // Variants: blue, green, purple, pink
-// Padding: 2px 8px
+// Padding: 2px × 8px
 // Font: 12px, weight 500
 ```
 
@@ -465,7 +470,7 @@ Add Notion-inspired component classes:
 - ✅ Updated Card.tsx
 - ✅ Updated Input.tsx
 - ✅ Updated Select.tsx
-- ✅ Updated Badge.tsx → StatusBadge.tsx
+- ✅ StatusBadge.tsx added (Badge alias retained for compatibility)
 - ✅ New Avatar.tsx component
 - ✅ New Checkbox.tsx component
 - ✅ New Tag.tsx component
