@@ -112,20 +112,32 @@ export default function AuditsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Audits</h1>
-        <p className="text-base text-neutral-600 mt-2">Create and manage audit schedules</p>
+    <div className="space-y-10">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Audits</h1>
+          <p className="text-sm text-text-light">Plan field visits, assign teams, and monitor audit progress.</p>
+        </div>
+        {canManageAudits && (
+          <Button variant="primary" onClick={() => document.getElementById("create-audit")?.scrollIntoView({ behavior: "smooth" })}>
+            New audit
+          </Button>
+        )}
       </div>
 
       {canManageAudits && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Audit (CFO/CXO Team)</h2>
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
+        <Card variant="feature" id="create-audit" className="space-y-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Create audit</h2>
+              <p className="text-sm text-text-light">Assign a plant, set timelines, and capture the audit objective.</p>
             </div>
-          )}
+            {error && (
+              <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-3 py-2 text-sm text-pink-500">
+                {error}
+              </div>
+            )}
+          </div>
           <form onSubmit={onCreate} className="space-y-6">
             <div className="grid sm:grid-cols-2 gap-6">
               <Select
@@ -156,7 +168,7 @@ export default function AuditsPage() {
                   Audit Purpose
                 </label>
                 <textarea
-                  className="w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all duration-200 ease-out shadow-sm border-neutral-300 bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-primary-100 focus:outline-none focus:ring-4"
+                  className="w-full rounded-400 border border-notion-borPri bg-white px-3.5 py-2.5 text-sm text-notion-texPri transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/40"
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
                   placeholder="Describe the purpose and scope of this audit..."
@@ -210,13 +222,8 @@ export default function AuditsPage() {
       )}
 
       {!canManageAudits && (
-        <div className="bg-primary-50 border border-primary-200 rounded-lg p-5 text-sm text-primary-800">
-          <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p>You can view audits assigned to you below. Only CFO and CXO Team can create new audits.</p>
-          </div>
+        <div className="rounded-500 border border-blue-500/20 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          You can view audits assigned to you below. Only the CFO and CXO team can create new audits.
         </div>
       )}
 

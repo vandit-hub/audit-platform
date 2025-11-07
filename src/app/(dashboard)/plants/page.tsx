@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/contexts/ToastContext";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -59,45 +60,56 @@ export default function PlantsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* S-Tier: Enhanced typography hierarchy (4xl instead of 3xl) */}
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Plants</h1>
-        <p className="text-base text-neutral-600 mt-2">Manage facilities and locations</p>
+    <div className="space-y-10">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Plants</h1>
+          <p className="text-sm text-text-light">Create and manage audit locations across your organization.</p>
+        </div>
+        <Button asChild variant="primary">
+          <Link href="#create-plant">Add plant</Link>
+        </Button>
       </div>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Create Plant (Admin only)</h2>
-        {error && (
-          <div className="mb-4 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-            {error}
+      <Card variant="feature" id="create-plant">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Create plant</h2>
+            <p className="text-sm text-text-light">Admins can add new facilities with a unique code and name.</p>
           </div>
-        )}
-        <form onSubmit={onSubmit} className="flex gap-3">
-          <Input
-            placeholder="Code (e.g., PLT001)"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-48"
-            required
-          />
-          <Input
-            placeholder="Plant Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1"
-            required
-          />
-          <Button type="submit" variant="primary" isLoading={loading}>
-            {loading ? "Adding..." : "Add Plant"}
-          </Button>
-        </form>
+          {error && (
+            <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-500">
+              {error}
+            </div>
+          )}
+          <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-[180px_1fr_auto]">
+            <Input
+              label="Plant code"
+              placeholder="PLT-001"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              required
+            />
+            <Input
+              label="Plant name"
+              placeholder="Pune Manufacturing"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+            <div className="flex items-end">
+              <Button type="submit" variant="primary" isLoading={loading} className="w-full">
+                {loading ? "Adding…" : "Add plant"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </Card>
 
       <Card variant="feature">
         <NotionTableHeader
-          title="Existing Plants"
-          description="Review registered facilities and their codes."
+          title="Existing plants"
+          description="All plants available for assignment and reporting."
         />
         {plants.length === 0 ? (
           <EmptyState
@@ -120,7 +132,7 @@ export default function PlantsPage() {
                   Name
                 </NotionTableCell>
                 <NotionTableCell as="th" scope="col" nowrap>
-                  Created
+                  Created on
                 </NotionTableCell>
               </NotionTableRow>
             </thead>
@@ -130,7 +142,7 @@ export default function PlantsPage() {
                   <NotionTableCell className="font-semibold text-gray-900">
                     {plant.code}
                   </NotionTableCell>
-                  <NotionTableCell>{plant.name}</NotionTableCell>
+                  <NotionTableCell className="text-text-medium">{plant.name}</NotionTableCell>
                   <NotionTableCell muted nowrap>
                     {new Date(plant.createdAt).toLocaleDateString()}
                   </NotionTableCell>
