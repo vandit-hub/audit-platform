@@ -624,6 +624,7 @@ Migrate existing tables to Notion style:
 
 ### 6.3 Plants Page (`src/app/(dashboard)/plants/page.tsx`)
 
+- ✅ Updated 2025-11-07 — Feature card creation flow and Notion table layout.
 - Update table to NotionTable component
 - Add status badges for plant status
 - Update action buttons
@@ -633,6 +634,7 @@ Migrate existing tables to Notion style:
 ### 6.4 Audits Pages
 
 #### `/audits` (list view)
+- ✅ Updated 2025-11-07 — Notion-feature creation card and table refresh.
 - Convert to NotionTable
 - Add status badges (Done, In Progress, Not Started)
 - Add tags for audit types
@@ -648,6 +650,7 @@ Migrate existing tables to Notion style:
 ### 6.5 Observations Pages
 
 #### `/observations` (list view)
+- ✅ Updated 2025-11-07 — Filters, creation workflow, and results table aligned to Notion components.
 - Convert to NotionTable
 - Add status badges for approval status
 - Add priority indicators

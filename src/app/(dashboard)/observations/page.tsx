@@ -184,125 +184,152 @@ export default function ObservationsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Observations</h1>
-        <p className="text-base text-neutral-600 mt-2">Track and manage audit findings</p>
+    <div className="space-y-10">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Observations</h1>
+          <p className="text-sm text-text-light">Monitor findings, approval stages, and risk levels across audits.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={resetFilters}>
+            Reset filters
+          </Button>
+          <Button variant="ghost" onClick={exportCsv}>
+            Export CSV
+          </Button>
+          {canCreate && (
+            <Button
+              variant="primary"
+              onClick={() => document.getElementById("create-observation")?.scrollIntoView({ behavior: "smooth" })}
+            >
+              New observation
+            </Button>
+          )}
+        </div>
       </div>
 
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
+      <Card variant="feature">
         <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Basic Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Select label="Plant" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
-                <option value="">All Plants</option>
-                {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-              </Select>
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Filter observations</h2>
+            <p className="text-sm text-text-light">Combine audit, timeline, and status filters to narrow results.</p>
+          </div>
 
-              <Select label="Audit" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
-                <option value="">All Audits</option>
-                {audits.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
-                  </option>
-                ))}
-              </Select>
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-light">Audit context</p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Select label="Plant" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
+                  <option value="">All plants</option>
+                  {plants.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} — {p.name}
+                    </option>
+                  ))}
+                </Select>
+                <Select label="Audit" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
+                  <option value="">All audits</option>
+                  {audits.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  type="date"
+                  label="Audit start"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <Input
+                  type="date"
+                  label="Audit end"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
 
-              <Input
-                type="date"
-                label="Audit Start Date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-light">Status & risk</p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Select label="Risk" value={risk} onChange={(e) => setRisk(e.target.value)}>
+                  <option value="">All risk levels</option>
+                  <option value="A">Risk A (High)</option>
+                  <option value="B">Risk B (Medium)</option>
+                  <option value="C">Risk C (Low)</option>
+                </Select>
+                <Select label="Process" value={proc} onChange={(e) => setProc(e.target.value)}>
+                  <option value="">All processes</option>
+                  <option value="O2C">O2C</option>
+                  <option value="P2P">P2P</option>
+                  <option value="R2R">R2R</option>
+                  <option value="INVENTORY">Inventory</option>
+                </Select>
+                <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option value="">Any status</option>
+                  <option value="PENDING_MR">Pending MR</option>
+                  <option value="MR_UNDER_REVIEW">MR under review</option>
+                  <option value="REFERRED_BACK">Referred back</option>
+                  <option value="OBSERVATION_FINALISED">Observation finalised</option>
+                  <option value="RESOLVED">Resolved</option>
+                </Select>
+                <Select label="Published" value={published} onChange={(e) => setPublished(e.target.value)}>
+                  <option value="">Any</option>
+                  <option value="1">Published</option>
+                  <option value="0">Unpublished</option>
+                </Select>
+              </div>
+            </div>
 
-              <Input
-                type="date"
-                label="Audit End Date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-text-light">Sort & search</p>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Select label="Sort by" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  <option value="createdAt">Created date</option>
+                  <option value="updatedAt">Updated date</option>
+                  <option value="riskCategory">Risk category</option>
+                  <option value="currentStatus">Current status</option>
+                  <option value="approvalStatus">Approval status</option>
+                </Select>
+                <Select label="Order" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+                  <option value="desc">Newest first</option>
+                  <option value="asc">Oldest first</option>
+                </Select>
+                <Input
+                  label="Search"
+                  placeholder="Search by title or keyword"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Advanced Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Select label="Risk Category" value={risk} onChange={(e) => setRisk(e.target.value)}>
-                <option value="">All Risks</option>
-                <option value="A">Risk A (High)</option>
-                <option value="B">Risk B (Medium)</option>
-                <option value="C">Risk C (Low)</option>
-              </Select>
-
-              <Select label="Process" value={proc} onChange={(e) => setProc(e.target.value)}>
-                <option value="">All Processes</option>
-                <option value="O2C">O2C</option>
-                <option value="P2P">P2P</option>
-                <option value="R2R">R2R</option>
-                <option value="INVENTORY">Inventory</option>
-              </Select>
-
-              <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All Statuses</option>
-                <option value="PENDING_MR">Pending MR</option>
-                <option value="MR_UNDER_REVIEW">MR Under Review</option>
-                <option value="REFERRED_BACK">Referred Back</option>
-                <option value="OBSERVATION_FINALISED">Observation Finalised</option>
-                <option value="RESOLVED">Resolved</option>
-              </Select>
-
-              <Select label="Published" value={published} onChange={(e) => setPublished(e.target.value)}>
-                <option value="">Any</option>
-                <option value="1">Published</option>
-                <option value="0">Unpublished</option>
-              </Select>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border-regular pt-4">
+            <Button variant="secondary" onClick={resetFilters}>
+              Clear filters
+            </Button>
+            <Button variant="primary" onClick={loadRows}>
+              Apply filters
+            </Button>
           </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Sort & Search</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Select label="Sort By" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="createdAt">Created Date</option>
-                <option value="updatedAt">Updated Date</option>
-                <option value="riskCategory">Risk Category</option>
-                <option value="currentStatus">Current Status</option>
-                <option value="approvalStatus">Approval Status</option>
-              </Select>
-
-              <Select label="Order" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </Select>
-
-              <Input
-                label="Search"
-                placeholder="Search observations..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3 pt-2 border-t border-neutral-100">
-          <Button variant="secondary" onClick={resetFilters}>Reset Filters</Button>
-          <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
         </div>
       </Card>
 
       {canCreate && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Observation (Admin/Auditor)</h2>
+        <Card variant="feature" id="create-observation" className="space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-gray-900">Create observation</h2>
+            <p className="text-sm text-text-light">Draft a new finding and link it to the appropriate audit.</p>
+          </div>
           {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
+            <div className="rounded-300 border border-pink-500/30 bg-pink-100 px-4 py-3 text-sm text-pink-500">
               {error}
             </div>
           )}
-          <form onSubmit={create} className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
+          <form onSubmit={create} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
               <Select
                 label="Audit"
                 value={auditId}
@@ -324,12 +351,12 @@ export default function ObservationsPage() {
                 onChange={(e) => setObservationText(e.target.value)}
                 required
                 className="md:col-span-2"
-                placeholder="Enter observation details..."
+                placeholder="Summarize the issue or gap..."
               />
             </div>
 
             <Button type="submit" variant="primary" isLoading={busy}>
-              {busy ? "Creating…" : "Create Observation"}
+              {busy ? "Creating…" : "Create observation"}
             </Button>
           </form>
         </Card>
