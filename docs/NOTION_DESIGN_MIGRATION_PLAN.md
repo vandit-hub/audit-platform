@@ -684,6 +684,7 @@ Migrate existing tables to Notion style:
 ### 6.8 Admin Pages
 
 #### `/admin/users`
+- ✅ Updated 2025-11-07 — Invitation workflow uses Notion feature card and success banner.
 - Convert user table to NotionTable
 - Add role badges
 - Add avatars

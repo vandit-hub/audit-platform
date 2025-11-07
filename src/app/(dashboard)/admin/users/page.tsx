@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
@@ -23,6 +23,11 @@ export default function AdminUsersPage() {
   if (!session?.user?.role || !isCFOOrCXOTeam(session.user.role)) {
     redirect("/");
   }
+
+  const inviteUrl = useMemo(() => {
+    if (typeof window === "undefined" || !inviteToken) return "";
+    return `${window.location.origin}/accept-invite?token=${inviteToken}`;
+  }, [inviteToken]);
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,16 +96,19 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">User Management</h1>
-        <p className="text-base text-neutral-600 mt-2">Invite new users to the audit platform</p>
+    <div className="space-y-10">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">User management</h1>
+        <p className="text-sm text-text-light">Send role-based invitations to the audit platform.</p>
       </div>
 
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Invite New User</h2>
+      <Card variant="feature" className="space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold text-gray-900">Invite new user</h2>
+          <p className="text-sm text-text-light">Choose the role, expiry, and send a secure invite link.</p>
+        </div>
 
-        <form onSubmit={handleInviteUser} className="space-y-6">
+        <form onSubmit={handleInviteUser} className="space-y-4">
           <Input
             type="email"
             label="Email Address"
@@ -140,39 +148,34 @@ export default function AdminUsersPage() {
             type="submit"
             variant="primary"
             isLoading={isLoading}
-            className="w-full"
           >
             {isLoading ? "Creating Invitation..." : "Send Invitation"}
           </Button>
         </form>
 
         {inviteToken && (
-          <div className="mt-6 p-5 bg-primary-50 border border-primary-200 rounded-lg">
-            <div className="flex items-start gap-3 mb-4">
-              <svg className="h-6 w-6 text-primary-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="rounded-400 border border-blue-500/20 bg-blue-50 p-4">
+            <div className="flex items-start gap-3">
+              <svg className="mt-0.5 h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <div>
-                <h3 className="text-sm font-semibold text-primary-900 mb-1">Invitation Created Successfully</h3>
-                <p className="text-sm text-primary-700">
-                  Share this invitation link with the user:
-                </p>
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-gray-900">Invitation created</h3>
+                  <p className="text-sm text-text-light">Share this link with the user to complete their setup.</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="text"
+                    readOnly
+                    value={inviteUrl}
+                    className="flex-1 rounded-400 border border-notion-borPri bg-white px-3.5 py-2 text-sm text-notion-texPri focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/30"
+                  />
+                  <Button onClick={copyInviteLink} variant="primary">
+                    Copy link
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`${window.location.origin}/accept-invite?token=${inviteToken}`}
-                className="flex-1 px-3.5 py-2.5 text-sm bg-white border border-primary-300 rounded-lg focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
-              />
-              <Button
-                onClick={copyInviteLink}
-                variant="primary"
-                size="md"
-              >
-                Copy
-              </Button>
             </div>
           </div>
         )}
