@@ -691,6 +691,7 @@ Migrate existing tables to Notion style:
 - Update action buttons
 
 #### `/admin/import`
+- ✅ Updated 2025-11-07 — Notion feature cards framing template links and uploader.
 - Update import UI
 - Use Notion card styles
 - Update buttons and inputs

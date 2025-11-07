@@ -1,18 +1,11 @@
-import { auth } from "@/lib/auth";
-import { isCFO } from "@/lib/rbac";
+import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import React from "react";
+import { auth } from "@/lib/auth";
+import { isCFO } from "@/lib/rbac";
+import Card from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 import { ClientUploader } from "./ClientUploader";
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mb-8">
-      <h2 className="text-xl font-semibold mb-2">{title}</h2>
-      <div className="rounded border p-4 bg-white">{children}</div>
-    </section>
-  );
-}
 
 export default async function ImportPage() {
   const session = await auth();
@@ -20,30 +13,39 @@ export default async function ImportPage() {
 
   if (!isCFO((session.user as any)?.role)) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Data Import</h1>
-        <p className="text-red-600">You do not have permission to access this page.</p>
+      <div className="space-y-4">
+        <h1 className="text-3xl font-semibold text-gray-900">Data import</h1>
+        <p className="text-sm text-pink-600">You do not have permission to access this page.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Data Import (Excel)</h1>
-      <p className="text-gray-600">
-        Upload a single .xlsx with sheets <code>Plants</code>, <code>Audits</code>, and <code>Observations</code>. First run a dry-run to validate, then import.
-      </p>
+    <div className="space-y-10">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold text-gray-900 sm:text-4xl">Data import (Excel)</h1>
+        <p className="text-sm text-text-light">
+          Upload a single workbook containing `Plants`, `Audits`, and `Observations` sheets. Validate it first, then run the
+          import.
+        </p>
+      </div>
 
-      <Section title="Template & Docs">
-        <div className="flex gap-4">
-          <Link className="text-blue-600 underline" href="/api/v1/import/template">Download template</Link>
-          <Link className="text-blue-600 underline" href="/docs/import-spec">Read import spec</Link>
+      <Card variant="feature" className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Template & documentation</h2>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="secondary">
+            <Link href="/api/v1/import/template">Download template</Link>
+          </Button>
+          <Button asChild variant="ghost">
+            <Link href="/docs/import-spec">Read import spec</Link>
+          </Button>
         </div>
-      </Section>
+      </Card>
 
-      <Section title="Upload & Validate">
+      <Card variant="feature" className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Upload & validate</h2>
         <ClientUploader />
-      </Section>
+      </Card>
     </div>
   );
 }
