@@ -10,7 +10,8 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import Badge from "@/components/ui/Badge";
+import StatusBadge from "@/components/ui/StatusBadge";
+import Avatar from "@/components/ui/Avatar";
 import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
@@ -424,16 +425,20 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     return false;
   }
 
-  function getFieldClassName(fieldName: string, baseClassName: string = "border rounded px-3 py-2 w-full"): string {
+  function getFieldClassName(
+    fieldName: string,
+    baseClassName: string =
+      "w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+  ): string {
     const locked = isFieldLocked(fieldName);
     const disabled = isFieldDisabled(fieldName);
 
     if (locked) {
-      return `${baseClassName} bg-orange-50 border-orange-300`;
+      return `${baseClassName} bg-blue-100 border-blue-200 text-blue-700`;
     }
 
     if (disabled) {
-      return `${baseClassName} bg-gray-50 border-gray-200 cursor-not-allowed`;
+      return `${baseClassName} bg-gray-200 text-text-light border-gray-300 cursor-not-allowed`;
     }
 
     return baseClassName;
@@ -524,7 +529,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   if (!o) return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-center">
-        <svg className="animate-spin h-12 w-12 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -559,7 +564,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="space-y-10">
       <button
-        className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+        className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
         onClick={() => router.back()}
       >
         <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -570,14 +575,14 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
       {/* Audit Lock Banner */}
       {o.audit?.isLocked && !canOverride && (
-        <div className="bg-warning-50 border-l-4 border-warning-500 rounded-lg p-5">
+        <div className="rounded-500 border border-blue-200 bg-blue-100/70 p-5">
           <div className="flex items-start gap-3">
-            <svg className="h-6 w-6 text-warning-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-warning-900 mb-1">Parent Audit is Locked</h3>
-              <p className="text-sm text-warning-800">
+              <h3 className="mb-1 text-sm font-semibold text-blue-700">Parent Audit is Locked</h3>
+              <p className="text-sm text-text-medium">
                 This observation's parent audit has been locked. Most operations are restricted.
                 {canOverride && <span className="font-medium"> CFO can still make changes.</span>}
               </p>
@@ -587,14 +592,14 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       )}
 
       {o.audit?.completedAt && (
-        <div className="bg-success-50 border-l-4 border-success-500 rounded-lg p-5">
+        <div className="rounded-500 border border-green-200 bg-green-100/70 p-5">
           <div className="flex items-start gap-3">
-            <svg className="h-6 w-6 text-success-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div className="flex-1">
-              <h3 className="text-sm font-semibold text-success-900 mb-1">Parent Audit Completed</h3>
-              <p className="text-sm text-success-800">
+              <h3 className="mb-1 text-sm font-semibold text-green-600">Parent Audit Completed</h3>
+              <p className="text-sm text-text-medium">
                 This observation's parent audit was completed on {new Date(o.audit.completedAt).toLocaleString()}.
                 {canOverride && <span className="font-medium"> CFO can still make changes.</span>}
               </p>
@@ -610,7 +615,9 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             {o.plant.code} — {o.plant.name}
           </p>
           <div className="flex items-center gap-3">
-            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>{o.approvalStatus}</Badge>
+            <StatusBadge variant={getApprovalBadgeVariant(o.approvalStatus)}>
+              {o.approvalStatus}
+            </StatusBadge>
             <span className="text-xs text-text-light">
               Created {new Date(o.createdAt).toLocaleString()}
             </span>
@@ -640,38 +647,38 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           {isAuditee(role) && (
             <div className="mb-6">
               {!o.assignments?.some(a => a.auditee.id === userId) ? (
-                <div className="bg-warning-50 border border-warning-200 rounded-lg p-4">
+                <div className="rounded-400 border border-blue-200 bg-blue-100/70 p-4">
                   <div className="flex items-start gap-3">
-                    <svg className="h-5 w-5 text-warning-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                     <div>
-                      <p className="text-sm font-semibold text-warning-800">You are not assigned to this observation</p>
-                      <p className="text-xs text-warning-700 mt-1">You cannot edit any fields until you are assigned by an auditor or audit head.</p>
+                      <p className="text-sm font-semibold text-blue-700">You are not assigned to this observation</p>
+                      <p className="mt-1 text-xs text-text-medium">You cannot edit any fields until you are assigned by an auditor or audit head.</p>
                     </div>
                   </div>
                 </div>
               ) : o.audit?.isLocked ? (
-                <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+                <div className="rounded-400 border border-pink-200 bg-pink-100/80 p-4">
                   <div className="flex items-start gap-3">
-                    <svg className="h-5 w-5 text-error-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     <div>
-                      <p className="text-sm font-semibold text-error-800">This audit is locked</p>
-                      <p className="text-xs text-error-700 mt-1">You cannot edit fields at this time. Only CFO can make changes.</p>
+                      <p className="text-sm font-semibold text-pink-600">This audit is locked</p>
+                      <p className="mt-1 text-xs text-text-medium">You cannot edit fields at this time. Only CFO can make changes.</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+                <div className="rounded-400 border border-green-200 bg-green-100/70 p-4">
                   <div className="flex items-start gap-3">
-                    <svg className="h-5 w-5 text-success-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div>
-                      <p className="text-sm font-semibold text-success-800">You can edit auditee fields</p>
-                      <p className="text-xs text-success-700 mt-1">Fields in the "Auditee Section" below are editable. Other fields are read-only.</p>
+                      <p className="text-sm font-semibold text-green-700">You can edit auditee fields</p>
+                      <p className="mt-1 text-xs text-text-medium">Fields in the "Auditee Section" below are editable. Other fields are read-only.</p>
                     </div>
                   </div>
                 </div>
@@ -680,24 +687,29 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           )}
 
           {/* Section 1: Auditor Section */}
-          <div className="border-l-4 border-primary-500 pl-4">
-            <h2 className="text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wider">Auditor Section — Fields managed by auditors and audit heads</h2>
-            <p className="text-xs text-neutral-600 mb-4 pb-3 border-b border-neutral-200">
-              Visible to all, editable by auditors and audit heads (when in draft or rejected status)
-            </p>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <div className="border-b border-border-regular pb-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-light">Auditor Section</p>
+              <p className="mt-2 text-sm text-text-medium">
+                Fields managed by auditors and audit heads. Editable while the observation is in draft or rejected status.
+              </p>
+            </div>
+          <div className="grid gap-6 md:grid-cols-2">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Observation Text *</label>
+                <label className="block text-sm font-medium text-text-medium">Observation Text *</label>
                 {isFieldLocked("observationText") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <textarea
-                className={getFieldClassName("observationText", "border rounded px-3 py-2 w-full h-24")}
+                className={getFieldClassName(
+                  "observationText",
+                  "h-28 w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.observationText}
                 onChange={(e) => setField("observationText", e.target.value)}
                 disabled={isFieldDisabled("observationText")}
@@ -706,16 +718,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Risks Involved</label>
+                <label className="block text-sm font-medium text-text-medium">Risks Involved</label>
                 {isFieldLocked("risksInvolved") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <textarea
-                className={getFieldClassName("risksInvolved", "border rounded px-3 py-2 w-full h-24")}
+                className={getFieldClassName(
+                  "risksInvolved",
+                  "h-28 w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.risksInvolved}
                 onChange={(e) => setField("risksInvolved", e.target.value)}
                 disabled={isFieldDisabled("risksInvolved")}
@@ -723,16 +738,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Risk Category</label>
+                <label className="block text-sm font-medium text-text-medium">Risk Category</label>
                 {isFieldLocked("riskCategory") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <select
-                className={getFieldClassName("riskCategory")}
+                className={getFieldClassName(
+                  "riskCategory",
+                  "w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.riskCategory}
                 onChange={(e) => setField("riskCategory", e.target.value)}
                 disabled={isFieldDisabled("riskCategory")}
@@ -745,16 +763,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Likely Impact</label>
+                <label className="block text-sm font-medium text-text-medium">Likely Impact</label>
                 {isFieldLocked("likelyImpact") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <select
-                className={getFieldClassName("likelyImpact")}
+                className={getFieldClassName(
+                  "likelyImpact",
+                  "w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.likelyImpact}
                 onChange={(e) => setField("likelyImpact", e.target.value)}
                 disabled={isFieldDisabled("likelyImpact")}
@@ -766,16 +787,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Concerned Process</label>
+                <label className="block text-sm font-medium text-text-medium">Concerned Process</label>
                 {isFieldLocked("concernedProcess") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <select
-                className={getFieldClassName("concernedProcess")}
+                className={getFieldClassName(
+                  "concernedProcess",
+                  "w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.concernedProcess}
                 onChange={(e) => setField("concernedProcess", e.target.value)}
                 disabled={isFieldDisabled("concernedProcess")}
@@ -789,10 +813,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Auditor Person</label>
+                <label className="block text-sm font-medium text-text-medium">Auditor Person</label>
                 {isFieldLocked("auditorPerson") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
@@ -808,18 +832,20 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Section 2: Auditee Section */}
-        <div className="border-l-4 border-success-500 pl-4">
-          <h2 className="text-sm font-semibold text-neutral-700 mb-2 uppercase tracking-wider">Auditee Section — Fields managed by assigned auditees</h2>
-          <p className="text-xs text-neutral-600 mb-4 pb-3 border-b border-neutral-200">
-            Visible to all, editable by assigned auditees (even after approval, while audit is open)
-          </p>
-          <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <div className="border-b border-border-regular pb-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-light">Auditee Section</p>
+            <p className="mt-2 text-sm text-text-medium">
+              Fields managed by assigned auditees. Editable when the parent audit is unlocked and you are assigned.
+            </p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Auditee Person (Tier 1)</label>
+                <label className="block text-sm font-medium text-text-medium">Auditee Person (Tier 1)</label>
                 {isFieldLocked("auditeePersonTier1") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
@@ -833,10 +859,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Auditee Person (Tier 2)</label>
+                <label className="block text-sm font-medium text-text-medium">Auditee Person (Tier 2)</label>
                 {isFieldLocked("auditeePersonTier2") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
@@ -850,16 +876,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Auditee Feedback</label>
+                <label className="block text-sm font-medium text-text-medium">Auditee Feedback</label>
                 {isFieldLocked("auditeeFeedback") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <textarea
-                className={getFieldClassName("auditeeFeedback", "border rounded px-3 py-2 w-full h-24")}
+                className={getFieldClassName(
+                  "auditeeFeedback",
+                  "h-28 w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.auditeeFeedback}
                 onChange={(e) => setField("auditeeFeedback", e.target.value)}
                 disabled={isFieldDisabled("auditeeFeedback")}
@@ -867,16 +896,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm">Auditor Response to Auditee Remarks</label>
+                <label className="block text-sm font-medium text-text-medium">Auditor Response to Auditee Remarks</label>
                 {isFieldLocked("auditorResponseToAuditee") && (
-                  <div className="flex items-center text-xs text-orange-600">
-                    <span className="mr-1">🔒</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600">
+                    <span aria-hidden>🔒</span>
                     Locked
                   </div>
                 )}
               </div>
               <textarea
-                className={getFieldClassName("auditorResponseToAuditee", "border rounded px-3 py-2 w-full h-24")}
+                className={getFieldClassName(
+                  "auditorResponseToAuditee",
+                  "h-28 w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+                )}
                 value={draft.auditorResponseToAuditee}
                 onChange={(e) => setField("auditorResponseToAuditee", e.target.value)}
                 disabled={isFieldDisabled("auditorResponseToAuditee")}
@@ -886,19 +918,22 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
 
         {/* Current Status */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid gap-6 md:grid-cols-2">
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm">Current Status</label>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-sm font-medium text-text-medium">Current Status</label>
               {isFieldLocked("currentStatus") && (
-                <div className="flex items-center text-xs text-orange-600">
-                  <span className="mr-1">🔒</span>
+                <div className="flex items-center gap-1 text-xs text-blue-600">
+                  <span aria-hidden>🔒</span>
                   Locked
                 </div>
               )}
             </div>
             <select
-              className={getFieldClassName("currentStatus")}
+              className={getFieldClassName(
+                "currentStatus",
+                "w-full rounded-400 border border-notion-borPri bg-white px-3 py-2 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
+              )}
               value={draft.currentStatus}
               onChange={(e) => setField("currentStatus", e.target.value)}
               disabled={isFieldDisabled("currentStatus")}
@@ -911,7 +946,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </select>
           </div>
         </div>
-        <div className="flex gap-3 flex-wrap pt-4 border-t border-neutral-200">
+        <div className="flex flex-wrap gap-3 border-t border-border-regular pt-4">
           <Button type="submit" variant="primary">Save Changes</Button>
           {auditorLockedByApproval && (
             <Button type="button" variant="secondary" onClick={requestChange}>
@@ -979,17 +1014,17 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <div className="flex flex-col gap-2">
               {/* Show locked fields and unlock buttons */}
               {o.lockedFields && o.lockedFields.length > 0 && (
-                <div className="bg-orange-50 border border-orange-200 rounded p-3">
-                  <div className="text-sm font-medium text-orange-800 mb-2">
+                <div className="rounded-400 border border-blue-200 bg-blue-100/70 p-3">
+                  <div className="mb-2 text-sm font-medium text-blue-700">
                     Locked Fields ({o.lockedFields.length}):
                   </div>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {o.lockedFields.map(field => (
-                      <div key={field} className="flex items-center gap-1 bg-orange-100 px-2 py-1 rounded text-xs">
-                        <span className="text-orange-800">{getFieldLabel(field)}</span>
+                      <div key={field} className="flex items-center gap-1 rounded-300 bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                        <span>{getFieldLabel(field)}</span>
                         <button
                           type="button"
-                          className="text-orange-600 hover:text-orange-800 ml-1"
+                          className="ml-1 text-blue-600 transition-colors hover:text-blue-700"
                           onClick={() => lock([field], false)}
                           title={`Unlock ${getFieldLabel(field)}`}
                         >
@@ -1016,28 +1051,29 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </form>
       </Card>
 
-      <Card padding="lg">
+      <Card variant="feature" padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Assigned Auditees</h2>
         <div className="space-y-4">
           {/* Assigned Auditees List */}
           {o.assignments && o.assignments.length > 0 ? (
-            <div className="space-y-3 mb-4">
+            <div className="mb-4 space-y-3">
               {o.assignments.map((assignment) => (
                 <div
                   key={assignment.id}
-                  className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200"
+                  className="flex items-center justify-between rounded-500 border border-border-regular bg-notion-bacSec p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center">
-                      <span className="text-white font-semibold text-sm">
-                        {(assignment.auditee.email ?? assignment.auditee.name ?? "A")[0].toUpperCase()}
-                      </span>
-                    </div>
+                    <Avatar
+                      tone="green"
+                      name={assignment.auditee.name ?? assignment.auditee.email ?? undefined}
+                      initials={assignment.auditee.email ?? assignment.auditee.name ?? "A"}
+                      className="h-10 w-10 text-sm"
+                    />
                     <div>
                       <div className="text-sm font-medium text-neutral-900">
                         {assignment.auditee.email ?? assignment.auditee.name}
                       </div>
-                      <div className="text-xs text-neutral-600">
+                      <div className="text-xs text-text-light">
                         Assigned on {new Date(assignment.assignedAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -1047,7 +1083,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                       variant="ghost"
                       size="sm"
                       onClick={() => removeAuditee(assignment.id)}
-                      className="text-error-600 hover:text-error-700 hover:bg-error-50"
+                      className="text-pink-500 hover:text-pink-600 hover:bg-pink-100/60"
                     >
                       Remove
                     </Button>
@@ -1056,15 +1092,15 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               ))}
             </div>
           ) : (
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-6 text-center mb-4">
-              <p className="text-sm text-neutral-600">No auditees assigned to this observation.</p>
+            <div className="mb-4 rounded-500 border border-border-regular bg-notion-bacSec p-6 text-center">
+              <p className="text-sm text-text-medium">No auditees assigned to this observation.</p>
             </div>
           )}
 
           {/* Assignment Interface */}
           {canManageAssignments && (
-            <div className="pt-4 border-t border-neutral-200">
-              <h3 className="text-sm font-semibold text-neutral-700 mb-3">Assign Auditee</h3>
+            <div className="border-t border-border-regular pt-4">
+              <h3 className="mb-3 text-sm font-semibold text-neutral-900">Assign Auditee</h3>
               <div className="flex gap-3">
                 <Select
                   label=""
@@ -1092,7 +1128,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
       </Card>
 
-      <Card padding="lg">
+      <Card variant="feature" padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Attachments</h2>
         <div className="grid sm:grid-cols-2 gap-6">
           <div>
@@ -1102,7 +1138,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <ul className="text-sm space-y-2 mb-4">
               {o.attachments.filter(a => a.kind === "ANNEXURE").map(a => (
                 <li key={a.id}>
-                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-2">
+                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
@@ -1128,7 +1164,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <ul className="text-sm space-y-2 mb-4">
               {o.attachments.filter(a => a.kind === "MGMT_DOC").map(a => (
                 <li key={a.id}>
-                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="text-primary-600 hover:text-primary-700 hover:underline flex items-center gap-2">
+                  <a href={`/api/v1/observations/${id}/attachments/${a.id}/download`} className="flex items-center gap-2 text-blue-600 hover:text-blue-700 hover:underline">
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
@@ -1150,11 +1186,11 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
       </Card>
 
-      <Card padding="lg">
+      <Card variant="feature" padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Notes ({o.notes.length})</h2>
         <div className="flex gap-3 mb-6">
           <textarea
-            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 flex-1 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="flex-1 rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
             placeholder="Add a note..."
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -1162,7 +1198,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           />
           <div className="flex flex-col gap-2">
             <select
-              className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+              className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
               value={noteVis}
               onChange={(e) => setNoteVis(e.target.value as "ALL" | "INTERNAL")}
             >
@@ -1178,9 +1214,9 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-neutral-900">{n.actor.email ?? n.actor.name ?? "User"}</span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={n.visibility === "INTERNAL" ? "warning" : "neutral"} size="sm">
+                  <StatusBadge variant={n.visibility === "INTERNAL" ? "warning" : "neutral"}>
                     {n.visibility}
-                  </Badge>
+                  </StatusBadge>
                   <span className="text-xs text-neutral-500">{new Date(n.createdAt).toLocaleString()}</span>
                 </div>
               </div>
@@ -1193,30 +1229,30 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </ul>
       </Card>
 
-      <Card padding="lg">
+      <Card variant="feature" padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Action Plans ({o.actionPlans.length})</h2>
         <div className="grid sm:grid-cols-6 gap-3 mb-6">
           <input
-            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
             placeholder="Plan..."
             value={apPlan}
             onChange={(e) => setApPlan(e.target.value)}
           />
           <input
-            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
             placeholder="Owner"
             value={apOwner}
             onChange={(e) => setApOwner(e.target.value)}
           />
           <input
-            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
             type="date"
             placeholder="Target Date"
             value={apDate}
             onChange={(e) => setApDate(e.target.value)}
           />
           <select
-            className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
             value={apStatus}
             onChange={(e) => setApStatus(e.target.value)}
           >
@@ -1226,7 +1262,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           </select>
           {isAuditorOrAuditHead(role) && (
             <select
-              className="border border-neutral-300 rounded-lg px-3.5 py-2.5 text-sm focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none transition-all"
+            className="rounded-400 border border-notion-borPri px-3.5 py-2.5 text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-600/30 focus:border-blue-600"
               value={apRetest}
               onChange={(e) => setApRetest(e.target.value)}
             >
@@ -1240,7 +1276,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
         <ul className="text-sm space-y-3">
           {o.actionPlans.map(ap => (
-            <li key={ap.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25 hover:shadow-sm transition-shadow">
+            <li key={ap.id} className="rounded-500 border border-border-regular bg-notion-bacSec p-4 transition-shadow hover:shadow-subtle">
               <div className="font-semibold text-neutral-900 mb-2">{ap.plan}</div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-neutral-600 mb-2">
                 <div><span className="font-medium">Owner:</span> {ap.owner ?? "—"}</div>
@@ -1249,9 +1285,9 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 <div>
                   <span className="font-medium">Retest:</span>{" "}
                   {ap.retest ? (
-                    <Badge variant={ap.retest === "PASS" ? "success" : ap.retest === "FAIL" ? "error" : "warning"} size="sm">
+                    <StatusBadge variant={ap.retest === "PASS" ? "success" : ap.retest === "FAIL" ? "error" : "warning"}>
                       {formatRetest(ap.retest)}
-                    </Badge>
+                    </StatusBadge>
                   ) : "—"}
                 </div>
               </div>
@@ -1264,20 +1300,20 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </ul>
       </Card>
 
-      <Card padding="lg">
+      <Card variant="feature" padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Approvals ({o.approvals.length})</h2>
         <ul className="text-sm space-y-3">
           {o.approvals.map(ap => (
-            <li key={ap.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25">
+            <li key={ap.id} className="rounded-500 border border-border-regular bg-notion-bacSec p-4">
               <div className="flex items-center justify-between mb-2">
-                <Badge variant={getApprovalBadgeVariant(ap.status)}>{ap.status}</Badge>
+                <StatusBadge variant={getApprovalBadgeVariant(ap.status)}>{ap.status}</StatusBadge>
                 <span className="text-xs text-neutral-500">{new Date(ap.createdAt).toLocaleString()}</span>
               </div>
               <div className="text-neutral-600 mb-1">
                 <span className="font-medium">By:</span> {ap.actor.email ?? ap.actor.name ?? "User"}
               </div>
               {ap.comment && (
-                <div className="text-neutral-700 mt-2 p-3 bg-white rounded border border-neutral-200">
+                <div className="mt-2 rounded border border-border-regular bg-white p-3 text-neutral-700">
                   <span className="font-medium text-neutral-900">Comment:</span> {ap.comment}
                 </div>
               )}
@@ -1293,12 +1329,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Change Requests</h2>
         <ul className="text-sm space-y-4">
           {changeRequests.map((cr) => (
-            <li key={cr.id} className="border border-neutral-200 rounded-lg p-4 bg-neutral-25">
+            <li key={cr.id} className="rounded-500 border border-border-regular bg-notion-bacSec p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <Badge variant={cr.status === "APPROVED" ? "success" : cr.status === "DENIED" ? "error" : "warning"}>
+                  <StatusBadge variant={cr.status === "APPROVED" ? "success" : cr.status === "DENIED" ? "error" : "warning"}>
                     {cr.status}
-                  </Badge>
+                  </StatusBadge>
                   <div className="text-xs text-neutral-600 mt-2">
                     <span className="font-medium">By:</span> {cr.requester.email ?? cr.requester.name ?? "user"} · {new Date(cr.createdAt).toLocaleString()}
                   </div>
@@ -1321,7 +1357,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   </div>
                 )}
               </div>
-              <pre className="text-xs bg-white border border-neutral-200 p-3 rounded-lg mt-3 overflow-auto">{JSON.stringify(cr.patch, null, 2)}</pre>
+              <pre className="mt-3 overflow-auto rounded-400 border border-border-regular bg-white p-3 text-xs">{JSON.stringify(cr.patch, null, 2)}</pre>
             </li>
           ))}
           {changeRequests.length === 0 && (

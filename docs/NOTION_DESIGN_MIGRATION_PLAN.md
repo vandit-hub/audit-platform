@@ -660,13 +660,11 @@ Migrate existing tables to Notion style:
 - Update filters with Notion button styles
 
 #### `/observations/[id]` (detail view)
-- ✅ Updated 2025-11-07 — Header, forms, and alerts converted to Notion styling.
-- Update observation form with new components
-- Add proper card sections
-- Update attachment display
-- Add status badge prominently
-- Update running notes section
-- Add proper visual hierarchy
+- ✅ Updated 2025-11-07 — Header, forms, and alerts converted to Notion styling with Notion cards and callouts.
+- ✅ Observation form rebuilt around Notion field tokens (lock states, blue callouts, focus rings).
+- ✅ Attachments, action plans, notes, approvals, and change requests now use feature cards with consistent spacing.
+- ✅ Status badges and presence surface updated to StatusBadge + Notion color system.
+- ✅ Running notes and change requests content blocks aligned to typographic hierarchy and subtle surfaces.
 
 ### 6.6 Checklists Page (`src/app/(dashboard)/checklists/page.tsx`)
 
