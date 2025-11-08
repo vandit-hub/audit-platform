@@ -668,11 +668,11 @@ Migrate existing tables to Notion style:
 
 ### 6.6 Checklists Page (`src/app/(dashboard)/checklists/page.tsx`)
 
-- Convert to NotionTable
-- Add custom Notion checkboxes
-- Add progress indicators
-- Update action buttons
-- Add proper spacing
+- ✅ Updated 2025-11-07 — Page now uses feature cards with Notion hero callout.
+- ✅ Template library placeholder rendered via `NotionTable` with StatusBadge, Tag, and progress bar styling.
+- ✅ Migration readiness card showcases custom Notion checkboxes for milestone tracking.
+- ✅ Actions aligned to new button variants (secondary / ghost) with disabled states.
+- ✅ Spacing, typography, and surfaces match the Style Guide for informational modules.
 
 ### 6.7 Reports Page (`src/app/(dashboard)/reports/page.tsx`)
 
