@@ -155,27 +155,27 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader
-        className="border-b h-14 flex items-center"
+        className="border-b h-14 flex items-center group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 px-4"
         style={{ borderColor: "var(--border-color-regular)" }}
       >
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/dashboard" className="flex items-center gap-3 px-2">
+            <Link href="/dashboard" className="flex items-center gap-3">
               <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors shrink-0"
                 style={{ background: "var(--c-palUiBlu600)" }}
               >
                 <ClipboardList className="h-4 w-4 text-white" />
               </div>
               <div className="flex flex-col group-data-[collapsible=icon]:hidden">
                 <span
-                  className="text-sm leading-tight"
+                  className="text-sm leading-tight whitespace-nowrap"
                   style={{ color: "var(--c-texPri)", fontWeight: 600 }}
                 >
                   Audit Manager
                 </span>
                 <span
-                  className="text-xs leading-tight"
+                  className="text-xs leading-tight whitespace-nowrap"
                   style={{ color: "var(--c-texSec)" }}
                 >
                   Compliance Platform
@@ -186,7 +186,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="py-2">
+      <SidebarContent className="py-2 group-data-[collapsible=icon]:py-0">
         {visibleMain.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel
@@ -318,7 +318,7 @@ export function AppSidebar() {
       <SidebarSeparator />
 
       <SidebarFooter
-        className="border-t py-2"
+        className="border-t py-2 group-data-[collapsible=icon]:py-0"
         style={{ borderColor: "var(--border-color-regular)" }}
       >
         <SidebarMenu>

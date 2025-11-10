@@ -205,3 +205,24 @@ prisma:query SELECT "public"."ObservationAttachment"."id", "public"."Observation
  GET /dashboard 200 in 33ms
  ✓ Compiled in 806ms (1230 modules)
  GET /dashboard 200 in 68ms
+ ✓ Compiled in 605ms (1147 modules)
+ GET /dashboard 200 in 181ms
+ ✓ Compiled in 325ms (460 modules)
+ GET /dashboard 200 in 42ms
+ GET /dashboard 200 in 168ms
+ ✓ Compiled /api/v1/observations in 166ms (765 modules)
+ ✓ Compiled (850 modules)
+ GET /api/v1/websocket/token 200 in 530ms
+prisma:query SELECT "public"."Observation"."id", "public"."Observation"."riskCategory"::text, "public"."Observation"."currentStatus"::text, "public"."Observation"."approvalStatus"::text, "public"."Observation"."isPublished", "public"."Observation"."targetDate" FROM "public"."Observation" WHERE 1=1 OFFSET $1
+prisma:query SELECT "public"."Audit"."id", "public"."Audit"."code", "public"."Audit"."plantId", "public"."Audit"."title", "public"."Audit"."purpose", "public"."Audit"."visitStartDate", "public"."Audit"."visitEndDate", "public"."Audit"."visitDetails", "public"."Audit"."managementResponseDate", "public"."Audit"."finalPresentationDate", "public"."Audit"."reportSubmittedAt", "public"."Audit"."signOffAt", "public"."Audit"."status"::text, "public"."Audit"."isLocked", "public"."Audit"."lockedAt", "public"."Audit"."lockedById", "public"."Audit"."completedAt", "public"."Audit"."completedById", "public"."Audit"."visibilityRules", "public"."Audit"."auditHeadId", "public"."Audit"."createdById", "public"."Audit"."createdAt", "public"."Audit"."updatedAt" FROM "public"."Audit" WHERE 1=1 ORDER BY "public"."Audit"."createdAt" DESC OFFSET $1
+prisma:query SELECT "public"."Observation"."id", "public"."Observation"."code", "public"."Observation"."auditId", "public"."Observation"."plantId", "public"."Observation"."createdById", "public"."Observation"."createdAt", "public"."Observation"."updatedAt", "public"."Observation"."observationText", "public"."Observation"."risksInvolved", "public"."Observation"."riskCategory"::text, "public"."Observation"."likelyImpact"::text, "public"."Observation"."concernedProcess"::text, "public"."Observation"."auditorPerson", "public"."Observation"."auditeePersonTier1", "public"."Observation"."auditeePersonTier2", "public"."Observation"."auditeeFeedback", "public"."Observation"."auditorResponseToAuditee", "public"."Observation"."targetDate", "public"."Observation"."personResponsibleToImplement", "public"."Observation"."currentStatus"::text, "public"."Observation"."implementationDate", "public"."Observation"."reTestResult"::text, "public"."Observation"."approvalStatus"::text, "public"."Observation"."isPublished", "public"."Observation"."lockedFields" FROM "public"."Observation" WHERE 1=1 ORDER BY "public"."Observation"."createdAt" DESC OFFSET $1
+ GET /api/v1/reports/overview 200 in 643ms
+prisma:query SELECT "public"."Plant"."id", "public"."Plant"."code", "public"."Plant"."name", "public"."Plant"."createdAt" FROM "public"."Plant" WHERE "public"."Plant"."id" IN ($1,$2,$3,$4) OFFSET $5
+prisma:query SELECT "public"."Plant"."id", "public"."Plant"."code", "public"."Plant"."name", "public"."Plant"."createdAt" FROM "public"."Plant" WHERE "public"."Plant"."id" IN ($1,$2,$3,$4,$5) OFFSET $6
+prisma:query SELECT "public"."Audit"."id", "public"."Audit"."title", "public"."Audit"."visitStartDate", "public"."Audit"."visitEndDate" FROM "public"."Audit" WHERE "public"."Audit"."id" IN ($1,$2,$3,$4) OFFSET $5
+prisma:query SELECT "public"."AuditAssignment"."id", "public"."AuditAssignment"."auditId", "public"."AuditAssignment"."auditorId", "public"."AuditAssignment"."createdAt" FROM "public"."AuditAssignment" WHERE "public"."AuditAssignment"."auditId" IN ($1,$2,$3,$4,$5,$6) OFFSET $7
+prisma:query SELECT "public"."ObservationAttachment"."id", "public"."ObservationAttachment"."observationId", "public"."ObservationAttachment"."kind"::text, "public"."ObservationAttachment"."key", "public"."ObservationAttachment"."fileName", "public"."ObservationAttachment"."contentType", "public"."ObservationAttachment"."size", "public"."ObservationAttachment"."createdAt" FROM "public"."ObservationAttachment" WHERE "public"."ObservationAttachment"."observationId" IN ($1,$2,$3,$4,$5,$6,$7) OFFSET $8
+ GET /api/v1/observations?sortBy=createdAt&sortOrder=desc 200 in 648ms
+prisma:query SELECT "public"."User"."id", "public"."User"."name", "public"."User"."email" FROM "public"."User" WHERE "public"."User"."id" IN ($1,$2) OFFSET $3
+prisma:query SELECT COUNT(*) AS "_count$_all", "public"."Observation"."auditId", "public"."Observation"."currentStatus"::text FROM "public"."Observation" WHERE "public"."Observation"."auditId" IN ($1,$2,$3,$4,$5,$6) GROUP BY "public"."Observation"."auditId", "public"."Observation"."currentStatus" OFFSET $7
+ GET /api/v1/audits 200 in 654ms
