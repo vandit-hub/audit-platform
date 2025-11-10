@@ -1,325 +1,391 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Building2, MoreHorizontal, Search } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { PageContainer } from "@/components/v2/PageContainer";
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/v2/card";
-import { Button } from "@/components/ui/v2/button";
-import { Input } from "@/components/ui/v2/input";
-import { Badge } from "@/components/ui/v2/badge";
-import { Skeleton } from "@/components/ui/v2/skeleton";
-import { PageContainer } from "@/components/v2/PageContainer";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Skeleton,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/v2";
 
 type Plant = { id: string; code: string; name: string; createdAt: string };
 
 export default function PlantsPage() {
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
   const [plants, setPlants] = useState<Plant[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const [isFetching, setIsFetching] = useState(true);
-  const { showSuccess, showError } = useToast();
+  const [formData, setFormData] = useState({ code: "", name: "" });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const { showError, showSuccess } = useToast();
 
-  async function load() {
+  useEffect(() => {
+    loadPlants();
+  }, []);
+
+  async function loadPlants() {
     setIsFetching(true);
     try {
-    const res = await fetch("/api/v1/plants", { cache: "no-store" });
-    const json = await res.json();
+      const res = await fetch("/api/v1/plants", { cache: "no-store" });
+      const json = await res.json();
       if (res.ok) {
         setPlants(json.plants);
+      } else {
+        showError(json.error || "Failed to load plants");
       }
-    } catch (err) {
-      console.error("Failed to load plants", err);
+    } catch (error) {
+      console.error("Failed to load plants", error);
+      showError("Failed to load plants");
     } finally {
       setIsFetching(false);
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setCreating(true);
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCreateError(null);
+    setIsCreating(true);
     try {
       const res = await fetch("/api/v1/plants", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, name }),
+        body: JSON.stringify(formData),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed");
-      setCode("");
-      setName("");
-      await load();
-      showSuccess(`Plant "${name}" created successfully!`);
-    } catch (err: any) {
-      const errorMessage =
-        err.message || "Failed to create plant (Admin only)";
-      setError(errorMessage);
-      showError(errorMessage);
+      if (!res.ok) {
+        const message = json.error || "Failed to create plant";
+        setCreateError(message);
+        showError(message);
+        return;
+      }
+
+      showSuccess(`Plant "${formData.name}" created successfully!`);
+      setFormData({ code: "", name: "" });
+      setIsDialogOpen(false);
+      await loadPlants();
+    } catch (error) {
+      console.error("Failed to create plant", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to create plant";
+      setCreateError(message);
+      showError(message);
     } finally {
-      setCreating(false);
+      setIsCreating(false);
     }
   }
+
+  function handleDialogOpenChange(open: boolean) {
+    setIsDialogOpen(open);
+    if (!open) {
+      setCreateError(null);
+      setFormData({ code: "", name: "" });
+    }
+  }
+
+  const filteredPlants = useMemo(() => {
+    const query = searchValue.trim().toLowerCase();
+    if (!query) return plants;
+    return plants.filter(
+      (plant) =>
+        plant.name.toLowerCase().includes(query) ||
+        plant.code.toLowerCase().includes(query),
+    );
+  }, [plants, searchValue]);
 
   const totalPlants = plants.length;
   const newestPlant = useMemo(() => {
     if (!plants.length) return null;
-    return [...plants].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )[0];
+    return plants.reduce((latest, plant) => {
+      if (!latest) return plant;
+      return new Date(plant.createdAt) > new Date(latest.createdAt)
+        ? plant
+        : latest;
+    }, plants[0] as Plant | null);
   }, [plants]);
 
-  const recentPlants = useMemo(
-    () =>
-      [...plants]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
-        .slice(0, 5),
-    [plants],
-  );
+  const hasPlants = filteredPlants.length > 0;
 
   return (
-    <PageContainer className="space-y-8">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
-            Plants
-          </h1>
-          <p className="text-sm md:text-base text-[var(--c-texSec)]">
-            Manage facilities and locations that audits are assigned to.
-          </p>
-      </div>
-        <Button asChild variant="ghost" size="sm">
-          <a href="/audits">View related audits</a>
-        </Button>
-      </header>
-
-      <section className="grid gap-5 md:grid-cols-3">
-        <Card className="border-none shadow-none bg-[var(--c-bacSec)]">
-          <CardHeader className="space-y-1">
-            <CardDescription>Total plants</CardDescription>
-            <CardTitle className="text-3xl font-semibold">
-              {totalPlants}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+    <>
+      <PageContainer className="space-y-8">
+      <section className="space-y-6">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-[32px] font-semibold leading-tight text-[var(--c-texPri)]">
+              Plants
+            </h1>
             <p className="text-sm text-[var(--c-texSec)]">
-              Locations configured for audit scheduling.
+              Manage plant locations and view summaries.
             </p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-none bg-[var(--ca-palUiBlu100)] text-[var(--c-palUiBlu700)]">
-          <CardHeader className="space-y-1">
-            <CardDescription className="text-[var(--c-palUiBlu700)]">
-              Latest addition
-            </CardDescription>
-            <CardTitle className="text-3xl font-semibold">
-              {newestPlant
-                ? newestPlant.code
-                : totalPlants === 0
-                ? "—"
-                : "Unknown"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              {newestPlant
-                ? `${newestPlant.name} • ${new Date(
-                    newestPlant.createdAt,
-                  ).toLocaleDateString()}`
-                : "Add your first plant to begin assigning audits."}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60">
-          <CardHeader>
-            <CardTitle className="text-lg">Regional coverage</CardTitle>
-            <CardDescription>
-              Planned enhancement: visual map of plant distribution.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-[var(--c-texSec)]">
-              Once we enrich the backend with region metadata, this card will
-              display geographic coverage and gaps.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-2">
-      <Card>
-          <CardHeader className="space-y-3">
-            <CardTitle>Create plant</CardTitle>
-            <CardDescription>
-              Add a new facility to make it available for audit scheduling.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-        {error && (
-              <div className="rounded-md border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/40 px-4 py-3 text-sm text-[var(--c-palUiRed600)]">
-            {error}
           </div>
-        )}
-            <form
-              onSubmit={onSubmit}
-              className="grid gap-4 md:grid-cols-[200px,1fr,auto]"
+          <div className="flex items-center gap-2">
+            <Button
+              className="gap-2"
+              onClick={() => setIsDialogOpen(true)}
             >
-              <div className="flex flex-col gap-2">
-                <label
-                  className="text-sm font-medium text-[var(--c-texSec)]"
-                  htmlFor="plant-code"
-                >
-                  Code
-                </label>
-          <Input
-                  id="plant-code"
-                  placeholder="e.g., PLT001"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-          />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label
-                  className="text-sm font-medium text-[var(--c-texSec)]"
-                  htmlFor="plant-name"
-                >
-                  Name
-                </label>
-          <Input
-                  id="plant-name"
-                  placeholder="Plant name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-              </div>
-              <div className="flex items-end">
-                <Button type="submit" disabled={creating}>
-                  {creating ? "Adding…" : "Add plant"}
-          </Button>
-              </div>
-        </form>
-          </CardContent>
-      </Card>
+              Create Plant
+            </Button>
+          </div>
+        </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent plants</CardTitle>
-            <CardDescription>
-              Newly added locations for quick access.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentPlants.length === 0 ? (
-              <p className="text-sm text-[var(--c-texTer)]">
-                No plants yet. Create a plant to see it listed here.
-              </p>
-            ) : (
-              recentPlants.map((plant) => (
-                <div
-                  key={plant.id}
-                  className="rounded-lg border border-[var(--border-color-regular)] px-4 py-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-semibold text-[var(--c-texPri)]">
-                        {plant.name}
-                      </h4>
-                      <p className="text-xs text-[var(--c-texSec)]">
-                        {plant.code}
-                      </p>
-                    </div>
-                    <Badge className="bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]">
-                      {new Date(plant.createdAt).toLocaleDateString()}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--c-texSec)]" />
+          <Input
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            placeholder="Search plants by name or code..."
+            className="pl-10"
+          />
+        </div>
       </section>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-lg">All plants</CardTitle>
-            <CardDescription>
-              Full inventory of facilities available for audit scheduling.
-            </CardDescription>
+      <section>
+        {isFetching ? (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton
+                key={index}
+                className="h-[220px] rounded-3xl bg-[var(--c-bacSec)]"
+              />
+            ))}
           </div>
-          <Button variant="ghost" size="sm" onClick={load} disabled={isFetching}>
-            Refresh
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isFetching ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-14 w-full rounded-md" />
-              ))}
-            </div>
-          ) : plants.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-5 py-8 text-center text-sm text-[var(--c-texSec)]">
-              No plants configured yet. Use the form above to add your first
-              location.
-            </div>
+        ) : !hasPlants ? (
+          <Card className="border-none bg-[var(--c-bacSec)] text-center">
+            <CardContent className="flex flex-col items-center gap-4 py-16">
+              <div className="flex size-16 items-center justify-center rounded-2xl bg-[var(--c-palUiBlu100)]">
+                <Building2 className="size-7 text-[var(--c-palUiBlu600)]" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-[var(--c-texPri)]">
+                  No plants yet
+                </h3>
+                <p className="text-sm text-[var(--c-texSec)]">
+                  Create your first plant to begin assigning audits.
+                </p>
+              </div>
+              <Button onClick={() => setIsDialogOpen(true)}>
+                Create Plant
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead className="bg-[var(--c-bacSec)] text-[var(--c-texTer)]">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                      Code
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                      Name
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">
-                      Created
-                    </th>
-                </tr>
-              </thead>
-              <tbody>
-                  {plants.map((plant, index) => (
-                  <tr
-                      key={plant.id}
-                      className={`border-b border-[var(--border-color-regular)] last:border-0 ${
-                        index % 2 === 0 ? "bg-white" : "bg-[var(--c-bacSec)]/40"
-                    }`}
-                  >
-                      <td className="px-5 py-4 font-semibold text-[var(--c-texPri)]">
-                        {plant.code}
-                      </td>
-                      <td className="px-5 py-4 text-[var(--c-texSec)]">
-                        {plant.name}
-                      </td>
-                      <td className="px-5 py-4 text-[var(--c-texTer)] text-xs">
-                        {new Date(plant.createdAt).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {filteredPlants.map((plant) => (
+              <Card
+                key={plant.id}
+                className="h-full border-none bg-[var(--c-bacSec)] shadow-[0_12px_32px_rgba(15,23,42,0.05)]"
+              >
+                <CardHeader className="flex flex-row items-start gap-4">
+                  <div className="flex size-12 items-center justify-center rounded-xl bg-[var(--c-palUiBlu100)]">
+                    <Building2 className="size-5 text-[var(--c-palUiBlu600)]" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
+                      {plant.name}
+                    </CardTitle>
+                    <CardDescription className="text-sm text-[var(--c-texSec)]">
+                      {plant.code}
+                    </CardDescription>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-[var(--c-texSec)]"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-40 rounded-xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]"
+                    >
+                      <DropdownMenuItem disabled>View details</DropdownMenuItem>
+                      <DropdownMenuItem disabled>Edit</DropdownMenuItem>
+                      <DropdownMenuItem disabled>
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardHeader>
+
+                <CardContent className="space-y-5">
+                  <div className="rounded-2xl bg-[var(--c-bacPri)]/70 p-4">
+                    <div className="flex items-center justify-between text-sm text-[var(--c-texSec)]">
+                      <span>Audits</span>
+                      <Badge variant="secondary" className="border-transparent">
+                        Coming soon
+                      </Badge>
+                    </div>
+                  </div>
+
+                    <div className="rounded-2xl border border-dashed border-[var(--border-color-regular)] p-4">
+                    <div className="flex items-center justify-between text-sm text-[var(--c-texSec)]">
+                      <span>Observations</span>
+                      <Badge variant="outline">Coming soon</Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-[var(--c-texSec)]">
+                    <span>
+                      Created{" "}
+                      {new Date(plant.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <Button variant="ghost" size="sm" disabled className="h-7 text-xs">
+                      View Details
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
-        </CardContent>
-      </Card>
-    </PageContainer>
+      </section>
+
+        {plants.length > 0 && (
+          <Card className="border-none bg-[var(--c-bacSec)]">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
+              Overview
+            </CardTitle>
+            <CardDescription className="text-sm text-[var(--c-texSec)]">
+              Summary across all plants
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-6 md:grid-cols-4">
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--c-texSec)]">Total Plants</p>
+                <p className="text-3xl font-semibold text-[var(--c-texPri)]">
+                  {totalPlants}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--c-texSec)]">Newest Plant</p>
+                <p className="text-base text-[var(--c-texPri)]">
+                  {newestPlant
+                    ? `${newestPlant.name} (${newestPlant.code})`
+                    : "—"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--c-texSec)]">Created On</p>
+                <p className="text-base text-[var(--c-texPri)]">
+                  {newestPlant
+                    ? new Date(newestPlant.createdAt).toLocaleDateString()
+                    : "—"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--c-texSec)]">
+                  Observations Coverage
+                </p>
+                <p className="text-base text-[var(--c-texSec)]">
+                  Coming soon
+                </p>
+              </div>
+            </div>
+          </CardContent>
+          </Card>
+        )}
+      </PageContainer>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader className="space-y-2">
+            <DialogTitle>Create New Plant</DialogTitle>
+            <DialogDescription>
+              Add a new plant location to the system.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createError && (
+            <div className="rounded-md border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-3 text-sm text-[var(--c-palUiRed700)]">
+              {createError}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleCreate}>
+            <div className="space-y-2">
+              <label
+                htmlFor="plant-code"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Plant Code
+              </label>
+              <Input
+                id="plant-code"
+                placeholder="PLT001"
+                value={formData.code}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, code: event.target.value }))
+                }
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="plant-name"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Plant Name
+              </label>
+              <Input
+                id="plant-name"
+                placeholder="Manufacturing Plant A"
+                value={formData.name}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, name: event.target.value }))
+                }
+                required
+              />
+            </div>
+
+            <DialogFooter className="sm:space-x-3">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isCreating}
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isCreating}>
+                {isCreating ? "Creating…" : "Create Plant"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
