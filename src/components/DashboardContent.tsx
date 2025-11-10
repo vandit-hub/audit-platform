@@ -311,12 +311,12 @@ export default function DashboardContent() {
           {Array.from({ length: 4 }).map((_, index) => (
             <Skeleton key={index} className="h-40 rounded-3xl" />
           ))}
-        </div>
+            </div>
         <div className="grid gap-5 xl:grid-cols-3">
           <Skeleton className="h-72 rounded-3xl" />
           <Skeleton className="h-72 rounded-3xl" />
           <Skeleton className="h-72 rounded-3xl" />
-        </div>
+            </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <Skeleton className="h-80 rounded-3xl" />
           <Skeleton className="h-80 rounded-3xl" />
@@ -333,7 +333,7 @@ export default function DashboardContent() {
           <p className="text-sm md:text-base text-[var(--c-texSec)]">
             Overview of audit progress, observation health, and high-priority actions.
           </p>
-        </div>
+      </div>
         <Button asChild variant="ghost" size="sm" className="text-[var(--c-palUiBlu700)]">
           <Link href="/reports">Go to reports</Link>
         </Button>
@@ -356,7 +356,7 @@ export default function DashboardContent() {
                 <CardTitle className="text-5xl font-semibold leading-none text-[inherit]">
                   {card.value}
                 </CardTitle>
-              </div>
+          </div>
               <div className="rounded-full border border-[var(--border-color-regular)] bg-[rgba(255,255,255,0.45)] p-2">
                 <card.icon className="h-5 w-5 text-[inherit]" />
               </div>
@@ -384,13 +384,13 @@ export default function DashboardContent() {
                   <div className="flex items-center justify-between text-sm text-[var(--c-texPri)]">
                     <span>{row.label}</span>
                     <span>{row.value}</span>
-                  </div>
+                      </div>
                   <div className="h-2 w-full rounded-full bg-[var(--c-bacSec)]">
                     <div
                       className={cn("h-2 rounded-full transition-all", row.color)}
                       style={{ width: `${percentage}%` }}
                     />
-                  </div>
+                    </div>
                 </div>
               );
             })}
@@ -427,7 +427,7 @@ export default function DashboardContent() {
                 <Badge className="bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent px-3 py-1 text-xs">
                   {item.count}
                 </Badge>
-              </div>
+          </div>
             ))}
           </CardContent>
         </Card>
@@ -456,7 +456,7 @@ export default function DashboardContent() {
                   <div className="h-2 w-full rounded-full bg-[var(--c-bacSec)]">
                     <div className="h-2 rounded-full bg-[var(--c-palUiBlu600)]" style={{ width: `${width}%` }} />
                   </div>
-                </div>
+          </div>
               );
             })}
           </CardContent>
@@ -467,7 +467,7 @@ export default function DashboardContent() {
         <Card className="rounded-3xl border-[var(--border-color-regular)]">
           <CardHeader className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-4">
-              <div>
+            <div>
                 <CardTitle className="text-lg text-[var(--c-texPri)]">Recent audits</CardTitle>
                 <CardDescription className="text-sm text-[var(--c-texSec)]">
                   Latest audit activity across plants with quick access to detail.
@@ -485,7 +485,7 @@ export default function DashboardContent() {
             {recentAudits.length === 0 && (
               <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-5 py-6 text-sm text-[var(--c-texTer)]">
                 No audits yet. Create one to see activity here.
-              </div>
+                      </div>
             )}
             {recentAudits.map((audit) => {
               const badgeClasses = audit.completedAt
@@ -507,7 +507,7 @@ export default function DashboardContent() {
                     <Badge className={cn("w-fit text-xs", badgeClasses)}>
                       {audit.completedAt ? "Completed" : audit.isLocked ? "Locked" : "In progress"}
                     </Badge>
-                  </div>
+                      </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--c-texTer)]">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
@@ -537,20 +537,20 @@ export default function DashboardContent() {
                 <CardDescription className="text-sm text-[var(--c-texSec)]">
                   Critical and high priority observations to follow up.
                 </CardDescription>
-              </div>
+                    </div>
               <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-[var(--c-texSec)]">
                 <Link href="/observations">
                   View all
                   <ArrowRight className="h-3 w-3" />
                 </Link>
               </Button>
-            </div>
+                    </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {actionItems.length === 0 && (
               <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-5 py-6 text-sm text-[var(--c-texTer)]">
                 No high priority observations at the moment. Outstanding items will surface here automatically.
-              </div>
+                    </div>
             )}
             {actionItems.map((obs) => (
               <div key={obs.id} className="space-y-3 rounded-2xl border border-[var(--border-color-regular)] p-5">
@@ -574,13 +574,13 @@ export default function DashboardContent() {
                     <Badge className={cn("text-xs", STATUS_BADGE_CLASSES[obs.currentStatus] ?? "bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent")}>
                       {humanizeStatus(obs.currentStatus)}
                     </Badge>
-                  )}
+                      )}
                   {obs.concernedProcess && (
                     <Badge className="text-xs bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent">
                       {PROCESS_LABELS[obs.concernedProcess] ?? humanizeStatus(obs.concernedProcess)}
                     </Badge>
-                  )}
-                </div>
+                      )}
+                    </div>
               </div>
             ))}
           </CardContent>

@@ -29,8 +29,8 @@ export default function PlantsPage() {
   async function load() {
     setIsFetching(true);
     try {
-      const res = await fetch("/api/v1/plants", { cache: "no-store" });
-      const json = await res.json();
+    const res = await fetch("/api/v1/plants", { cache: "no-store" });
+    const json = await res.json();
       if (res.ok) {
         setPlants(json.plants);
       }
@@ -101,7 +101,7 @@ export default function PlantsPage() {
           <p className="text-sm md:text-base text-[var(--c-texSec)]">
             Manage facilities and locations that audits are assigned to.
           </p>
-        </div>
+      </div>
         <Button asChild variant="ghost" size="sm">
           <a href="/audits">View related audits</a>
         </Button>
@@ -161,7 +161,7 @@ export default function PlantsPage() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <Card>
+      <Card>
           <CardHeader className="space-y-3">
             <CardTitle>Create plant</CardTitle>
             <CardDescription>
@@ -169,11 +169,11 @@ export default function PlantsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
+        {error && (
               <div className="rounded-md border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/40 px-4 py-3 text-sm text-[var(--c-palUiRed600)]">
-                {error}
-              </div>
-            )}
+            {error}
+          </div>
+        )}
             <form
               onSubmit={onSubmit}
               className="grid gap-4 md:grid-cols-[200px,1fr,auto]"
@@ -185,13 +185,13 @@ export default function PlantsPage() {
                 >
                   Code
                 </label>
-                <Input
+          <Input
                   id="plant-code"
                   placeholder="e.g., PLT001"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                />
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
               </div>
               <div className="flex flex-col gap-2">
                 <label
@@ -200,22 +200,22 @@ export default function PlantsPage() {
                 >
                   Name
                 </label>
-                <Input
+          <Input
                   id="plant-name"
                   placeholder="Plant name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
               </div>
               <div className="flex items-end">
                 <Button type="submit" disabled={creating}>
                   {creating ? "Adding…" : "Add plant"}
-                </Button>
+          </Button>
               </div>
-            </form>
+        </form>
           </CardContent>
-        </Card>
+      </Card>
 
         <Card>
           <CardHeader>
@@ -279,8 +279,8 @@ export default function PlantsPage() {
               No plants configured yet. Use the form above to add your first
               location.
             </div>
-          ) : (
-            <div className="overflow-x-auto">
+        ) : (
+          <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">
                 <thead className="bg-[var(--c-bacSec)] text-[var(--c-texTer)]">
                   <tr>
@@ -293,16 +293,16 @@ export default function PlantsPage() {
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide">
                       Created
                     </th>
-                  </tr>
-                </thead>
-                <tbody>
+                </tr>
+              </thead>
+              <tbody>
                   {plants.map((plant, index) => (
-                    <tr
+                  <tr
                       key={plant.id}
                       className={`border-b border-[var(--border-color-regular)] last:border-0 ${
                         index % 2 === 0 ? "bg-white" : "bg-[var(--c-bacSec)]/40"
-                      }`}
-                    >
+                    }`}
+                  >
                       <td className="px-5 py-4 font-semibold text-[var(--c-texPri)]">
                         {plant.code}
                       </td>
@@ -311,13 +311,13 @@ export default function PlantsPage() {
                       </td>
                       <td className="px-5 py-4 text-[var(--c-texTer)] text-xs">
                         {new Date(plant.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         </CardContent>
       </Card>
     </PageContainer>

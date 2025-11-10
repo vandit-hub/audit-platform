@@ -153,7 +153,7 @@ export function AppSidebar() {
   const visibleAdmin = adminItems.filter((item) => item.visible);
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader
         className="border-b h-14 flex items-center"
         style={{ borderColor: "var(--border-color-regular)" }}

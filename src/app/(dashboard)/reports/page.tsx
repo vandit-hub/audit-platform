@@ -172,7 +172,7 @@ export default function ReportsPage() {
         fetch(`/api/v1/reports/targets?${qs.toString()}`, {
           cache: "no-store",
         }),
-      ]);
+    ]);
 
       if (oRes.ok) {
         setKpi(await oRes.json());

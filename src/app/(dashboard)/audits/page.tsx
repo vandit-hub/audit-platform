@@ -163,12 +163,12 @@ export default function AuditsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {error && (
+          {error && (
               <div className="text-sm rounded-md border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/40 px-4 py-3 text-[var(--c-palUiRed600)]">
-                {error}
-              </div>
-            )}
-            <form onSubmit={onCreate} className="space-y-6">
+              {error}
+            </div>
+          )}
+          <form onSubmit={onCreate} className="space-y-6">
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="flex flex-col gap-2 md:col-span-2">
                   <label
@@ -177,7 +177,7 @@ export default function AuditsPage() {
                   >
                     Plant
                   </label>
-                  <Select
+              <Select
                     value={plantId || undefined}
                     onValueChange={setPlantId}
                   >
@@ -185,13 +185,13 @@ export default function AuditsPage() {
                       <SelectValue placeholder="Select plant" />
                     </SelectTrigger>
                     <SelectContent>
-                      {plants.map((p) => (
+                {plants.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.code} — {p.name}
+                    {p.code} — {p.name}
                         </SelectItem>
-                      ))}
+                ))}
                     </SelectContent>
-                  </Select>
+              </Select>
                 </div>
 
                 <div className="md:col-span-2 flex flex-col gap-2">
@@ -201,12 +201,12 @@ export default function AuditsPage() {
                   >
                     Audit title
                   </label>
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g., FY25 Financial Controls Audit"
-                  />
-                </div>
+                />
+              </div>
 
                 <div className="md:col-span-2 flex flex-col gap-2">
                   <label
@@ -214,14 +214,14 @@ export default function AuditsPage() {
                     style={{ color: "var(--c-texSec)" }}
                   >
                     Audit purpose
-                  </label>
+                </label>
                   <Textarea
-                    value={purpose}
-                    onChange={(e) => setPurpose(e.target.value)}
+                  value={purpose}
+                  onChange={(e) => setPurpose(e.target.value)}
                     placeholder="Describe the scope, objectives, and compliance requirements for this audit."
                     rows={4}
-                  />
-                </div>
+                />
+              </div>
 
                 <div className="flex flex-col gap-2">
                   <label
@@ -230,11 +230,11 @@ export default function AuditsPage() {
                   >
                     Visit start date
                   </label>
-                  <Input
-                    type="date"
-                    value={visitStartDate}
-                    onChange={(e) => setVisitStartDate(e.target.value)}
-                  />
+              <Input
+                type="date"
+                value={visitStartDate}
+                onChange={(e) => setVisitStartDate(e.target.value)}
+              />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -244,11 +244,11 @@ export default function AuditsPage() {
                   >
                     Visit end date
                   </label>
-                  <Input
-                    type="date"
-                    value={visitEndDate}
-                    onChange={(e) => setVisitEndDate(e.target.value)}
-                  />
+              <Input
+                type="date"
+                value={visitEndDate}
+                onChange={(e) => setVisitEndDate(e.target.value)}
+              />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -258,13 +258,13 @@ export default function AuditsPage() {
                   >
                     Management response deadline
                   </label>
-                  <Input
-                    type="date"
-                    value={managementResponseDate}
+              <Input
+                type="date"
+                value={managementResponseDate}
                     onChange={(e) =>
                       setManagementResponseDate(e.target.value)
                     }
-                  />
+              />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -274,11 +274,11 @@ export default function AuditsPage() {
                   >
                     Final presentation date
                   </label>
-                  <Input
-                    type="date"
-                    value={finalPresentationDate}
-                    onChange={(e) => setFinalPresentationDate(e.target.value)}
-                  />
+              <Input
+                type="date"
+                value={finalPresentationDate}
+                onChange={(e) => setFinalPresentationDate(e.target.value)}
+              />
                 </div>
 
                 <div className="md:col-span-2 flex flex-col gap-2">
@@ -288,20 +288,20 @@ export default function AuditsPage() {
                   >
                     Visit details
                   </label>
-                  <Input
-                    value={visitDetails}
-                    onChange={(e) => setVisitDetails(e.target.value)}
+                <Input
+                  value={visitDetails}
+                  onChange={(e) => setVisitDetails(e.target.value)}
                     placeholder="Additional logistics or areas of focus."
-                  />
-                </div>
+                />
               </div>
+            </div>
 
               <div className="flex justify-end">
                 <Button type="submit" disabled={busy}>
                   {busy ? "Creating…" : "Create audit"}
-                </Button>
+            </Button>
               </div>
-            </form>
+          </form>
           </CardContent>
         </Card>
       )}
@@ -396,28 +396,28 @@ export default function AuditsPage() {
                     </td>
                     <td className="px-5 py-4 text-[var(--c-texSec)]">
                       {audit.plant.code} — {audit.plant.name}
-                    </td>
+                  </td>
                     <td className="px-5 py-4 text-[var(--c-texSec)]">
                       {window}
-                    </td>
+                  </td>
                     <td className="px-5 py-4">
                       <Badge className={statusBadge}>
                         {audit.status.replace("_", " ").toLowerCase()}
                       </Badge>
-                    </td>
+                  </td>
                     <td className="px-5 py-4 text-[var(--c-texSec)]">
                       <span className="font-semibold text-[var(--c-texPri)]">
                         {audit.progress.done}
                       </span>
                       <span>/{audit.progress.total}</span>
-                    </td>
+                  </td>
                     <td className="px-5 py-4 text-[var(--c-texSec)]">
                       {audit.assignments.length
                         ? audit.assignments
                             .map((u) => u.email ?? u.name ?? "—")
                             .join(", ")
                         : "—"}
-                    </td>
+                  </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <Badge className={lockBadgeClass}>{lockLabel}</Badge>
@@ -425,8 +425,8 @@ export default function AuditsPage() {
                           <Link href={`/audits/${audit.id}`}>Open</Link>
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                  </td>
+                </tr>
                 );
               })}
             </tbody>

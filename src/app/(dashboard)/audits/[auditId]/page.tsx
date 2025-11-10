@@ -157,7 +157,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     setError(null);
 
     try {
-      const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
+    const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error((json as { error?: string }).error || "Failed to load audit.");
@@ -168,19 +168,19 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
       setProgress(payload.progress ?? { done: 0, total: 0 });
 
       if (canManageAudit) {
-        const [audRes, ahRes] = await Promise.all([
-          fetch(`/api/v1/users?role=AUDITOR`, { cache: "no-store" }),
+      const [audRes, ahRes] = await Promise.all([
+        fetch(`/api/v1/users?role=AUDITOR`, { cache: "no-store" }),
           fetch(`/api/v1/users?role=AUDIT_HEAD`, { cache: "no-store" }),
-        ]);
+      ]);
 
-        if (audRes.ok) {
+      if (audRes.ok) {
           const audJson = await audRes.json().catch(() => ({}));
           setAuditors((audJson as { users?: User[] }).users ?? []);
         } else {
           setAuditors([]);
-        }
+      }
 
-        if (ahRes.ok) {
+      if (ahRes.ok) {
           const ahJson = await ahRes.json().catch(() => ({}));
           setAuditHeads((ahJson as { users?: User[] }).users ?? []);
         } else {
@@ -354,7 +354,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
                 <Skeleton className="h-32 w-full" />
               </CardContent>
             </Card>
-          </div>
+      </div>
         ) : (
           <div className="rounded-3xl border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-8 py-12 text-center">
             <p className="text-sm text-[var(--c-texSec)]">
@@ -363,7 +363,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             <Button variant="default" className="mt-4" onClick={() => void load()}>
               Try again
             </Button>
-          </div>
+    </div>
         )}
       </PageContainer>
     );
@@ -404,7 +404,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
               {audit.title?.trim() || `${audit.plant.code} ${audit.plant.name}`}
-            </h1>
+        </h1>
             <p className="text-sm text-[var(--c-texSec)]">
               {audit.purpose ? audit.purpose : "Overview of audit ownership, progress, and visibility controls."}
             </p>
@@ -484,17 +484,17 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {audit.isLocked && audit.lockedAt && (
+            {audit.isLocked && audit.lockedAt && (
                 <div className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3 text-sm text-[var(--c-texSec)]">
                   <div className="font-medium text-[var(--c-texPri)]">Locked on</div>
                   <div>{formatDateTime(audit.lockedAt)}</div>
-                </div>
-              )}
-              {audit.completedAt && (
+              </div>
+            )}
+            {audit.completedAt && (
                 <div className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3 text-sm text-[var(--c-texSec)]">
                   <div className="font-medium text-[var(--c-texPri)]">Completed on</div>
                   <div>{formatDateTime(audit.completedAt)}</div>
-                </div>
+              </div>
               )}
             </div>
 
@@ -588,7 +588,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             )}
           </CardContent>
         </Card>
-      </div>
+                  </div>
 
       <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
         <CardHeader className="gap-2">
@@ -600,7 +600,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
         <CardContent className="space-y-6 pb-8">
           <section className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+                  <div>
                 <div className="text-xs font-medium uppercase tracking-wide text-[var(--c-texSec)]/80">Audit head</div>
                 <div className="mt-1 text-sm text-[var(--c-texPri)]">
                   {audit.auditHead ? getUserLabel(audit.auditHead) : "Not assigned"}
@@ -611,11 +611,11 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
                   Lead owner
                 </Badge>
               )}
-            </div>
+                  </div>
 
-            {canManageAudit && (
+                {canManageAudit && (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Select
+                    <Select
                   value={selectedAuditHead || undefined}
                   onValueChange={(value) => setSelectedAuditHead(value)}
                 >
@@ -628,23 +628,23 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
                         No eligible audit heads found
                       </SelectItem>
                     )}
-                    {auditHeads.map((u) => (
+                      {auditHeads.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
                         {getUserLabel(u)}
                       </SelectItem>
-                    ))}
+                      ))}
                   </SelectContent>
-                </Select>
-                <Button
+                    </Select>
+                    <Button
                   variant="default"
                   size="sm"
                   disabled={!selectedAuditHead || selectedAuditHead === "__empty"}
                   onClick={() => void assignAuditHead()}
                 >
                   {audit.auditHead ? "Change audit head" : "Assign audit head"}
-                </Button>
-              </div>
-            )}
+                    </Button>
+                  </div>
+                )}
           </section>
 
           <Separator className="bg-[var(--border-color-regular)]" />
@@ -662,7 +662,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
               <Badge className="border-transparent bg-[var(--c-bacSec)] text-[var(--c-texSec)]">
                 {audit.assignments.length} assigned
               </Badge>
-            </div>
+          </div>
 
             {canManageAudit && (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -679,11 +679,11 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
                         No available auditors
                       </SelectItem>
                     )}
-                    {auditors.map((u) => (
+                  {auditors.map((u) => (
                       <SelectItem key={u.id} value={u.id}>
                         {getUserLabel(u)}
                       </SelectItem>
-                    ))}
+                  ))}
                   </SelectContent>
                 </Select>
                 <Button
@@ -737,7 +737,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
             </div>
           </section>
         </CardContent>
-      </Card>
+        </Card>
     </PageContainer>
   );
 }
