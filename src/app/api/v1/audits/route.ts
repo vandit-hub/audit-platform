@@ -183,17 +183,17 @@ export async function POST(req: NextRequest) {
 
   const createdAudit = await prisma.$transaction(async (tx) => {
     const audit = await tx.audit.create({
-      data: {
-        plantId: input.plantId,
-        title: input.title ?? null,
-        purpose: input.purpose ?? null,
-        visitStartDate: input.visitStartDate ? new Date(input.visitStartDate) : null,
-        visitEndDate: input.visitEndDate ? new Date(input.visitEndDate) : null,
-        visitDetails: input.visitDetails ?? null,
-        managementResponseDate: input.managementResponseDate ? new Date(input.managementResponseDate) : null,
-        finalPresentationDate: input.finalPresentationDate ? new Date(input.finalPresentationDate) : null,
+    data: {
+      plantId: input.plantId,
+      title: input.title ?? null,
+      purpose: input.purpose ?? null,
+      visitStartDate: input.visitStartDate ? new Date(input.visitStartDate) : null,
+      visitEndDate: input.visitEndDate ? new Date(input.visitEndDate) : null,
+      visitDetails: input.visitDetails ?? null,
+      managementResponseDate: input.managementResponseDate ? new Date(input.managementResponseDate) : null,
+      finalPresentationDate: input.finalPresentationDate ? new Date(input.finalPresentationDate) : null,
         auditHeadId: input.auditHeadId ?? null,
-        createdById: session!.user.id
+      createdById: session!.user.id
       }
     });
 

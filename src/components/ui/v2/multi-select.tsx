@@ -1,8 +1,8 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "./badge";
 import { Input } from "./input";
+import { Badge } from "./badge";
 
 export type MultiSelectOption = {
   id: string;
@@ -17,6 +17,7 @@ export interface MultiSelectProps {
   disabled?: boolean;
   className?: string;
   inputClassName?: string;
+  appearance?: "outline" | "filled";
 }
 
 export function MultiSelect({
@@ -27,11 +28,18 @@ export function MultiSelect({
   disabled,
   className,
   inputClassName,
+  appearance = "outline",
 }: MultiSelectProps) {
   const [query, setQuery] = React.useState("");
   const [showDropdown, setShowDropdown] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const appearanceStyles: Record<NonNullable<MultiSelectProps["appearance"]>, string> = {
+    outline: "border border-[var(--border-color-regular)] bg-[var(--c-bacPri)]",
+    filled:
+      "border border-[var(--border-color-regular)] bg-[var(--input-background)]",
+  };
 
   const availableOptions = React.useMemo(() => {
     const selectedIds = new Set(value.map((item) => item.id));
@@ -85,8 +93,9 @@ export function MultiSelect({
   return (
     <div
       ref={containerRef}
-      className={cn(
-        "relative flex min-h-[44px] w-full flex-wrap gap-2 rounded-lg border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] p-2 transition-colors focus-within:border-[var(--c-palUiBlu500)] focus-within:ring-1 focus-within:ring-[var(--c-palUiBlu200)]",
+        className={cn(
+        "relative flex min-h-[44px] w-full flex-wrap gap-2 rounded-lg p-2 transition-colors focus-within:border-[var(--c-palUiBlu500)] focus-within:ring-1 focus-within:ring-[var(--c-palUiBlu200)]",
+        appearanceStyles[appearance],
         disabled && "cursor-not-allowed opacity-60",
         className
       )}

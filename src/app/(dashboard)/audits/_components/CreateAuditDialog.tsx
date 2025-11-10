@@ -146,10 +146,12 @@ export function CreateAuditDialog({
           Create Audit
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader className="space-y-2">
-          <DialogTitle>Create New Audit</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-3xl border border-[var(--border-color-regular)] bg-white px-8 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:px-10">
+        <DialogHeader className="space-y-3 text-left">
+          <DialogTitle className="text-2xl font-semibold text-[var(--c-texPri)]">
+            Create New Audit
+          </DialogTitle>
+          <DialogDescription className="text-sm text-[var(--c-texSec)]">
             Set up a new audit process with detailed information.
           </DialogDescription>
         </DialogHeader>
@@ -158,15 +160,23 @@ export function CreateAuditDialog({
             {error}
           </div>
         )}
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
+        <form className="space-y-8" onSubmit={handleSubmit}>
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="create-audit-plant">Plant *</Label>
+              <Label
+                htmlFor="create-audit-plant"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Plant *
+              </Label>
               <Select
                 value={form.plantId || undefined}
                 onValueChange={(value) => updateField("plantId", value)}
               >
-                <SelectTrigger id="create-audit-plant">
+                <SelectTrigger
+                  id="create-audit-plant"
+                  className="h-12 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
+                >
                   <SelectValue placeholder="Select plant" />
                 </SelectTrigger>
                 <SelectContent>
@@ -179,12 +189,20 @@ export function CreateAuditDialog({
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="create-audit-head">Audit Head *</Label>
+              <Label
+                htmlFor="create-audit-head"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Audit Head *
+              </Label>
               <Select
                 value={form.auditHeadId || undefined}
                 onValueChange={(value) => updateField("auditHeadId", value)}
               >
-                <SelectTrigger id="create-audit-head">
+                <SelectTrigger
+                  id="create-audit-head"
+                  className="h-12 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
+                >
                   <SelectValue placeholder="Select audit head" />
                 </SelectTrigger>
                 <SelectContent>
@@ -199,24 +217,36 @@ export function CreateAuditDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-audit-title">Audit Title *</Label>
+            <Label
+              htmlFor="create-audit-title"
+              className="text-sm font-medium text-[var(--c-texSec)]"
+            >
+              Audit Title *
+            </Label>
             <Input
               id="create-audit-title"
               placeholder="e.g., Q2 Financial Systems Audit"
               value={form.title}
               onChange={(event) => updateField("title", event.target.value)}
+              className="h-12 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-audit-purpose">Purpose *</Label>
+            <Label
+              htmlFor="create-audit-purpose"
+              className="text-sm font-medium text-[var(--c-texSec)]"
+            >
+              Purpose *
+            </Label>
             <Textarea
               id="create-audit-purpose"
               placeholder="Describe the objectives, scope, and key focus areas for this audit."
               value={form.purpose}
               onChange={(event) => updateField("purpose", event.target.value)}
               rows={6}
+              className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
               required
             />
             <p className="text-xs text-[var(--c-texSec)]">
@@ -225,7 +255,9 @@ export function CreateAuditDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Assign Auditors</Label>
+            <Label className="text-sm font-medium text-[var(--c-texSec)]">
+              Assign Auditors
+            </Label>
             <MultiSelect
               value={selectedAuditors}
               onChange={(items) => {
@@ -233,15 +265,23 @@ export function CreateAuditDialog({
               }}
               options={auditorOptions}
               placeholder="Type a name and press Enter to add auditors…"
+              appearance="filled"
+              className="rounded-2xl"
+              inputClassName="text-sm"
             />
             <p className="text-xs text-[var(--c-texSec)]">
               Press Enter to add each auditor. Multiple auditors can be assigned.
             </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="create-audit-start">Start Date *</Label>
+              <Label
+                htmlFor="create-audit-start"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Start Date *
+              </Label>
               <Input
                 id="create-audit-start"
                 type="date"
@@ -249,11 +289,17 @@ export function CreateAuditDialog({
                 onChange={(event) =>
                   updateField("visitStartDate", event.target.value)
                 }
+                className="h-12 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="create-audit-end">End Date *</Label>
+              <Label
+                htmlFor="create-audit-end"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                End Date *
+              </Label>
               <Input
                 id="create-audit-end"
                 type="date"
@@ -261,12 +307,13 @@ export function CreateAuditDialog({
                 onChange={(event) =>
                   updateField("visitEndDate", event.target.value)
                 }
+                className="h-12 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--input-background)] text-sm"
                 required
               />
             </div>
           </div>
 
-          <DialogFooter className="border-t border-[var(--border-color-regular)] pt-4 sm:space-x-3">
+          <DialogFooter className="border-t border-[var(--border-color-regular)] pt-5 sm:space-x-3">
             <Button
               type="button"
               variant="outline"

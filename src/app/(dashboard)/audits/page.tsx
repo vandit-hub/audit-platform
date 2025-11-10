@@ -68,8 +68,8 @@ export default function AuditsPage() {
     setLoadError(null);
 
     try {
-      const [plantsRes, auditsRes] = await Promise.all([
-        fetch("/api/v1/plants", { cache: "no-store" }),
+    const [plantsRes, auditsRes] = await Promise.all([
+      fetch("/api/v1/plants", { cache: "no-store" }),
         fetch("/api/v1/audits", { cache: "no-store" }),
       ]);
 
@@ -100,8 +100,8 @@ export default function AuditsPage() {
           setAuditHeads((headsJson as { users?: UserSummary[] }).users ?? []);
         } else {
           setAuditHeads([]);
-        }
-
+    }
+    
         if (auditorsRes.ok) {
           const auditorJson = await auditorsRes.json().catch(() => ({}));
           setAuditors(
@@ -113,7 +113,7 @@ export default function AuditsPage() {
       } else {
         setAuditHeads([]);
         setAuditors([]);
-      }
+    }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load audit data.";
@@ -193,7 +193,7 @@ export default function AuditsPage() {
         const message =
           err instanceof Error ? err.message : "Unable to update audit state.";
         showError(message);
-      } finally {
+    } finally {
         setActionBusy(null);
       }
     },
@@ -256,11 +256,11 @@ export default function AuditsPage() {
       <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
-            Audits
-          </h1>
+          Audits
+        </h1>
           <p className="text-sm text-[var(--c-texSec)]">
             Manage audit processes and keep track of progress across plants.
-          </p>
+        </p>
         </div>
         {canManageAudits && (
           <CreateAuditDialog
@@ -279,16 +279,16 @@ export default function AuditsPage() {
         </div>
       )}
 
-      <Card className="border-none bg-[var(--c-bacSec)]">
-        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-          <div>
-            <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
-              {canManageAudits ? "All Audits" : "My Assigned Audits"}
-            </CardTitle>
-            <CardDescription>
-              Complete list of audit processes with real-time status.
-            </CardDescription>
-          </div>
+        <Card className="rounded-3xl border border-[var(--border-color-regular)] bg-white shadow-none">
+         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+           <div aria-hidden="true" className="space-y-1 opacity-0">
+             <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
+               {canManageAudits ? "All Audits" : "My Assigned Audits"}
+             </CardTitle>
+             <CardDescription>
+               Complete list of audit processes with real-time status.
+             </CardDescription>
+           </div>
           <Button asChild variant="ghost" size="sm">
             <Link href="/reports">
               <ExternalLink className="mr-2 size-4" />
@@ -296,9 +296,9 @@ export default function AuditsPage() {
             </Link>
           </Button>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto px-0">
           {isLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-4 px-6">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div
                   key={index}
@@ -307,11 +307,11 @@ export default function AuditsPage() {
               ))}
             </div>
           ) : loadError ? (
-            <div className="rounded-xl border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-6 text-sm text-[var(--c-palUiRed700)]">
+            <div className="rounded-xl border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-6 text-sm text-[var(--c-palUiRed700)] mx-6">
               {loadError}
             </div>
           ) : audits.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--border-color-regular)] bg-white px-6 py-12 text-center">
+            <div className="mx-6 rounded-2xl border border-dashed border-[var(--border-color-regular)] bg-white px-6 py-12 text-center">
               <h3 className="text-lg font-semibold text-[var(--c-texPri)]">
                 No audits yet
               </h3>
@@ -320,78 +320,78 @@ export default function AuditsPage() {
               </p>
             </div>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="text-xs uppercase tracking-wide text-[var(--c-texSec)]">
-                <tr className="bg-white/60 text-left">
-                  <th className="px-5 py-3 font-medium">Title</th>
-                  <th className="px-5 py-3 font-medium">Plant</th>
-                  <th className="px-5 py-3 font-medium">Period</th>
-                  <th className="px-5 py-3 font-medium">Lock Status</th>
-                  <th className="px-5 py-3 font-medium">Progress</th>
-                  <th className="px-5 py-3 font-medium">Auditors</th>
-                  <th className="px-5 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase tracking-wide text-[var(--c-texSec)]/70">
+                <tr className="text-left">
+                  <th className="px-6 pb-3 font-medium">Title</th>
+                  <th className="px-6 pb-3 font-medium">Plant</th>
+                  <th className="px-6 pb-3 font-medium">Period</th>
+                  <th className="px-6 pb-3 font-medium">Lock Status</th>
+                  <th className="px-6 pb-3 font-medium">Progress</th>
+                  <th className="px-6 pb-3 font-medium">Auditors</th>
+                  <th className="px-6 pb-3 font-medium text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
                 {tableRows.map(
                   ({ audit, start, end, percent, lockState, teamLabel, additionalAuditors }) => {
                     const LockIcon = lockState.icon;
 
-                    return (
-                      <tr
-                        key={audit.id}
-                        className="border-b border-[var(--border-color-regular)] bg-white last:border-b-0"
-                      >
-                        <td className="px-5 py-4 text-[var(--c-texPri)]">
-                          <div className="space-y-1">
+                return (
+                  <tr
+                    key={audit.id}
+                        className="border-t border-[var(--border-color-regular)]/60 first:border-t-0"
+                  >
+                        <td className="px-6 py-5 text-[var(--c-texPri)]">
+                          <div className="space-y-1.5">
                             <p className="font-medium">
                               {audit.title?.trim() || "Untitled audit"}
                             </p>
                             {audit.purpose && (
-                              <p className="text-xs text-[var(--c-texSec)] line-clamp-1">
+                              <p className="text-xs text-[var(--c-texSec)]/80">
                                 {audit.purpose}
                               </p>
                             )}
                           </div>
-                        </td>
-                        <td className="px-5 py-4 text-[var(--c-texSec)]">
+                    </td>
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
                           {audit.plant.code} · {audit.plant.name}
-                        </td>
-                        <td className="px-5 py-4 text-[var(--c-texSec)]">
-                          {start} – {end}
-                        </td>
-                        <td className="px-5 py-4">
-                          <Badge className={`flex items-center gap-1 ${lockState.className}`}>
+                  </td>
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
+                          {start} — {end}
+                  </td>
+                        <td className="px-6 py-5">
+                          <Badge className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs ${lockState.className}`}>
                             <LockIcon className="size-3" />
                             {lockState.label}
-                          </Badge>
-                        </td>
-                        <td className="px-5 py-4">
+                      </Badge>
+                  </td>
+                        <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
                             <div className="w-28">
                               <Progress value={percent} />
                             </div>
                             <span className="text-sm font-medium text-[var(--c-texPri)]">
                               {percent}%
-                            </span>
+                      </span>
                           </div>
-                          <p className="mt-1 text-xs text-[var(--c-texSec)]">
+                          <p className="mt-1 text-xs text-[var(--c-texSec)]/80">
                             {audit.progress.done} of {audit.progress.total} resolved
                           </p>
-                        </td>
-                        <td className="px-5 py-4 text-[var(--c-texSec)]">
-                          <div className="space-y-1">
+                  </td>
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
+                          <div className="space-y-1.5">
                             <p className="font-medium text-[var(--c-texPri)]">
                               {teamLabel}
                             </p>
-                            <p className="text-xs text-[var(--c-texSec)]">
+                            <p className="text-xs text-[var(--c-texSec)]/80">
                               {additionalAuditors > 0
                                 ? `+${additionalAuditors} auditors`
                                 : "No additional auditors"}
                             </p>
                           </div>
-                        </td>
-                        <td className="px-5 py-4">
+                  </td>
+                        <td className="px-6 py-5">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               asChild
@@ -408,7 +408,7 @@ export default function AuditsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={actionBusy === audit.id || audit.completedAt}
+                                disabled={actionBusy === audit.id || !!audit.completedAt}
                                 onClick={() => toggleLock(audit)}
                                 aria-label={audit.isLocked ? "Unlock audit" : "Lock audit"}
                               >
@@ -419,16 +419,16 @@ export default function AuditsPage() {
                                 ) : (
                                   <Lock className="size-4" />
                                 )}
-                              </Button>
+                        </Button>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
+                      </div>
+                  </td>
+                </tr>
+                );
                   },
                 )}
-              </tbody>
-            </table>
+            </tbody>
+          </table>
           )}
         </CardContent>
       </Card>
