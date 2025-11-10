@@ -1,16 +1,35 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import Card from "@/components/ui/Card";
-import Select from "@/components/ui/Select";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import { PageContainer } from "@/components/v2/PageContainer";
 import { isCFOOrCXOTeam } from "@/lib/rbac";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/v2/card";
+import { Badge } from "@/components/ui/v2/badge";
+import { Button } from "@/components/ui/v2/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/v2/select";
+import { Avatar, AvatarFallback } from "@/components/ui/v2/avatar";
+import { Separator } from "@/components/ui/v2/separator";
+import { Skeleton } from "@/components/ui/v2/skeleton";
+import { cn } from "@/lib/utils";
 
 type Plant = { id: string; code: string; name: string };
 type User = { id: string; name: string | null; email: string | null; role: string };
+type VisibilityPreset = "show_all" | "last_12m" | "hide_all";
 type Audit = {
   id: string;
   plant: Plant;
@@ -28,50 +47,162 @@ type Audit = {
   lockedById?: string | null;
   completedAt?: string | null;
   completedById?: string | null;
-  visibilityRules?: any;
+  visibilityRules?: { mode?: VisibilityPreset } | null;
   auditHeadId?: string | null;
   auditHead?: User | null;
 };
 type Progress = { done: number; total: number };
 
+const STATUS_BADGE_STYLES: Record<Audit["status"], string> = {
+  PLANNED: "bg-[var(--c-bacSec)] text-[var(--c-texPri)] border-transparent",
+  IN_PROGRESS: "bg-[var(--ca-palUiBlu200)] text-[var(--c-palUiBlu700)] border-transparent",
+  SUBMITTED: "bg-[var(--cl-palOra100)] text-[var(--cd-palOra500)] border-transparent",
+  SIGNED_OFF: "bg-[var(--cl-palGre100)] text-[var(--cd-palGre500)] border-transparent",
+};
+
+const STATE_BADGE_STYLES = {
+  open: "bg-[var(--ca-palUiBlu200)] text-[var(--c-palUiBlu700)] border-transparent",
+  locked: "bg-[var(--cl-palOra100)] text-[var(--cd-palOra500)] border-transparent",
+  completed: "bg-[var(--cl-palGre100)] text-[var(--cd-palGre500)] border-transparent",
+};
+
+const VISIBILITY_COPY: Record<VisibilityPreset, { label: string; description: string }> = {
+  show_all: {
+    label: "Show all audits",
+    description: "Auditors and Audit Heads can browse the full historical record.",
+  },
+  last_12m: {
+    label: "Last 12 months",
+    description: "Limits visibility to audits created in the previous 12 months.",
+  },
+  hide_all: {
+    label: "Hide history",
+    description: "Restricts access to the current audit only for assigned members.",
+  },
+};
+
+const DEFAULT_VISIBILITY_MODE: VisibilityPreset = "show_all";
+
+function toTitleCase(value?: string | null) {
+  if (!value) return "—";
+  return value
+    .toLowerCase()
+    .split(/[_\s-]/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+}
+
+function formatDateRange(start?: string | null, end?: string | null) {
+  const startLabel = formatDate(start);
+  const endLabel = formatDate(end);
+  if (startLabel === "—" && endLabel === "—") return "—";
+  if (startLabel === "—") return endLabel;
+  if (endLabel === "—") return startLabel;
+  return `${startLabel} → ${endLabel}`;
+}
+
+function getInitialsFromText(value?: string | null) {
+  if (!value) return "U";
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  const initials = parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+  if (initials) return initials;
+  return value[0]?.toUpperCase() ?? "U";
+}
+
+function getUserInitials(user?: User | null) {
+  return getInitialsFromText(user?.name ?? user?.email ?? "");
+}
+
+function getUserLabel(user?: User | null) {
+  return user?.name ?? user?.email ?? "Unassigned";
+}
+
 export default function AuditDetailPage({ params }: { params: Promise<{ auditId: string }> }) {
   const { auditId } = React.use(params);
   const { data: session } = useSession();
   const canManageAudit = isCFOOrCXOTeam(session?.user?.role);
+  const { showSuccess, showError } = useToast();
 
   const [audit, setAudit] = useState<Audit | null>(null);
   const [progress, setProgress] = useState<Progress>({ done: 0, total: 0 });
   const [auditors, setAuditors] = useState<User[]>([]);
   const [auditHeads, setAuditHeads] = useState<User[]>([]);
-  const [selectedAuditor, setSelectedAuditor] = useState("");
-  const [selectedAuditHead, setSelectedAuditHead] = useState("");
-  const [selectedVisibilityPreset, setSelectedVisibilityPreset] = useState<string>("");
+  const [selectedAuditor, setSelectedAuditor] = useState<string>("");
+  const [selectedAuditHead, setSelectedAuditHead] = useState<string>("");
+  const [selectedVisibilityPreset, setSelectedVisibilityPreset] = useState<VisibilityPreset | "">("");
   const [error, setError] = useState<string | null>(null);
-  const { showSuccess, showError } = useToast();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
-    const json = await res.json();
-    if (res.ok) {
-      setAudit(json.audit);
-      setProgress(json.progress);
-      // load auditors and audit heads list (CFO/CXO-only endpoint; may 403)
-      const [audRes, ahRes] = await Promise.all([
-        fetch(`/api/v1/users?role=AUDITOR`, { cache: "no-store" }),
-        fetch(`/api/v1/users?role=AUDIT_HEAD`, { cache: "no-store" })
-      ]);
-      if (audRes.ok) {
-        const audJson = await audRes.json();
-        setAuditors(audJson.users);
-      }
-      if (ahRes.ok) {
-        const ahJson = await ahRes.json();
-        setAuditHeads(ahJson.users);
-      }
-    }
-  }, [auditId]);
+    setIsLoading(true);
+    setError(null);
 
-  useEffect(() => { load(); }, [load]);
+    try {
+      const res = await fetch(`/api/v1/audits/${auditId}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((json as { error?: string }).error || "Failed to load audit.");
+      }
+
+      const payload = json as { audit: Audit; progress: Progress };
+      setAudit(payload.audit);
+      setProgress(payload.progress ?? { done: 0, total: 0 });
+
+      if (canManageAudit) {
+        const [audRes, ahRes] = await Promise.all([
+          fetch(`/api/v1/users?role=AUDITOR`, { cache: "no-store" }),
+          fetch(`/api/v1/users?role=AUDIT_HEAD`, { cache: "no-store" }),
+        ]);
+
+        if (audRes.ok) {
+          const audJson = await audRes.json().catch(() => ({}));
+          setAuditors((audJson as { users?: User[] }).users ?? []);
+        } else {
+          setAuditors([]);
+        }
+
+        if (ahRes.ok) {
+          const ahJson = await ahRes.json().catch(() => ({}));
+          setAuditHeads((ahJson as { users?: User[] }).users ?? []);
+        } else {
+          setAuditHeads([]);
+        }
+      } else {
+        setAuditors([]);
+        setAuditHeads([]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load audit.";
+      setAudit(null);
+      setProgress({ done: 0, total: 0 });
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [auditId, canManageAudit]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function addAuditor() {
     if (!selectedAuditor) return;
@@ -79,18 +210,18 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     const res = await fetch(`/api/v1/audits/${auditId}/assign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ userId: selectedAuditor })
+      body: JSON.stringify({ userId: selectedAuditor }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to add auditor (Admin only).";
+      const errorMessage = (j as { error?: string }).error || "Failed to add auditor.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
-      const selectedUser = auditors.find(u => u.id === selectedAuditor);
+      const selectedUser = auditors.find((u) => u.id === selectedAuditor);
       setSelectedAuditor("");
       await load();
-      showSuccess(`Auditor ${selectedUser?.email || selectedUser?.name || 'user'} added successfully!`);
+      showSuccess(`Auditor ${selectedUser?.email ?? selectedUser?.name ?? "user"} added successfully!`);
     }
   }
 
@@ -99,7 +230,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     const res = await fetch(`/api/v1/audits/${auditId}/assign?userId=${userId}`, { method: "DELETE" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to remove auditor (Admin only).";
+      const errorMessage = (j as { error?: string }).error || "Failed to remove auditor.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
@@ -109,12 +240,14 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
   }
 
   async function lockAudit() {
-    if (!confirm("Are you sure you want to lock this audit? This will restrict most operations.")) return;
+    if (typeof window !== "undefined" && !window.confirm("Lock this audit? This will restrict most operations.")) {
+      return;
+    }
     setError(null);
     const res = await fetch(`/api/v1/audits/${auditId}/lock`, { method: "POST" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to lock audit.";
+      const errorMessage = (j as { error?: string }).error || "Failed to lock audit.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
@@ -128,7 +261,7 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     const res = await fetch(`/api/v1/audits/${auditId}/unlock`, { method: "POST" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to unlock audit.";
+      const errorMessage = (j as { error?: string }).error || "Failed to unlock audit.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
@@ -138,12 +271,17 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
   }
 
   async function completeAudit() {
-    if (!confirm("Are you sure you want to mark this audit as complete? This will lock the audit.")) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Mark this audit as complete? This will lock the audit.")
+    ) {
+      return;
+    }
     setError(null);
     const res = await fetch(`/api/v1/audits/${auditId}/complete`, { method: "POST" });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to complete audit.";
+      const errorMessage = (j as { error?: string }).error || "Failed to complete audit.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
@@ -154,23 +292,28 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
 
   async function assignAuditHead() {
     if (!selectedAuditHead) return;
-    const selectedUser = auditHeads.find(u => u.id === selectedAuditHead);
-    if (!confirm(`Assign ${selectedUser?.email || selectedUser?.name || 'user'} as Audit Head for this audit?`)) return;
+    const selectedUser = auditHeads.find((u) => u.id === selectedAuditHead);
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`Assign ${selectedUser?.email ?? selectedUser?.name ?? "user"} as Audit Head?`)
+    ) {
+      return;
+    }
     setError(null);
     const res = await fetch(`/api/v1/audits/${auditId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ auditHeadId: selectedAuditHead })
+      body: JSON.stringify({ auditHeadId: selectedAuditHead }),
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to assign audit head.";
+      const errorMessage = (j as { error?: string }).error || "Failed to assign audit head.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
       setSelectedAuditHead("");
       await load();
-      showSuccess(`${selectedUser?.email || selectedUser?.name || 'User'} assigned as Audit Head!`);
+      showSuccess(`${selectedUser?.email ?? selectedUser?.name ?? "User"} assigned as Audit Head!`);
     }
   }
 
@@ -178,30 +321,17 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     if (!selectedVisibilityPreset) return;
     setError(null);
 
-    let visibilityRules;
-    switch (selectedVisibilityPreset) {
-      case "show_all":
-        visibilityRules = { mode: "show_all" };
-        break;
-      case "last_12m":
-        visibilityRules = { mode: "last_12m" };
-        break;
-      case "hide_all":
-        visibilityRules = { mode: "hide_all" };
-        break;
-      default:
-        return;
-    }
+    const visibilityRules = { mode: selectedVisibilityPreset };
 
     const res = await fetch(`/api/v1/audits/${auditId}/visibility`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visibilityRules })
+      body: JSON.stringify({ visibilityRules }),
     });
 
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      const errorMessage = j.error || "Failed to update visibility rules.";
+      const errorMessage = (j as { error?: string }).error || "Failed to update visibility rules.";
       setError(errorMessage);
       showError(errorMessage);
     } else {
@@ -211,383 +341,403 @@ export default function AuditDetailPage({ params }: { params: Promise<{ auditId:
     }
   }
 
-  if (!audit) return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="text-center">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary-200 border-t-primary-600 mb-4"></div>
-        <p className="text-neutral-600">Loading audit details...</p>
-      </div>
-    </div>
-  );
+  if (!audit) {
+    return (
+      <PageContainer className="space-y-8">
+        {isLoading ? (
+          <div className="space-y-6">
+            <Skeleton className="h-4 w-32" />
+            <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
+              <CardContent className="space-y-4 py-8">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-32 w-full" />
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-8 py-12 text-center">
+            <p className="text-sm text-[var(--c-texSec)]">
+              {error ? error : "We couldn't load this audit right now."}
+            </p>
+            <Button variant="default" className="mt-4" onClick={() => void load()}>
+              Try again
+            </Button>
+          </div>
+        )}
+      </PageContainer>
+    );
+  }
 
-  const statusVariant = (status: string) => {
-    switch (status) {
-      case "PLANNED": return "neutral";
-      case "IN_PROGRESS": return "primary";
-      case "SUBMITTED": return "warning";
-      case "SIGNED_OFF": return "success";
-      default: return "neutral";
-    }
-  };
+  const progressPercent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+  const stateBadge = audit.completedAt
+    ? { label: "Completed", className: STATE_BADGE_STYLES.completed, meta: formatDateTime(audit.completedAt) }
+    : audit.isLocked
+      ? {
+          label: "Locked",
+          className: STATE_BADGE_STYLES.locked,
+          meta: audit.lockedAt ? formatDateTime(audit.lockedAt) : null,
+        }
+      : { label: "Open", className: STATE_BADGE_STYLES.open, meta: null };
+  const visibilityMode = (audit.visibilityRules?.mode as VisibilityPreset | undefined) ?? DEFAULT_VISIBILITY_MODE;
+  const visibilityCopy = VISIBILITY_COPY[visibilityMode];
+  const infoItems: Array<{ key: string; label: string; value: React.ReactNode }> = [
+    { key: "plant", label: "Plant", value: `${audit.plant.code} · ${audit.plant.name}` },
+    { key: "auditHead", label: "Audit head", value: audit.auditHead ? getUserLabel(audit.auditHead) : "Not assigned" },
+    { key: "visit", label: "Visit window", value: formatDateRange(audit.visitStartDate, audit.visitEndDate) },
+    { key: "managementResponse", label: "Management response", value: formatDate(audit.managementResponseDate) },
+    { key: "finalPresentation", label: "Final presentation", value: formatDate(audit.finalPresentationDate) },
+    { key: "visibility", label: "Visibility rule", value: visibilityCopy.label },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">
-          Audit — {audit.plant.code} {audit.plant.name}
-        </h1>
-        {audit.title && (
-          <p className="text-base text-neutral-600 mt-2">{audit.title}</p>
-        )}
+    <PageContainer className="space-y-8">
+      <div className="space-y-4">
+        <nav className="flex items-center gap-2 text-sm text-[var(--c-texSec)]">
+          <Link href="/audits" className="transition-colors hover:text-[var(--c-texPri)] hover:underline">
+            Audits
+          </Link>
+          <span className="text-[var(--c-texSec)]/60">/</span>
+          <span className="font-medium text-[var(--c-texPri)]">{audit.plant.code}</span>
+        </nav>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
+              {audit.title?.trim() || `${audit.plant.code} ${audit.plant.name}`}
+            </h1>
+            <p className="text-sm text-[var(--c-texSec)]">
+              {audit.purpose ? audit.purpose : "Overview of audit ownership, progress, and visibility controls."}
+            </p>
+          </div>
+          <Badge
+            variant="secondary"
+            className={cn("self-start border border-transparent", STATUS_BADGE_STYLES[audit.status])}
+          >
+            {toTitleCase(audit.status)}
+          </Badge>
+        </div>
       </div>
 
       {error && (
-        <div className="text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg">
+        <div className="rounded-2xl border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/50 px-4 py-3 text-sm text-[var(--c-palUiRed600)]">
           {error}
         </div>
       )}
 
-      {canManageAudit && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Audit Controls</h2>
-
-          <div className="space-y-4">
-            {/* Current Status Display */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm font-medium text-neutral-700">Current State:</span>
-              {audit.completedAt ? (
-                <Badge variant="success">Completed</Badge>
-              ) : audit.isLocked ? (
-                <Badge variant="warning">Locked</Badge>
-              ) : (
-                <Badge variant="primary">Open</Badge>
-              )}
+      <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
+        <CardHeader className="gap-2">
+          <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">Audit overview</CardTitle>
+          <CardDescription className="text-sm text-[var(--c-texSec)]">
+            Snapshot of schedule, ownership, and completion progress.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pb-8">
+          <div className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-[var(--c-texSec)]">
+              <span>Overall progress</span>
+              <span className="font-medium text-[var(--c-texPri)]">{progressPercent}%</span>
             </div>
-
-            {/* Lock/Completion Metadata */}
-            {audit.isLocked && audit.lockedAt && (
-              <div className="text-sm text-neutral-600 bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <span className="font-medium">Locked:</span> {new Date(audit.lockedAt).toLocaleString()}
-              </div>
-            )}
-            {audit.completedAt && (
-              <div className="text-sm text-neutral-600 bg-green-50 border border-green-200 rounded-lg p-3">
-                <span className="font-medium">Completed:</span> {new Date(audit.completedAt).toLocaleString()}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-2">
-              {!audit.isLocked && !audit.completedAt && (
-                <>
-                  <Button variant="destructive" onClick={lockAudit}>
-                    Lock Audit
-                  </Button>
-                  <Button variant="primary" onClick={completeAudit}>
-                    Mark Complete
-                  </Button>
-                </>
-              )}
-              {audit.isLocked && (
-                <Button variant="primary" onClick={unlockAudit}>
-                  Unlock Audit
-                </Button>
-              )}
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--border-color-regular)]/60">
+              <div
+                className="h-full rounded-full bg-[var(--c-palUiBlu600)] transition-all duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-
-            <div className="text-xs text-neutral-500 pt-2 border-t border-neutral-200">
-              <strong>Note:</strong> Locking an audit restricts most operations. Completing an audit automatically locks it. CFO can override locks.
+            <div className="mt-2 flex flex-wrap items-center justify-between text-xs text-[var(--c-texSec)]">
+              <span>
+                {progress.done} of {progress.total} observations resolved
+              </span>
+              {audit.visitDetails && <span>{audit.visitDetails}</span>}
             </div>
           </div>
-        </Card>
-      )}
 
-      {canManageAudit && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Audit Visibility Configuration</h2>
-
-          <div className="space-y-4">
-            {/* Current Visibility Rules Display */}
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-neutral-700">Current Visibility Setting:</span>
-                {audit.visibilityRules?.mode === "show_all" && (
-                  <Badge variant="success">Show All Audits</Badge>
-                )}
-                {audit.visibilityRules?.mode === "last_12m" && (
-                  <Badge variant="primary">Last 12 Months Only</Badge>
-                )}
-                {audit.visibilityRules?.mode === "hide_all" && (
-                  <Badge variant="warning">Hide All Historical Audits</Badge>
-                )}
-                {!audit.visibilityRules?.mode && (
-                  <Badge variant="neutral">Default (Show All)</Badge>
-                )}
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {infoItems.map((item) => (
+              <div key={item.key} className="space-y-1.5">
+                <div className="text-xs font-medium uppercase tracking-wide text-[var(--c-texSec)]/80">
+                  {item.label}
+                </div>
+                <div className="text-sm text-[var(--c-texPri)]">{item.value}</div>
               </div>
-            </div>
-
-            {/* Visibility Configuration Form */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-3">
-                Configure Historical Audit Visibility for Auditors and Audit Heads
-              </label>
-              <div className="flex gap-3">
-                <Select
-                  label=""
-                  value={selectedVisibilityPreset}
-                  onChange={(e) => setSelectedVisibilityPreset(e.target.value)}
-                  className="flex-1"
-                >
-                  <option value="">Select visibility preset</option>
-                  <option value="show_all">Show All Audits</option>
-                  <option value="last_12m">Last 12 Months Only</option>
-                  <option value="hide_all">Hide All Historical Audits</option>
-                </Select>
-                <Button
-                  variant="primary"
-                  onClick={updateVisibility}
-                  className="mt-0"
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
-
-            {/* Visibility Rules Explanation */}
-            <div className="text-xs text-neutral-600 bg-primary-50 border border-primary-200 rounded-lg p-3">
-              <div className="font-semibold text-primary-800 mb-2">Visibility Options Explained:</div>
-              <ul className="space-y-1.5 list-disc list-inside text-primary-700">
-                <li><strong>Show All Audits:</strong> Auditors and Audit Heads can see all past assigned audits and observations (default behavior)</li>
-                <li><strong>Last 12 Months Only:</strong> Limits visibility to assigned audits from the last 12 months only</li>
-                <li><strong>Hide All Historical Audits:</strong> Only the current audit is visible to assigned auditors and audit heads</li>
-              </ul>
-              <p className="mt-2 text-xs text-primary-600">
-                <strong>Note:</strong> CFO and CXO Team always have full visibility regardless of these settings.
-              </p>
-            </div>
+            ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+        <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
+          <CardHeader className="gap-2">
+            <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">Audit controls</CardTitle>
+            <CardDescription className="text-sm text-[var(--c-texSec)]">
+              Lock, unlock, or mark the audit complete once reviews wrap up.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 pb-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-[var(--c-texPri)]">Current state</span>
+              <Badge variant="secondary" className={cn("border-transparent", stateBadge.className)}>
+                {stateBadge.label}
+              </Badge>
+              {stateBadge.meta && (
+                <span className="text-xs text-[var(--c-texSec)]">updated {stateBadge.meta}</span>
+              )}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {audit.isLocked && audit.lockedAt && (
+                <div className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3 text-sm text-[var(--c-texSec)]">
+                  <div className="font-medium text-[var(--c-texPri)]">Locked on</div>
+                  <div>{formatDateTime(audit.lockedAt)}</div>
+                </div>
+              )}
+              {audit.completedAt && (
+                <div className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3 text-sm text-[var(--c-texSec)]">
+                  <div className="font-medium text-[var(--c-texPri)]">Completed on</div>
+                  <div>{formatDateTime(audit.completedAt)}</div>
+                </div>
+              )}
+            </div>
+
+            {canManageAudit ? (
+              <div className="flex flex-wrap items-center gap-3">
+                {!audit.isLocked && !audit.completedAt && (
+                  <>
+                    <Button variant="destructive" size="sm" onClick={() => void lockAudit()}>
+                      Lock audit
+                    </Button>
+                    <Button variant="default" size="sm" onClick={() => void completeAudit()}>
+                      Mark complete
+                    </Button>
+                  </>
+                )}
+                {audit.isLocked && !audit.completedAt && (
+                  <Button variant="outline" size="sm" onClick={() => void unlockAudit()}>
+                    Unlock audit
+                  </Button>
+                )}
+                {audit.completedAt && (
+                  <span className="text-xs text-[var(--c-texSec)]">
+                    Completed audits remain locked for integrity. Contact CFO to reopen.
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-4 py-3 text-sm text-[var(--c-texSec)]">
+                Only CFO and CXO team members can update audit locking controls.
+              </div>
+            )}
+
+            <p className="text-xs text-[var(--c-texSec)]">
+              Locking an audit freezes assignments and edits. Completing an audit automatically locks it and records the
+              finisher for the audit trail.
+            </p>
+          </CardContent>
         </Card>
-      )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Details</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Title:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.title || "—"}</div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Purpose:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.purpose || "—"}</div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Status:</div>
-              <div className="col-span-2">
-                <Badge variant={statusVariant(audit.status)}>
-                  {audit.status.replace("_", " ")}
+        <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
+          <CardHeader className="gap-2">
+            <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">Visibility settings</CardTitle>
+            <CardDescription className="text-sm text-[var(--c-texSec)]">
+              Configure which historical audits assigned teams can browse.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 pb-8">
+            <div className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-5 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-[var(--c-texSec)]/80">
+                    Current visibility
+                  </div>
+                  <div className="mt-1 text-sm text-[var(--c-texPri)]">{visibilityCopy.label}</div>
+                  <p className="mt-2 text-xs text-[var(--c-texSec)]">{visibilityCopy.description}</p>
+                </div>
+                <Badge variant="secondary" className="border-transparent bg-[var(--c-bacPri)] text-[var(--c-texSec)]">
+                  {visibilityMode.replace("_", " ")}
                 </Badge>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Visit Dates:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
-                {audit.visitStartDate ? new Date(audit.visitStartDate).toLocaleDateString() : "—"}
-                <span className="mx-2 text-neutral-400">→</span>
-                {audit.visitEndDate ? new Date(audit.visitEndDate).toLocaleDateString() : "—"}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Visit Details:</div>
-              <div className="col-span-2 text-sm text-neutral-900">{audit.visitDetails || "—"}</div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Management Response:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
-                {audit.managementResponseDate ? new Date(audit.managementResponseDate).toLocaleDateString() : "—"}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-1 text-sm font-semibold text-neutral-600">Final Presentation:</div>
-              <div className="col-span-2 text-sm text-neutral-900">
-                {audit.finalPresentationDate ? new Date(audit.finalPresentationDate).toLocaleDateString() : "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-neutral-200">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-semibold text-neutral-700">Progress (observations)</div>
-              <div className="text-sm font-medium text-neutral-900">
-                {progress.done}/{progress.total} resolved
-              </div>
-            </div>
-            <div className="w-full bg-neutral-200 h-3 rounded-full overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-primary-500 to-primary-600 h-3 rounded-full transition-all duration-500 ease-out"
-                style={{ width: progress.total ? `${Math.round((progress.done / progress.total) * 100)}%` : "0%" }}
-              />
-            </div>
-            {progress.total > 0 && (
-              <div className="text-xs text-neutral-600 mt-2 text-right">
-                {Math.round((progress.done / progress.total) * 100)}% complete
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Assignments</h2>
-
-          {/* Audit Head Section */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Audit Head</h3>
-            {audit.auditHead ? (
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary-50 to-primary-25 rounded-lg border-2 border-primary-200">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-primary-600 flex items-center justify-center">
-                    <span className="text-white font-bold text-base">
-                      {(audit.auditHead.email ?? audit.auditHead.name ?? "A")[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-neutral-900">
-                      {audit.auditHead.email ?? audit.auditHead.name}
-                    </div>
-                    <Badge variant="primary" className="mt-1">Audit Head</Badge>
-                  </div>
-                </div>
-                {canManageAudit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => assignAuditHead()}
-                    className="text-primary-600 hover:text-primary-700 hover:bg-primary-100"
-                  >
-                    Change
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                {!audit.auditHeadId && (
-                  <div className="bg-warning-50 border border-warning-200 rounded-lg p-3 mb-3">
-                    <p className="text-sm text-warning-800">⚠️ No audit head assigned to this audit.</p>
-                  </div>
-                )}
-                {canManageAudit && (
-                  <div className="flex gap-3">
-                    <Select
-                      label=""
-                      value={selectedAuditHead}
-                      onChange={(e) => setSelectedAuditHead(e.target.value)}
-                      className="flex-1"
-                    >
-                      <option value="">Select Audit Head</option>
-                      {auditHeads.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.email ?? u.name}
-                        </option>
-                      ))}
-                    </Select>
-                    <Button
-                      variant="primary"
-                      onClick={assignAuditHead}
-                      className="mt-0"
-                    >
-                      Assign
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Separator */}
-          <div className="border-t border-neutral-200 my-6"></div>
-
-          {/* Auditors Section */}
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Team Members (Auditors)</h3>
-
-            {canManageAudit && (
-              <div className="flex gap-3 mb-4">
+            {canManageAudit ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Select
-                  label=""
-                  value={selectedAuditor}
-                  onChange={(e) => setSelectedAuditor(e.target.value)}
-                  className="flex-1"
+                  value={selectedVisibilityPreset || undefined}
+                  onValueChange={(value) => setSelectedVisibilityPreset(value as VisibilityPreset)}
                 >
-                  <option value="">Select auditor</option>
-                  {auditors.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.email ?? u.name}
-                    </option>
-                  ))}
+                  <SelectTrigger className="w-full sm:w-60">
+                    <SelectValue placeholder="Select visibility preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="show_all">Show all audits</SelectItem>
+                    <SelectItem value="last_12m">Last 12 months only</SelectItem>
+                    <SelectItem value="hide_all">Hide historical audits</SelectItem>
+                  </SelectContent>
                 </Select>
                 <Button
-                  variant="primary"
-                  onClick={addAuditor}
-                  className="mt-0"
+                  variant="default"
+                  size="sm"
+                  disabled={!selectedVisibilityPreset}
+                  onClick={() => void updateVisibility()}
                 >
-                  Add
+                  Apply
+                </Button>
+              </div>
+            ) : (
+              <div className="text-xs text-[var(--c-texSec)]">
+                Only CFO and CXO team members can modify visibility rules. Current rules still apply to your view.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)]">
+        <CardHeader className="gap-2">
+          <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">Team & ownership</CardTitle>
+          <CardDescription className="text-sm text-[var(--c-texSec)]">
+            Manage audit head assignment and supporting auditor roster.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pb-8">
+          <section className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-[var(--c-texSec)]/80">Audit head</div>
+                <div className="mt-1 text-sm text-[var(--c-texPri)]">
+                  {audit.auditHead ? getUserLabel(audit.auditHead) : "Not assigned"}
+                </div>
+              </div>
+              {audit.auditHead && (
+                <Badge className="border-transparent bg-[var(--ca-palUiBlu200)] text-[var(--c-palUiBlu700)]">
+                  Lead owner
+                </Badge>
+              )}
+            </div>
+
+            {canManageAudit && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Select
+                  value={selectedAuditHead || undefined}
+                  onValueChange={(value) => setSelectedAuditHead(value)}
+                >
+                  <SelectTrigger className="w-full sm:w-72">
+                    <SelectValue placeholder="Select audit head" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {auditHeads.length === 0 && (
+                      <SelectItem value="__empty" disabled>
+                        No eligible audit heads found
+                      </SelectItem>
+                    )}
+                    {auditHeads.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {getUserLabel(u)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={!selectedAuditHead || selectedAuditHead === "__empty"}
+                  onClick={() => void assignAuditHead()}
+                >
+                  {audit.auditHead ? "Change audit head" : "Assign audit head"}
+                </Button>
+              </div>
+            )}
+          </section>
+
+          <Separator className="bg-[var(--border-color-regular)]" />
+
+          <section className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-[var(--c-texSec)]/80">
+                  Team members (auditors)
+                </div>
+                <p className="text-sm text-[var(--c-texSec)]">
+                  Add or remove auditors responsible for fieldwork and observation closure.
+                </p>
+              </div>
+              <Badge className="border-transparent bg-[var(--c-bacSec)] text-[var(--c-texSec)]">
+                {audit.assignments.length} assigned
+              </Badge>
+            </div>
+
+            {canManageAudit && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Select
+                  value={selectedAuditor || undefined}
+                  onValueChange={(value) => setSelectedAuditor(value)}
+                >
+                  <SelectTrigger className="w-full sm:w-72">
+                    <SelectValue placeholder="Select auditor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {auditors.length === 0 && (
+                      <SelectItem value="__empty" disabled>
+                        No available auditors
+                      </SelectItem>
+                    )}
+                    {auditors.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {getUserLabel(u)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={!selectedAuditor || selectedAuditor === "__empty"}
+                  onClick={() => void addAuditor()}
+                >
+                  Add auditor
                 </Button>
               </div>
             )}
 
             <div className="space-y-3">
-              {audit.assignments.map((a) => (
+              {audit.assignments.map((assignment) => (
                 <div
-                  key={a.auditor.id}
-                  className="flex items-center justify-between p-4 bg-neutral-50 rounded-lg border border-neutral-200 hover:border-neutral-300 transition-colors"
+                  key={assignment.auditor.id}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                      <span className="text-primary-700 font-semibold text-sm">
-                        {(a.auditor.email ?? a.auditor.name ?? "U")[0].toUpperCase()}
-                      </span>
+                    <Avatar className="h-9 w-9 bg-[var(--ca-palUiBlu200)]">
+                      <AvatarFallback className="text-sm font-medium text-[var(--c-palUiBlu700)]">
+                        {getUserInitials(assignment.auditor)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="text-sm font-medium text-[var(--c-texPri)]">
+                        {getUserLabel(assignment.auditor)}
+                      </div>
+                      <div className="text-xs text-[var(--c-texSec)]">{toTitleCase(assignment.auditor.role)}</div>
                     </div>
-                    <span className="text-sm font-medium text-neutral-900">
-                      {a.auditor.email ?? a.auditor.name}
-                    </span>
                   </div>
                   {canManageAudit && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeAuditor(a.auditor.id)}
-                      className="text-error-600 hover:text-error-700 hover:bg-error-50"
+                      className="text-[var(--c-palUiRed600)] hover:bg-[var(--c-palUiRed100)] hover:text-[var(--c-palUiRed600)]"
+                      onClick={() => void removeAuditor(assignment.auditor.id)}
                     >
                       Remove
                     </Button>
                   )}
                 </div>
               ))}
+
               {audit.assignments.length === 0 && (
-                <div className="text-center py-8 px-6 bg-neutral-50 rounded-xl">
-                  <div className="flex justify-center mb-3">
-                    <div className="p-3 bg-neutral-100 rounded-full">
-                      <svg className="h-8 w-8 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-sm text-neutral-600">No auditors assigned yet.</p>
+                <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-8 text-center text-sm text-[var(--c-texSec)]">
+                  No auditors assigned yet.
                 </div>
               )}
             </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Checklist UI intentionally removed */}
-    </div>
+          </section>
+        </CardContent>
+      </Card>
+    </PageContainer>
   );
 }

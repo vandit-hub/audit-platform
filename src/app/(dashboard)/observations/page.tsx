@@ -4,11 +4,12 @@ import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import Card from "@/components/ui/Card";
+import { LegacyCard as Card } from "@/components/ui/v2/legacy-card";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/v2/badge";
+import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
@@ -162,27 +163,52 @@ export default function ObservationsPage() {
 
   const canCreate = isAuditorOrAuditHead(role);
 
-  const statusVariant = (status: string) => {
-    if (status.includes("DRAFT")) return "neutral";
-    if (status.includes("SUBMITTED") || status.includes("UNDER_REVIEW")) return "warning";
-    if (status.includes("APPROVED") || status.includes("RESOLVED") || status.includes("FINALISED")) return "success";
-    if (status.includes("REJECTED") || status.includes("REFERRED")) return "error";
-    return "primary";
+  const statusBadgeClass = (status: string) => {
+    const upper = status.toUpperCase();
+    if (upper.includes("DRAFT")) {
+      return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
+    }
+    if (upper.includes("SUBMITTED") || upper.includes("UNDER_REVIEW")) {
+      return "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]";
+    }
+    if (upper.includes("APPROVED") || upper.includes("RESOLVED") || upper.includes("FINALISED")) {
+      return "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]";
+    }
+    if (upper.includes("REJECTED") || upper.includes("REFERRED")) {
+      return "bg-[var(--c-palUiRed100)] border-transparent text-[var(--c-palUiRed600)]";
+    }
+    return "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]";
   };
 
-  const riskVariant = (risk: string | null | undefined) => {
-    if (risk === "A") return "error";
-    if (risk === "B") return "warning";
-    if (risk === "C") return "neutral";
-    return "neutral";
+  const riskBadgeClass = (risk: string | null | undefined) => {
+    if (risk === "A") {
+      return "bg-[var(--c-palUiRed100)] border-transparent text-[var(--c-palUiRed600)]";
+    }
+    if (risk === "B") {
+      return "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]";
+    }
+    if (risk === "C") {
+      return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
+    }
+    return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Observations</h1>
-        <p className="text-base text-neutral-600 mt-2">Track and manage audit findings</p>
-      </div>
+    <PageContainer className="space-y-8">
+      <header className="space-y-2">
+        <h1
+          className="text-3xl font-semibold"
+          style={{ color: "var(--c-texPri)" }}
+        >
+          Observations
+        </h1>
+        <p
+          className="text-sm md:text-base"
+          style={{ color: "var(--c-texSec)" }}
+        >
+          Track and manage audit findings across plants with advanced filters.
+        </p>
+      </header>
 
       <Card padding="lg">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
@@ -359,14 +385,14 @@ export default function ObservationsPage() {
                   </td>
                   <td className="py-4 px-6">
                     {r.audit.isLocked ? (
-                      <Badge variant="warning">
+                      <Badge className="bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]">
                         <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                         Locked
                       </Badge>
                     ) : (
-                      <Badge variant="neutral">Open</Badge>
+                      <Badge className="bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]">Open</Badge>
                     )}
                   </td>
                   <td className="py-4 px-6 max-w-xs">
@@ -376,18 +402,20 @@ export default function ObservationsPage() {
                   </td>
                   <td className="py-4 px-6">
                     {r.riskCategory ? (
-                      <Badge variant={riskVariant(r.riskCategory)}>{r.riskCategory}</Badge>
+                      <Badge className={riskBadgeClass(r.riskCategory)}>
+                        {r.riskCategory}
+                      </Badge>
                     ) : (
                       <span className="text-neutral-400">—</span>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.currentStatus)}>
+                    <Badge className={statusBadgeClass(r.currentStatus)}>
                       {r.currentStatus.replace("_", " ")}
                     </Badge>
                   </td>
                   <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.approvalStatus)}>
+                    <Badge className={statusBadgeClass(r.approvalStatus)}>
                       {r.approvalStatus}
                     </Badge>
                   </td>
@@ -412,6 +440,6 @@ export default function ObservationsPage() {
           </table>
         </div>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

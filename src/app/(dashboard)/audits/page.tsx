@@ -1,14 +1,28 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/v2/card";
+import { Input } from "@/components/ui/v2/input";
+import { Textarea } from "@/components/ui/v2/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/v2/select";
+import { Button } from "@/components/ui/v2/button";
+import { Badge } from "@/components/ui/v2/badge";
+import { PageContainer } from "@/components/v2/PageContainer";
 import { isCFOOrCXOTeam } from "@/lib/rbac";
 
 type Plant = { id: string; code: string; name: string };
@@ -24,6 +38,19 @@ type AuditListItem = {
   progress: { done: number; total: number };
   isLocked?: boolean;
   completedAt?: string | null;
+};
+
+const STATUS_BADGE_CLASSES: Record<
+  AuditListItem["status"],
+  string
+> = {
+  PLANNED: "bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent",
+  IN_PROGRESS:
+    "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]",
+  SUBMITTED:
+    "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]",
+  SIGNED_OFF:
+    "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]",
 };
 
 export default function AuditsPage() {
@@ -66,6 +93,10 @@ export default function AuditsPage() {
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (!plantId) {
+      setError("Please select a plant before creating an audit.");
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -106,177 +137,302 @@ export default function AuditsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Audits</h1>
-        <p className="text-base text-neutral-600 mt-2">Create and manage audit schedules</p>
-      </div>
+    <PageContainer className="space-y-8">
+      <header className="space-y-2">
+        <h1
+          className="text-3xl font-semibold"
+          style={{ color: "var(--c-texPri)" }}
+        >
+          Audits
+        </h1>
+        <p
+          className="text-sm md:text-base"
+          style={{ color: "var(--c-texSec)" }}
+        >
+          Create new schedules and monitor the status of ongoing audits.
+        </p>
+      </header>
 
       {canManageAudits && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Audit (CFO/CXO Team)</h2>
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-          <form onSubmit={onCreate} className="space-y-6">
-            <div className="grid sm:grid-cols-2 gap-6">
-              <Select
-                label="Plant"
-                value={plantId}
-                onChange={(e) => setPlantId(e.target.value)}
-                required
-              >
-                <option value="">Select plant</option>
-                {plants.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                  </option>
-                ))}
-              </Select>
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Audit</CardTitle>
+            <CardDescription>
+              Configure a new audit assignment for a plant and define important
+              milestones.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {error && (
+              <div className="text-sm rounded-md border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/40 px-4 py-3 text-[var(--c-palUiRed600)]">
+                {error}
+              </div>
+            )}
+            <form onSubmit={onCreate} className="space-y-6">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div className="flex flex-col gap-2 md:col-span-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Plant
+                  </label>
+                  <Select
+                    value={plantId || undefined}
+                    onValueChange={setPlantId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select plant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plants.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.code} — {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="sm:col-span-2">
-                <Input
-                  label="Audit Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Q1 2024 Internal Audit"
-                />
+                <div className="md:col-span-2 flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Audit title
+                  </label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., FY25 Financial Controls Audit"
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Audit purpose
+                  </label>
+                  <Textarea
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    placeholder="Describe the scope, objectives, and compliance requirements for this audit."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Visit start date
+                  </label>
+                  <Input
+                    type="date"
+                    value={visitStartDate}
+                    onChange={(e) => setVisitStartDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Visit end date
+                  </label>
+                  <Input
+                    type="date"
+                    value={visitEndDate}
+                    onChange={(e) => setVisitEndDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Management response deadline
+                  </label>
+                  <Input
+                    type="date"
+                    value={managementResponseDate}
+                    onChange={(e) =>
+                      setManagementResponseDate(e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Final presentation date
+                  </label>
+                  <Input
+                    type="date"
+                    value={finalPresentationDate}
+                    onChange={(e) => setFinalPresentationDate(e.target.value)}
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex flex-col gap-2">
+                  <label
+                    className="text-sm font-medium"
+                    style={{ color: "var(--c-texSec)" }}
+                  >
+                    Visit details
+                  </label>
+                  <Input
+                    value={visitDetails}
+                    onChange={(e) => setVisitDetails(e.target.value)}
+                    placeholder="Additional logistics or areas of focus."
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Audit Purpose
-                </label>
-                <textarea
-                  className="w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all duration-200 ease-out shadow-sm border-neutral-300 bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-primary-100 focus:outline-none focus:ring-4"
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="Describe the purpose and scope of this audit..."
-                  rows={3}
-                />
+              <div className="flex justify-end">
+                <Button type="submit" disabled={busy}>
+                  {busy ? "Creating…" : "Create audit"}
+                </Button>
               </div>
-
-              <Input
-                type="date"
-                label="Visit Start Date"
-                value={visitStartDate}
-                onChange={(e) => setVisitStartDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Visit End Date"
-                value={visitEndDate}
-                onChange={(e) => setVisitEndDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Management Response Date"
-                value={managementResponseDate}
-                onChange={(e) => setManagementResponseDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Final Presentation Date"
-                value={finalPresentationDate}
-                onChange={(e) => setFinalPresentationDate(e.target.value)}
-              />
-
-              <div className="sm:col-span-2">
-                <Input
-                  label="Visit Details"
-                  value={visitDetails}
-                  onChange={(e) => setVisitDetails(e.target.value)}
-                  placeholder="Additional visit information..."
-                />
-              </div>
-            </div>
-
-            <Button type="submit" variant="primary" isLoading={busy}>
-              {busy ? "Creating…" : "Create Audit"}
-            </Button>
-          </form>
+            </form>
+          </CardContent>
         </Card>
       )}
 
       {!canManageAudits && (
-        <div className="bg-primary-50 border border-primary-200 rounded-lg p-5 text-sm text-primary-800">
-          <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p>You can view audits assigned to you below. Only CFO and CXO Team can create new audits.</p>
-          </div>
+        <div className="rounded-xl border border-[var(--ca-palUiBlu200)] bg-[var(--ca-palUiBlu100)]/40 px-5 py-4 text-sm text-[var(--c-palUiBlu700)]">
+          Only CFO and CXO roles can create new audits. You can still review
+          audits assigned to you below.
         </div>
       )}
 
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">
-          {canManageAudits ? "All Audits" : "My Assigned Audits"}
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Title</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Period</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Lock Status</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Progress</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Auditors</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <CardTitle>
+              {canManageAudits ? "All audits" : "My assigned audits"}
+            </CardTitle>
+            <CardDescription>
+              Track status, progress, and assignments for ongoing audit
+              engagements.
+            </CardDescription>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/reports">Export summary</Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead
+              className="bg-[var(--c-bacSec)] text-[var(--c-texTer)]"
+              style={{ textTransform: "uppercase", fontSize: "11px" }}
+            >
+              <tr>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Audit
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Plant
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Window
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Status
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Progress
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Team
+                </th>
+                <th className="px-5 py-3 text-left font-semibold tracking-wide">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {audits.map((a, index) => (
-                <tr key={a.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                  <td className="py-4 px-6 font-medium text-neutral-900">{a.title || "—"}</td>
-                  <td className="py-4 px-6 text-neutral-700">
-                    {a.plant.code} — {a.plant.name}
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
-                    → {a.visitEndDate ? new Date(a.visitEndDate).toLocaleDateString() : "—"}
-                  </td>
-                  <td className="py-4 px-6">
-                    {a.completedAt ? (
-                      <Badge variant="success">Completed</Badge>
-                    ) : a.isLocked ? (
-                      <Badge variant="warning">
-                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Locked
+            <tbody>
+              {audits.map((audit) => {
+                const window =
+                  audit.visitStartDate || audit.visitEndDate
+                    ? `${audit.visitStartDate ? new Date(
+                        audit.visitStartDate,
+                      ).toLocaleDateString() : "—"} → ${
+                        audit.visitEndDate
+                          ? new Date(audit.visitEndDate).toLocaleDateString()
+                          : "—"
+                      }`
+                    : "—";
+
+                const statusBadge =
+                  STATUS_BADGE_CLASSES[audit.status] ??
+                  "bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent";
+
+                const lockLabel = audit.completedAt
+                  ? "Completed"
+                  : audit.isLocked
+                  ? "Locked"
+                  : "Open";
+                const lockBadgeClass = audit.completedAt
+                  ? "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]"
+                  : audit.isLocked
+                  ? "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]"
+                  : "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]";
+
+                return (
+                  <tr
+                    key={audit.id}
+                    className="border-b border-[var(--border-color-regular)] last:border-0"
+                  >
+                    <td className="px-5 py-4 font-medium text-[var(--c-texPri)]">
+                      {audit.title || "—"}
+                    </td>
+                    <td className="px-5 py-4 text-[var(--c-texSec)]">
+                      {audit.plant.code} — {audit.plant.name}
+                    </td>
+                    <td className="px-5 py-4 text-[var(--c-texSec)]">
+                      {window}
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge className={statusBadge}>
+                        {audit.status.replace("_", " ").toLowerCase()}
                       </Badge>
-                    ) : (
-                      <Badge variant="neutral">Open</Badge>
-                    )}
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600">
-                    <span className="font-medium text-neutral-900">{a.progress.done}</span>
-                    <span className="text-neutral-500">/{a.progress.total}</span>
-                  </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.assignments.map((u) => u.email ?? u.name).join(", ") || "—"}
-                  </td>
-                  <td className="py-4 px-6">
-                    <Link
-                      href={`/audits/${a.id}`}
-                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-5 py-4 text-[var(--c-texSec)]">
+                      <span className="font-semibold text-[var(--c-texPri)]">
+                        {audit.progress.done}
+                      </span>
+                      <span>/{audit.progress.total}</span>
+                    </td>
+                    <td className="px-5 py-4 text-[var(--c-texSec)]">
+                      {audit.assignments.length
+                        ? audit.assignments
+                            .map((u) => u.email ?? u.name ?? "—")
+                            .join(", ")
+                        : "—"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <Badge className={lockBadgeClass}>{lockLabel}</Badge>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/audits/${audit.id}`}>Open</Link>
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-        </div>
+        </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
