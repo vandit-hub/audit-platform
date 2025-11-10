@@ -1,52 +1,49 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { ExternalLink, Lock, ShieldCheck, Unlock } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { PageContainer } from "@/components/v2/PageContainer";
 import {
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/v2/card";
-import { Input } from "@/components/ui/v2/input";
-import { Textarea } from "@/components/ui/v2/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/v2/select";
-import { Button } from "@/components/ui/v2/button";
-import { Badge } from "@/components/ui/v2/badge";
-import { PageContainer } from "@/components/v2/PageContainer";
+  Progress,
+} from "@/components/ui/v2";
 import { isCFOOrCXOTeam } from "@/lib/rbac";
+import {
+  CreateAuditDialog,
+  CreateAuditFormValues,
+} from "./_components/CreateAuditDialog";
 
 type Plant = { id: string; code: string; name: string };
+type UserSummary = { id: string; name: string | null; email: string | null };
 type AuditListItem = {
   id: string;
   plant: Plant;
   title?: string | null;
+  purpose?: string | null;
   visitStartDate?: string | null;
   visitEndDate?: string | null;
   status: "PLANNED" | "IN_PROGRESS" | "SUBMITTED" | "SIGNED_OFF";
   createdAt: string;
-  assignments: { id: string; name: string | null; email: string | null }[];
+  assignments: UserSummary[];
   progress: { done: number; total: number };
   isLocked?: boolean;
   completedAt?: string | null;
+  auditHead: UserSummary | null;
 };
 
-const STATUS_BADGE_CLASSES: Record<
-  AuditListItem["status"],
-  string
-> = {
-  PLANNED: "bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent",
+const STATUS_BADGE_CLASSES: Record<AuditListItem["status"], string> = {
+  PLANNED: "bg-[var(--c-bacSec)] text-[var(--c-texPri)] border-transparent",
   IN_PROGRESS:
-    "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]",
+    "bg-[var(--ca-palUiBlu200)] border-transparent text-[var(--c-palUiBlu700)]",
   SUBMITTED:
     "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]",
   SIGNED_OFF:
@@ -56,381 +53,383 @@ const STATUS_BADGE_CLASSES: Record<
 export default function AuditsPage() {
   const { data: session } = useSession();
   const canManageAudits = isCFOOrCXOTeam(session?.user?.role);
-  const [plants, setPlants] = useState<Plant[]>([]);
-  const [audits, setAudits] = useState<AuditListItem[]>([]);
-  const [plantId, setPlantId] = useState("");
-  const [title, setTitle] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [visitStartDate, setVisitStartDate] = useState("");
-  const [visitEndDate, setVisitEndDate] = useState("");
-  const [visitDetails, setVisitDetails] = useState("");
-  const [managementResponseDate, setManagementResponseDate] = useState("");
-  const [finalPresentationDate, setFinalPresentationDate] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const { showSuccess, showError } = useToast();
 
-  async function load() {
-    const [plantsRes, auditsRes] = await Promise.all([
-      fetch("/api/v1/plants", { cache: "no-store" }),
-      fetch("/api/v1/audits", { cache: "no-store" })
-    ]);
-    
-    if (plantsRes.ok) {
-      const plantsJson = await plantsRes.json();
-      setPlants(plantsJson.plants || []);
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [audits, setAudits] = useState<AuditListItem[]>([]);
+  const [auditHeads, setAuditHeads] = useState<UserSummary[]>([]);
+  const [auditors, setAuditors] = useState<UserSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const [plantsRes, auditsRes] = await Promise.all([
+        fetch("/api/v1/plants", { cache: "no-store" }),
+        fetch("/api/v1/audits", { cache: "no-store" }),
+      ]);
+
+      const plantsJson = await plantsRes.json().catch(() => ({}));
+      if (!plantsRes.ok) {
+        throw new Error(
+          (plantsJson as { error?: string }).error || "Failed to load plants.",
+        );
+      }
+      setPlants(plantsJson.plants ?? []);
+
+      const auditsJson = await auditsRes.json().catch(() => ({}));
+      if (!auditsRes.ok) {
+        throw new Error(
+          (auditsJson as { error?: string }).error || "Failed to load audits.",
+        );
+      }
+      setAudits(auditsJson.audits ?? []);
+
+      if (canManageAudits) {
+        const [headsRes, auditorsRes] = await Promise.all([
+          fetch("/api/v1/users?role=AUDIT_HEAD", { cache: "no-store" }),
+          fetch("/api/v1/users?role=AUDITOR", { cache: "no-store" }),
+        ]);
+
+        if (headsRes.ok) {
+          const headsJson = await headsRes.json().catch(() => ({}));
+          setAuditHeads((headsJson as { users?: UserSummary[] }).users ?? []);
+        } else {
+          setAuditHeads([]);
+        }
+
+        if (auditorsRes.ok) {
+          const auditorJson = await auditorsRes.json().catch(() => ({}));
+          setAuditors(
+            (auditorJson as { users?: UserSummary[] }).users ?? [],
+          );
+        } else {
+          setAuditors([]);
+        }
+      } else {
+        setAuditHeads([]);
+        setAuditors([]);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load audit data.";
+      setLoadError(message);
+      showError(message);
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (auditsRes.ok) {
-      const auditsJson = await auditsRes.json();
-      setAudits(auditsJson.audits || []);
-    }
-  }
+  }, [canManageAudits, showError]);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
 
-  async function onCreate(e: FormEvent) {
-    e.preventDefault();
-    if (!plantId) {
-      setError("Please select a plant before creating an audit.");
-      return;
-    }
-    setError(null);
-    setBusy(true);
-    try {
+  const handleCreate = useCallback(
+    async (values: CreateAuditFormValues) => {
+      const payload = {
+        plantId: values.plantId,
+        title: values.title?.trim() || undefined,
+        purpose: values.purpose?.trim() || undefined,
+        visitStartDate: values.visitStartDate
+          ? new Date(values.visitStartDate).toISOString()
+          : undefined,
+        visitEndDate: values.visitEndDate
+          ? new Date(values.visitEndDate).toISOString()
+          : undefined,
+        auditHeadId: values.auditHeadId,
+        auditorIds: values.auditorIds,
+      };
+
       const res = await fetch("/api/v1/audits", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          plantId,
-          title: title || undefined,
-          purpose: purpose || undefined,
-          visitStartDate: visitStartDate ? new Date(visitStartDate).toISOString() : undefined,
-          visitEndDate: visitEndDate ? new Date(visitEndDate).toISOString() : undefined,
-          visitDetails: visitDetails || undefined,
-          managementResponseDate: managementResponseDate ? new Date(managementResponseDate).toISOString() : undefined,
-          finalPresentationDate: finalPresentationDate ? new Date(finalPresentationDate).toISOString() : undefined
-        })
+        body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to create audit");
-      const selectedPlant = plants.find(p => p.id === plantId);
-      setPlantId("");
-      setTitle("");
-      setPurpose("");
-      setVisitStartDate("");
-      setVisitEndDate("");
-      setVisitDetails("");
-      setManagementResponseDate("");
-      setFinalPresentationDate("");
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (json as { error?: string }).error || "Failed to create audit.";
+        showError(message);
+        throw new Error(message);
+      }
+
       await load();
-      showSuccess(`Audit created successfully for ${selectedPlant?.name || "selected plant"}!`);
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to create audit";
-      setError(errorMessage);
-      showError(errorMessage);
-    } finally {
-      setBusy(false);
-    }
-  }
+      const plantName =
+        plants.find((plant) => plant.id === values.plantId)?.name ??
+        "selected plant";
+      showSuccess(`Audit created successfully for ${plantName}!`);
+    },
+    [load, plants, showError, showSuccess],
+  );
+
+  const toggleLock = useCallback(
+    async (audit: AuditListItem) => {
+      if (!canManageAudits || audit.completedAt) return;
+
+      setActionBusy(audit.id);
+      const action = audit.isLocked ? "unlock" : "lock";
+      try {
+        const res = await fetch(`/api/v1/audits/${audit.id}/${action}`, {
+          method: "POST",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            (json as { error?: string }).error ||
+              `Failed to ${action} audit.`,
+          );
+        }
+
+        showSuccess(
+          audit.isLocked ? "Audit unlocked successfully!" : "Audit locked successfully!",
+        );
+        await load();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unable to update audit state.";
+        showError(message);
+      } finally {
+        setActionBusy(null);
+      }
+    },
+    [canManageAudits, load, showError, showSuccess],
+  );
+
+  const tableRows = useMemo(() => {
+    return audits.map((audit) => {
+      const start = audit.visitStartDate
+        ? new Date(audit.visitStartDate).toLocaleDateString()
+        : "—";
+      const end = audit.visitEndDate
+        ? new Date(audit.visitEndDate).toLocaleDateString()
+        : "—";
+      const percent =
+        audit.progress.total > 0
+          ? Math.round((audit.progress.done / audit.progress.total) * 100)
+          : 0;
+
+      const lockState = audit.completedAt
+        ? {
+            label: "Completed",
+            icon: ShieldCheck,
+            className:
+              "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]",
+          }
+        : audit.isLocked
+        ? {
+            label: "Locked",
+            icon: Lock,
+            className:
+              "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]",
+          }
+        : {
+            label: "Unlocked",
+            icon: Unlock,
+            className:
+              "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]",
+          };
+
+      const teamLabel = audit.auditHead
+        ? audit.auditHead.name ?? audit.auditHead.email ?? "Audit head"
+        : "Not assigned";
+      const additionalAuditors = audit.assignments.length;
+
+      return {
+        audit,
+        start,
+        end,
+        percent,
+        lockState,
+        teamLabel,
+        additionalAuditors,
+      };
+    });
+  }, [audits]);
 
   return (
     <PageContainer className="space-y-8">
-      <header className="space-y-2">
-        <h1
-          className="text-3xl font-semibold"
-          style={{ color: "var(--c-texPri)" }}
-        >
-          Audits
-        </h1>
-        <p
-          className="text-sm md:text-base"
-          style={{ color: "var(--c-texSec)" }}
-        >
-          Create new schedules and monitor the status of ongoing audits.
-        </p>
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
+            Audits
+          </h1>
+          <p className="text-sm text-[var(--c-texSec)]">
+            Manage audit processes and keep track of progress across plants.
+          </p>
+        </div>
+        {canManageAudits && (
+          <CreateAuditDialog
+            plants={plants}
+            auditHeads={auditHeads}
+            auditors={auditors}
+            onCreate={handleCreate}
+          />
+        )}
       </header>
-
-      {canManageAudits && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create Audit</CardTitle>
-            <CardDescription>
-              Configure a new audit assignment for a plant and define important
-              milestones.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-          {error && (
-              <div className="text-sm rounded-md border border-[var(--c-palUiRed100)] bg-[var(--c-palUiRed100)]/40 px-4 py-3 text-[var(--c-palUiRed600)]">
-              {error}
-            </div>
-          )}
-          <form onSubmit={onCreate} className="space-y-6">
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="flex flex-col gap-2 md:col-span-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Plant
-                  </label>
-              <Select
-                    value={plantId || undefined}
-                    onValueChange={setPlantId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select plant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                {plants.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                        </SelectItem>
-                ))}
-                    </SelectContent>
-              </Select>
-                </div>
-
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Audit title
-                  </label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g., FY25 Financial Controls Audit"
-                />
-              </div>
-
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Audit purpose
-                </label>
-                  <Textarea
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                    placeholder="Describe the scope, objectives, and compliance requirements for this audit."
-                    rows={4}
-                />
-              </div>
-
-                <div className="flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Visit start date
-                  </label>
-              <Input
-                type="date"
-                value={visitStartDate}
-                onChange={(e) => setVisitStartDate(e.target.value)}
-              />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Visit end date
-                  </label>
-              <Input
-                type="date"
-                value={visitEndDate}
-                onChange={(e) => setVisitEndDate(e.target.value)}
-              />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Management response deadline
-                  </label>
-              <Input
-                type="date"
-                value={managementResponseDate}
-                    onChange={(e) =>
-                      setManagementResponseDate(e.target.value)
-                    }
-              />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Final presentation date
-                  </label>
-              <Input
-                type="date"
-                value={finalPresentationDate}
-                onChange={(e) => setFinalPresentationDate(e.target.value)}
-              />
-                </div>
-
-                <div className="md:col-span-2 flex flex-col gap-2">
-                  <label
-                    className="text-sm font-medium"
-                    style={{ color: "var(--c-texSec)" }}
-                  >
-                    Visit details
-                  </label>
-                <Input
-                  value={visitDetails}
-                  onChange={(e) => setVisitDetails(e.target.value)}
-                    placeholder="Additional logistics or areas of focus."
-                />
-              </div>
-            </div>
-
-              <div className="flex justify-end">
-                <Button type="submit" disabled={busy}>
-                  {busy ? "Creating…" : "Create audit"}
-            </Button>
-              </div>
-          </form>
-          </CardContent>
-        </Card>
-      )}
 
       {!canManageAudits && (
         <div className="rounded-xl border border-[var(--ca-palUiBlu200)] bg-[var(--ca-palUiBlu100)]/40 px-5 py-4 text-sm text-[var(--c-palUiBlu700)]">
-          Only CFO and CXO roles can create new audits. You can still review
-          audits assigned to you below.
+          Only CFO and CXO team members can create new audits. You can still
+          review audits assigned to you below.
         </div>
       )}
 
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
+      <Card className="border-none bg-[var(--c-bacSec)]">
+        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <CardTitle>
-              {canManageAudits ? "All audits" : "My assigned audits"}
+            <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
+              {canManageAudits ? "All Audits" : "My Assigned Audits"}
             </CardTitle>
             <CardDescription>
-              Track status, progress, and assignments for ongoing audit
-              engagements.
+              Complete list of audit processes with real-time status.
             </CardDescription>
           </div>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/reports">Export summary</Link>
+            <Link href="/reports">
+              <ExternalLink className="mr-2 size-4" />
+              Export summary
+            </Link>
           </Button>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead
-              className="bg-[var(--c-bacSec)] text-[var(--c-texTer)]"
-              style={{ textTransform: "uppercase", fontSize: "11px" }}
-            >
-              <tr>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Audit
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Plant
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Window
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Status
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Progress
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Team
-                </th>
-                <th className="px-5 py-3 text-left font-semibold tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {audits.map((audit) => {
-                const window =
-                  audit.visitStartDate || audit.visitEndDate
-                    ? `${audit.visitStartDate ? new Date(
-                        audit.visitStartDate,
-                      ).toLocaleDateString() : "—"} → ${
-                        audit.visitEndDate
-                          ? new Date(audit.visitEndDate).toLocaleDateString()
-                          : "—"
-                      }`
-                    : "—";
-
-                const statusBadge =
-                  STATUS_BADGE_CLASSES[audit.status] ??
-                  "bg-[var(--c-bacSec)] text-[var(--c-texSec)] border-transparent";
-
-                const lockLabel = audit.completedAt
-                  ? "Completed"
-                  : audit.isLocked
-                  ? "Locked"
-                  : "Open";
-                const lockBadgeClass = audit.completedAt
-                  ? "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]"
-                  : audit.isLocked
-                  ? "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]"
-                  : "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]";
-
-                return (
-                  <tr
-                    key={audit.id}
-                    className="border-b border-[var(--border-color-regular)] last:border-0"
-                  >
-                    <td className="px-5 py-4 font-medium text-[var(--c-texPri)]">
-                      {audit.title || "—"}
-                    </td>
-                    <td className="px-5 py-4 text-[var(--c-texSec)]">
-                      {audit.plant.code} — {audit.plant.name}
-                  </td>
-                    <td className="px-5 py-4 text-[var(--c-texSec)]">
-                      {window}
-                  </td>
-                    <td className="px-5 py-4">
-                      <Badge className={statusBadge}>
-                        {audit.status.replace("_", " ").toLowerCase()}
-                      </Badge>
-                  </td>
-                    <td className="px-5 py-4 text-[var(--c-texSec)]">
-                      <span className="font-semibold text-[var(--c-texPri)]">
-                        {audit.progress.done}
-                      </span>
-                      <span>/{audit.progress.total}</span>
-                  </td>
-                    <td className="px-5 py-4 text-[var(--c-texSec)]">
-                      {audit.assignments.length
-                        ? audit.assignments
-                            .map((u) => u.email ?? u.name ?? "—")
-                            .join(", ")
-                        : "—"}
-                  </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <Badge className={lockBadgeClass}>{lockLabel}</Badge>
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/audits/${audit.id}`}>Open</Link>
-                        </Button>
-                      </div>
-                  </td>
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-16 animate-pulse rounded-2xl bg-[var(--c-bacPri)]"
+                />
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="rounded-xl border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-6 text-sm text-[var(--c-palUiRed700)]">
+              {loadError}
+            </div>
+          ) : audits.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--border-color-regular)] bg-white px-6 py-12 text-center">
+              <h3 className="text-lg font-semibold text-[var(--c-texPri)]">
+                No audits yet
+              </h3>
+              <p className="mt-1 text-sm text-[var(--c-texSec)]">
+                Once audits are created, they will appear here for tracking.
+              </p>
+            </div>
+          ) : (
+            <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase tracking-wide text-[var(--c-texSec)]">
+                <tr className="bg-white/60 text-left">
+                  <th className="px-5 py-3 font-medium">Title</th>
+                  <th className="px-5 py-3 font-medium">Plant</th>
+                  <th className="px-5 py-3 font-medium">Period</th>
+                  <th className="px-5 py-3 font-medium">Lock Status</th>
+                  <th className="px-5 py-3 font-medium">Progress</th>
+                  <th className="px-5 py-3 font-medium">Auditors</th>
+                  <th className="px-5 py-3 font-medium text-right">Actions</th>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tableRows.map(
+                  ({ audit, start, end, percent, lockState, teamLabel, additionalAuditors }) => {
+                    const LockIcon = lockState.icon;
+
+                    return (
+                      <tr
+                        key={audit.id}
+                        className="border-b border-[var(--border-color-regular)] bg-white last:border-b-0"
+                      >
+                        <td className="px-5 py-4 text-[var(--c-texPri)]">
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {audit.title?.trim() || "Untitled audit"}
+                            </p>
+                            {audit.purpose && (
+                              <p className="text-xs text-[var(--c-texSec)] line-clamp-1">
+                                {audit.purpose}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-[var(--c-texSec)]">
+                          {audit.plant.code} · {audit.plant.name}
+                        </td>
+                        <td className="px-5 py-4 text-[var(--c-texSec)]">
+                          {start} – {end}
+                        </td>
+                        <td className="px-5 py-4">
+                          <Badge className={`flex items-center gap-1 ${lockState.className}`}>
+                            <LockIcon className="size-3" />
+                            {lockState.label}
+                          </Badge>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-28">
+                              <Progress value={percent} />
+                            </div>
+                            <span className="text-sm font-medium text-[var(--c-texPri)]">
+                              {percent}%
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-[var(--c-texSec)]">
+                            {audit.progress.done} of {audit.progress.total} resolved
+                          </p>
+                        </td>
+                        <td className="px-5 py-4 text-[var(--c-texSec)]">
+                          <div className="space-y-1">
+                            <p className="font-medium text-[var(--c-texPri)]">
+                              {teamLabel}
+                            </p>
+                            <p className="text-xs text-[var(--c-texSec)]">
+                              {additionalAuditors > 0
+                                ? `+${additionalAuditors} auditors`
+                                : "No additional auditors"}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <Link href={`/audits/${audit.id}`}>
+                                <ExternalLink className="size-3" />
+                                Open
+                              </Link>
+                            </Button>
+                            {canManageAudits && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={actionBusy === audit.id || audit.completedAt}
+                                onClick={() => toggleLock(audit)}
+                                aria-label={audit.isLocked ? "Unlock audit" : "Lock audit"}
+                              >
+                                {actionBusy === audit.id ? (
+                                  <span className="size-4 animate-spin rounded-full border-2 border-[var(--c-texSec)] border-t-transparent" />
+                                ) : audit.isLocked ? (
+                                  <Unlock className="size-4" />
+                                ) : (
+                                  <Lock className="size-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  },
+                )}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
     </PageContainer>

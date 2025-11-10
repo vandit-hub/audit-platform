@@ -16,4 +16,6 @@ export * from "./use-mobile";
 export * from "./legacy-card";
 export * from "./dialog";
 export * from "./alert-dialog";
+export * from "./progress";
+export * from "./multi-select";
 

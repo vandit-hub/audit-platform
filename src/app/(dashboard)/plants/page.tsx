@@ -229,9 +229,14 @@ export default function PlantsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(formData),
       });
-      const json = await res.json();
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
       if (!res.ok) {
-        const message = json.error || "Failed to update plant";
+        const message = json?.error || "Failed to update plant";
         setEditError(message);
         showError(message);
         return;
@@ -261,9 +266,14 @@ export default function PlantsPage() {
       const res = await fetch(`/api/v1/plants/${deletingPlantId}`, {
         method: "DELETE",
       });
-      const json = await res.json();
+      let json: any = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
       if (!res.ok) {
-        const message = json.error || "Failed to delete plant";
+        const message = json?.error || "Failed to delete plant";
         showError(message);
         setIsDeleteDialogOpen(false);
         setDeletingPlantId(null);
