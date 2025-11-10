@@ -7,12 +7,21 @@ import {
   ClipboardList,
   MoreVertical,
   Pencil,
+  Plus,
   Search,
   Trash2,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { PageContainer } from "@/components/v2/PageContainer";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Card,
@@ -25,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Label,
   Skeleton,
   Dialog,
   DialogContent,
@@ -104,11 +114,18 @@ function getPlantStats(plant: Plant): PlantStats {
 export default function PlantsPage() {
   const [plants, setPlants] = useState<Plant[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [isFetching, setIsFetching] = useState(true);
   const [formData, setFormData] = useState({ code: "", name: "" });
+  const [editingPlant, setEditingPlant] = useState<Plant | null>(null);
+  const [deletingPlantId, setDeletingPlantId] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { showError, showSuccess } = useToast();
 
   useEffect(() => {
@@ -174,6 +191,99 @@ export default function PlantsPage() {
     }
   }
 
+  function handleEditDialogOpenChange(open: boolean) {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setEditError(null);
+      setEditingPlant(null);
+    }
+  }
+
+  function handleDeleteDialogOpenChange(open: boolean) {
+    setIsDeleteDialogOpen(open);
+    if (!open) {
+      setDeletingPlantId(null);
+    }
+  }
+
+  function handleEditClick(plant: Plant) {
+    setEditingPlant(plant);
+    setFormData({ code: plant.code, name: plant.name });
+    setIsEditDialogOpen(true);
+  }
+
+  function handleDeleteClick(plantId: string) {
+    setDeletingPlantId(plantId);
+    setIsDeleteDialogOpen(true);
+  }
+
+  async function handleUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingPlant) return;
+
+    setEditError(null);
+    setIsUpdating(true);
+    try {
+      const res = await fetch(`/api/v1/plants/${editingPlant.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        const message = json.error || "Failed to update plant";
+        setEditError(message);
+        showError(message);
+        return;
+      }
+
+      showSuccess(`Plant "${formData.name}" updated successfully!`);
+      setFormData({ code: "", name: "" });
+      setEditingPlant(null);
+      setIsEditDialogOpen(false);
+      await loadPlants();
+    } catch (error) {
+      console.error("Failed to update plant", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to update plant";
+      setEditError(message);
+      showError(message);
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deletingPlantId) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/plants/${deletingPlantId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        const message = json.error || "Failed to delete plant";
+        showError(message);
+        setIsDeleteDialogOpen(false);
+        setDeletingPlantId(null);
+        return;
+      }
+
+      showSuccess("Plant deleted successfully!");
+      setIsDeleteDialogOpen(false);
+      setDeletingPlantId(null);
+      await loadPlants();
+    } catch (error) {
+      console.error("Failed to delete plant", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to delete plant";
+      showError(message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   const filteredPlants = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     if (!query) return plants;
@@ -233,20 +343,21 @@ export default function PlantsPage() {
               </p>
             </div>
             <Button
-              className="h-11 rounded-full bg-[var(--c-texPri)] px-6 text-sm font-medium text-white hover:bg-[var(--c-texPri)]/90"
+              className="flex items-center gap-2 bg-[var(--c-texPri)] text-white hover:bg-[var(--c-texPri)]/90"
               onClick={() => setIsDialogOpen(true)}
             >
+              <Plus className="h-4 w-4" />
               Create Plant
             </Button>
           </header>
 
           <div className="relative max-w-md">
-            <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-[var(--c-texSec)]" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--c-texSec)]" />
             <Input
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
               placeholder="Search plants by name or code..."
-              className="h-11 rounded-full border border-[var(--border-color-regular)] bg-white pl-11 text-sm"
+              className="h-11 rounded-lg border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] pl-9 text-sm"
             />
           </div>
         </section>
@@ -360,11 +471,17 @@ export default function PlantsPage() {
                           align="end"
                           className="w-44 rounded-xl border-[var(--border-color-regular)] bg-white shadow-[0_12px_24px_rgba(15,23,42,0.08)]"
                         >
-                          <DropdownMenuItem className="gap-2 text-sm text-[var(--c-texPri)]" disabled>
+                          <DropdownMenuItem
+                            className="gap-2 text-sm text-[var(--c-texPri)]"
+                            onClick={() => handleEditClick(plant)}
+                          >
                             <Pencil className="size-4" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-sm text-red-600 focus:text-red-600" disabled>
+                          <DropdownMenuItem
+                            className="gap-2 text-sm text-red-600 focus:text-red-600"
+                            onClick={() => handleDeleteClick(plant.id)}
+                          >
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -585,6 +702,98 @@ export default function PlantsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader className="space-y-2">
+            <DialogTitle>Edit Plant</DialogTitle>
+            <DialogDescription>
+              Update plant information.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editError && (
+            <div className="rounded-md border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-3 text-sm text-[var(--c-palUiRed700)]">
+              {editError}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleUpdate}>
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-plant-code"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Plant Code
+              </Label>
+              <Input
+                id="edit-plant-code"
+                placeholder="PLT001"
+                value={formData.code}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, code: event.target.value }))
+                }
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label
+                htmlFor="edit-plant-name"
+                className="text-sm font-medium text-[var(--c-texSec)]"
+              >
+                Plant Name
+              </Label>
+              <Input
+                id="edit-plant-name"
+                placeholder="Manufacturing Plant A"
+                value={formData.name}
+                onChange={(event) =>
+                  setFormData((prev) => ({ ...prev, name: event.target.value }))
+                }
+                required
+              />
+            </div>
+
+            <DialogFooter className="sm:space-x-3">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdating}
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? "Updating…" : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the plant
+              and remove it from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
