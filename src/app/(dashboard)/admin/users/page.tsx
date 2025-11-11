@@ -5,12 +5,16 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
 import { isCFOOrCXOTeam, isCFO } from "@/lib/rbac";
-import { Card } from "@/components/ui/Card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import { Badge } from "@/components/ui/Badge";
 import { Label } from "@/components/ui/Label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageContainer } from "@/components/PageContainer";
+import { PageTitle } from "@/components/PageTitle";
+import { UserPlus, Link2, Copy, Check } from "lucide-react";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -19,6 +23,7 @@ export default function AdminUsersPage() {
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const { showSuccess, showError } = useToast();
 
   if (!session?.user?.role || !isCFOOrCXOTeam(session.user.role)) {
@@ -71,6 +76,8 @@ export default function AdminUsersPage() {
         // Try using the modern clipboard API (requires HTTPS)
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(inviteUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
           showSuccess("Invite link copied to clipboard!");
         } else {
           // Fallback for HTTP - create a temporary textarea
@@ -82,6 +89,8 @@ export default function AdminUsersPage() {
           textarea.select();
           document.execCommand('copy');
           document.body.removeChild(textarea);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
           showSuccess("Invite link copied to clipboard!");
         }
       } catch (err) {
@@ -92,92 +101,142 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">User Management</h1>
-        <p className="text-base text-neutral-600 mt-2">Invite new users to the audit platform</p>
-      </div>
+    <PageContainer className="space-y-6">
+      <PageTitle
+        title="Admin"
+        description="System administration and configuration"
+      />
 
-      <Card >
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Invite New User</h2>
+      <Tabs defaultValue="users">
+        <TabsList>
+          <TabsTrigger value="users">User Management</TabsTrigger>
+          {isCFO(session?.user?.role) && <TabsTrigger value="import">Data Import</TabsTrigger>}
+        </TabsList>
 
-        <form onSubmit={handleInviteUser} className="space-y-6">
-          <Input
-            type="email"
-            label="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="user@example.com"
-          />
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invite New User</CardTitle>
+              <CardDescription>Send an invitation to join the system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleInviteUser} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={role} onValueChange={(value) => setRole(value as any)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GUEST">Guest</SelectItem>
+                        <SelectItem value="AUDITEE">Auditee</SelectItem>
+                        <SelectItem value="AUDITOR">Auditor</SelectItem>
+                        {isCFO(session?.user?.role) && (
+                          <>
+                            <SelectItem value="CXO_TEAM">CXO Team</SelectItem>
+                            <SelectItem value="AUDIT_HEAD">Audit Head</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expiry">Expiry (Days)</Label>
+                    <Input
+                      id="expiry"
+                      type="number"
+                      placeholder="7"
+                      min="1"
+                      max="30"
+                      value={expiresInDays.toString()}
+                      onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Invitation will expire after this many days (1-30)
+                    </p>
+                  </div>
+                </div>
+                <Button type="submit" disabled={isLoading} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  {isLoading ? "Creating Invitation..." : "Generate Invite Link"}
+                </Button>
+              </form>
 
-          <Select
-            label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as any)}
-          >
-            <option value="GUEST">Guest</option>
-            <option value="AUDITEE">Auditee</option>
-            <option value="AUDITOR">Auditor</option>
-            {isCFO(session?.user?.role) && (
-              <>
-                <option value="CXO_TEAM">CXO Team</option>
-                <option value="AUDIT_HEAD">Audit Head</option>
-              </>
-            )}
-          </Select>
+              {inviteToken && (
+                <div className="mt-6 space-y-3">
+                  <Alert>
+                    <Link2 className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <code className="flex-1 text-sm bg-gray-100 p-2 rounded break-all">
+                          {`${window.location.origin}/accept-invite?token=${inviteToken}`}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={copyInviteLink}
+                          className="gap-2 shrink-0"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-          <Input
-            type="number"
-            label="Expires In (Days)"
-            value={expiresInDays.toString()}
-            onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
-            min="1"
-            max="30"
-            helperText="Invitation will expire after this many days (1-30)"
-          />
-
-          <Button
-            type="submit"
-            variant="default"
-            isLoading={isLoading}
-            className="w-full"
-          >
-            {isLoading ? "Creating Invitation..." : "Send Invitation"}
-          </Button>
-        </form>
-
-        {inviteToken && (
-          <div className="mt-6 p-5 bg-primary-50 border border-primary-200 rounded-lg">
-            <div className="flex items-start gap-3 mb-4">
-              <svg className="h-6 w-6 text-primary-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <h3 className="text-sm font-semibold text-primary-900 mb-1">Invitation Created Successfully</h3>
-                <p className="text-sm text-primary-700">
-                  Share this invitation link with the user:
-                </p>
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Users</CardTitle>
+              <CardDescription>Users with access to the system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">User list coming soon...</p>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`${window.location.origin}/accept-invite?token=${inviteToken}`}
-                className="flex-1 px-3.5 py-2.5 text-sm bg-white border border-primary-300 rounded-lg focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
-              />
-              <Button
-                onClick={copyInviteLink}
-                variant="default"
-                size="md"
-              >
-                Copy
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isCFO(session?.user?.role) && (
+          <TabsContent value="import" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Import</CardTitle>
+                <CardDescription>Import data from Excel files (CFO only)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Data import functionality coming soon...</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
         )}
-      </Card>
-    </div>
+      </Tabs>
+    </PageContainer>
   );
 }
