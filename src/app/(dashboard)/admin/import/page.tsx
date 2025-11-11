@@ -4,9 +4,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import React from "react";
 import { ClientUploader } from "./ClientUploader";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { PageContainer } from "@/components/PageContainer";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/v2/card";
+import { Button } from "@/components/ui/v2/button";
+import { PageContainer } from "@/components/v2/PageContainer";
 import { PageTitle } from "@/components/PageTitle";
 import { Download, FileText } from "lucide-react";
 

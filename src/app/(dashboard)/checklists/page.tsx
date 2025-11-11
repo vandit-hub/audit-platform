@@ -1,4 +1,4 @@
-import { Card } from "@/components/ui/Card";
+import { Card } from "@/components/ui/v2/card";
 
 export default function ChecklistsPage() {
   return (
