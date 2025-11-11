@@ -1,4 +1,4 @@
-import { Badge } from "./ui/Badge";
+import { Badge } from "./ui/v2/badge";
 import { ObservationStatus, RiskLevel } from '../types';
 
 interface StatusBadgeProps {

@@ -13,7 +13,6 @@ export * from "./separator";
 export * from "./textarea";
 export * from "./tooltip";
 export * from "./use-mobile";
-export * from "./legacy-card";
 export * from "./dialog";
 export * from "./alert-dialog";
 export * from "./progress";

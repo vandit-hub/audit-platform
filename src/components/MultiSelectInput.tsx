@@ -1,7 +1,7 @@
 import { useState, useRef, KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
-import { Badge } from "./ui/Badge";
-import { Input } from './ui/input';
+import { Badge } from "./ui/v2/badge";
+import { Input } from './ui/v2/input';
 
 interface MultiSelectInputProps {
   values: string[];

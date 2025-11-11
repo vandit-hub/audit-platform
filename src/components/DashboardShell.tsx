@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { AppSidebar } from "@/components/AppSidebar";
+import { AppSidebar } from "@/components/v2/AppSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 
