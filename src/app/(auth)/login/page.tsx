@@ -3,10 +3,10 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Label } from "@/components/ui/Label";
+import { Input } from "@/components/ui/v2/input";
+import { Button } from "@/components/ui/v2/button";
+import { Card, CardContent } from "@/components/ui/v2/card";
+import { Label } from "@/components/ui/v2/label";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");

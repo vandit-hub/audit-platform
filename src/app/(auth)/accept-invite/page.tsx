@@ -2,10 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { Card } from "@/components/ui/v2/card";
+import { Button } from "@/components/ui/v2/button";
+import { Input } from "@/components/ui/v2/input";
+import { Label } from "@/components/ui/v2/label";
 
 export default function AcceptInvitePage() {
   const sp = useSearchParams();
