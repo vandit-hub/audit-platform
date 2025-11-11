@@ -7,15 +7,16 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-
-const CHAT_CARD_HEIGHT = "calc(100vh - 150px)";
+import { Button } from "@/components/ui/v2/button";
+import { Input } from "@/components/ui/v2/input";
+import { cn } from "@/lib/utils";
+import { Plus, Search, Send, Sparkles } from "lucide-react";
 
 type SessionListItem = {
   id: string;
@@ -37,6 +38,7 @@ export default function AIAssistantPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Block Auditee and Guest roles from accessing AI Assistant
   useEffect(() => {
@@ -183,6 +185,18 @@ export default function AIAssistantPage() {
     [sessions, activeSessionId],
   );
 
+  const filteredSessions = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
+      return sessions;
+    }
+    return sessions.filter((item) => {
+      const title = item.title?.toLowerCase() ?? "";
+      const preview = item.lastMessagePreview?.toLowerCase() ?? "";
+      return title.includes(term) || preview.includes(term);
+    });
+  }, [searchTerm, sessions]);
+
   // ChatPane handles submit, suggestions, and clear chat
 
   const handleNewConversation = useCallback(async () => {
@@ -269,130 +283,200 @@ export default function AIAssistantPage() {
   // ChatPane computes input/button disabled states locally
 
   return (
-    <div className="px-6 py-2 max-w-[1600px] mx-auto">
-      <div className="mb-2">
+    <div className="px-6 py-6">
+      <div className="mx-auto flex max-w-[1600px] flex-1 flex-col gap-4">
         {session?.user && (
-          <p className="text-sm text-gray-500 dark:text-gray-500">
-            Logged in as <span className="font-medium">{session.user.name}</span>{" "}
+          <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
+            Logged in as <span className="font-medium" style={{ color: "var(--c-texPri)" }}>{session.user.name}</span>{" "}
             ({session.user.role})
           </p>
         )}
-      </div>
 
-      <div className="grid gap-1 lg:grid-cols-[260px_1fr]">
-        <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
-          <div className="px-4 pt-3">
-            <Button onClick={handleNewConversation} disabled={isStreaming} className="w-full justify-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clipRule="evenodd" />
-              </svg>
-              New chat
-            </Button>
-          </div>
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
-                Conversations
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {sessions.length} total
-              </p>
+        <div className="flex min-h-[calc(100vh-180px)] flex-1 gap-6">
+          <aside
+            className="flex w-[280px] flex-shrink-0 flex-col rounded-[28px] border"
+            style={{
+              borderColor: "var(--border-color-regular)",
+              background: "var(--c-bacPri)",
+              boxShadow: "0 24px 60px rgba(15, 15, 15, 0.05)",
+            }}
+          >
+            <div className="space-y-4 border-b px-5 pb-5 pt-6" style={{ borderColor: "var(--border-color-regular)" }}>
+              <Button
+                variant="outline"
+                onClick={handleNewConversation}
+                disabled={isStreaming}
+                className={cn(
+                  "h-12 w-full justify-start gap-3 rounded-full border text-sm font-medium transition-colors",
+                  "hover:bg-[var(--c-bacSec)]",
+                )}
+                style={{
+                  borderColor: "var(--border-color-regular)",
+                  background: "var(--c-bacPri)",
+                  color: "var(--c-texPri)",
+                }}
+              >
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-full"
+                  style={{ background: "var(--c-bacSec)", color: "var(--c-palUiBlu600)" }}
+                >
+                  <Plus className="h-4 w-4" />
+                </span>
+                <span>New chat</span>
+              </Button>
+
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                  style={{ color: "var(--c-texSec)" }}
+                />
+                <Input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search chats"
+                  className="h-10 rounded-2xl border pl-9 text-sm"
+                  style={{
+                    borderColor: "var(--border-color-regular)",
+                    background: "white",
+                    color: "var(--c-texPri)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--c-texSec)" }}>
+                  Conversations
+                </p>
+                <p className="text-xs" style={{ color: "var(--c-texTer)" }}>
+                  {sessions.length} total
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {initializing ? (
-              <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                Loading conversations…
+
+            <div className="flex-1 overflow-y-auto px-3 py-4">
+              {initializing ? (
+                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                  Loading conversations…
+                </p>
+              ) : sessions.length === 0 ? (
+                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                  No conversations yet.
+                </p>
+              ) : filteredSessions.length === 0 ? (
+                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                  No matches for “{searchTerm.trim()}”.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {filteredSessions.map((item, index) => {
+                    const label = item.title?.trim() || `Conversation ${filteredSessions.length - index}`;
+                    const isActive = item.id === activeSessionId;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          onClick={() => loadSession(item.id)}
+                          disabled={loadingMessages && item.id === activeSessionId}
+                          className={cn(
+                            "w-full rounded-2xl px-3 py-2 text-left transition",
+                            "hover:bg-[var(--c-bacSec)]",
+                          )}
+                          style={{
+                            background: isActive ? "var(--c-bacSec)" : "transparent",
+                            color: "var(--c-texPri)",
+                            border: isActive ? "1px solid var(--border-color-regular)" : "1px solid transparent",
+                          }}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium" style={{ color: "var(--c-texPri)" }}>
+                              {label}
+                            </span>
+                            <span className="text-[11px]" style={{ color: "var(--c-texTer)" }}>
+                              {formatTimestamp(item.lastMessageAt ?? item.updatedAt)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--c-texSec)" }}>
+                            {item.lastMessagePreview ?? "No messages yet"}
+                          </p>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </aside>
+
+          <section
+            className="flex min-w-0 flex-1 flex-col rounded-[32px] border"
+            style={{
+              borderColor: "var(--border-color-regular)",
+              background: "var(--c-bacPri)",
+              boxShadow: "0 32px 90px -40px rgba(15, 15, 15, 0.2)",
+            }}
+          >
+            <header
+              className="flex flex-wrap items-center justify-between gap-4 border-b px-8 py-6"
+              style={{ borderColor: "var(--border-color-regular)" }}
+            >
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-semibold" style={{ color: "var(--c-texPri)" }}>
+                  {activeSession?.title?.trim() || "Conversation"}
+                </h1>
+                <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
+                  {activeSession
+                    ? `Last activity · ${formatTimestamp(activeSession.lastMessageAt ?? activeSession.updatedAt)}`
+                    : "Select or start a conversation to chat with the assistant."}
+                </p>
               </div>
-            ) : sessions.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                No conversations yet.
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleRenameConversation}
+                  disabled={!activeSessionId || isStreaming}
+                  className={cn(
+                    "text-sm font-medium transition-colors",
+                    "hover:text-[var(--c-texPri)]",
+                    "disabled:cursor-not-allowed disabled:opacity-40",
+                  )}
+                  style={{ color: "var(--c-texSec)" }}
+                >
+                  Rename
+                </button>
+                <span className="h-4 w-px rounded-full" style={{ background: "var(--border-color-regular)" }} />
+                <button
+                  type="button"
+                  onClick={handleDeleteConversation}
+                  disabled={!activeSessionId || isStreaming}
+                  className={cn(
+                    "text-sm font-medium transition-colors",
+                    "hover:text-[var(--c-texPri)]",
+                    "disabled:cursor-not-allowed disabled:opacity-40",
+                  )}
+                  style={{ color: "var(--c-texSec)" }}
+                >
+                  Delete
+                </button>
               </div>
-            ) : (
-              <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-                {sessions.map((item, idx) => {
-                  const label = item.title?.trim() || `Conversation ${sessions.length - idx}`;
-                  const isActive = item.id === activeSessionId;
-                  return (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        onClick={() => loadSession(item.id)}
-                        className={`w-full text-left px-4 py-3 transition-colors ${
-                          isActive
-                            ? "bg-blue-50 dark:bg-blue-900/30"
-                            : "hover:bg-gray-50 dark:hover:bg-gray-900/40"
-                        }`}
-                        disabled={loadingMessages && item.id === activeSessionId}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {label}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                          {item.lastMessagePreview ?? "No messages yet"}
-                        </div>
-                        <div className="mt-1 text-xs text-gray-400">
-                          {formatTimestamp(item.lastMessageAt ?? item.updatedAt)}
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+            </header>
+
+            {uiError && (
+              <div className="px-8 pt-4 text-sm" style={{ color: "#dc2626" }}>
+                {uiError}
+              </div>
             )}
-          </div>
-        </Card>
 
-        <Card className="flex flex-col" style={{ height: CHAT_CARD_HEIGHT }}>
-          <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-4 py-3">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {activeSession?.title?.trim() || "Conversation"}
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {activeSession
-                  ? `Last activity: ${formatTimestamp(
-                      activeSession.lastMessageAt ?? activeSession.updatedAt,
-                    )}`
-                  : "Select or start a conversation"}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleRenameConversation}
-                disabled={!activeSessionId || isStreaming}
-              >
-                Rename
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleDeleteConversation}
-                disabled={!activeSessionId || isStreaming}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-
-          {uiError && (
-            <div className="px-4 pt-3 text-sm text-red-600 dark:text-red-400">{uiError}</div>
-          )}
-
-          <ChatPane
-            key={activeSessionId ?? "none"}
-            sessionId={activeSessionId}
-            initialMessages={activeSessionMessages}
-            loading={loadingMessages}
-            suggestions={suggestions}
-            onMessagesChanged={refreshSessions}
-            onStreamingChange={setIsStreaming}
-          />
-        </Card>
+            <ChatPane
+              key={activeSessionId ?? "none"}
+              sessionId={activeSessionId}
+              initialMessages={activeSessionMessages}
+              loading={loadingMessages}
+              suggestions={suggestions}
+              onMessagesChanged={refreshSessions}
+              onStreamingChange={setIsStreaming}
+            />
+          </section>
+        </div>
       </div>
     </div>
   );
@@ -445,17 +529,11 @@ function ChatPane({
     onMessagesChanged();
   }, [messages.length, onMessagesChanged]);
 
-  if (!sessionId) {
-    return (
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="text-sm text-gray-500 dark:text-gray-400">Select or start a conversation.</div>
-      </div>
-    );
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || status !== "ready") return;
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!sessionId || !input.trim() || status !== "ready") {
+      return;
+    }
     sendMessage({ text: input });
     setInput("");
     if (error) {
@@ -463,10 +541,12 @@ function ChatPane({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (!input.trim() || status !== "ready") return;
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (!sessionId || !input.trim() || status !== "ready") {
+        return;
+      }
       sendMessage({ text: input });
       setInput("");
       if (error) {
@@ -476,7 +556,7 @@ function ChatPane({
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    if (status !== "ready") return;
+    if (status !== "ready" || !sessionId) return;
     sendMessage({ text: suggestion });
   };
 
@@ -495,392 +575,613 @@ function ChatPane({
     }
   };
 
-  const disableSend = status !== "ready" || !input.trim();
-  const disableClear = messages.length === 0 && !input;
+  const disableSend = status !== "ready" || !input.trim() || !sessionId;
+  const disableClear = (!messages.length && !input) || !sessionId;
 
-  return (
-    <>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {loading ? (
-          <div className="text-sm text-gray-500 dark:text-gray-400">Loading conversation…</div>
-        ) : messages.length === 0 ? (
-          <div className="text-center text-gray-500 dark:text-gray-400 py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            <p className="mt-2">Start a conversation by asking a question below.</p>
+  const formatJson = (value: unknown) => {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  };
 
-            <div className="mt-6 max-w-2xl mx-auto">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">💡 Try asking:</p>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {suggestions.map((suggestion, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSuggestionClick(suggestion)}
-                    disabled={status !== "ready"}
-                    className="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          messages.map((message) => {
-            const isUserMessage = message.role === "user";
-            return (
-              <div key={message.id} className={`flex ${isUserMessage ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-6xl rounded-lg px-4 py-2 ${
-                    isUserMessage ? "bg-blue-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  }`}
-                >
-                  <div className="text-xs font-semibold mb-1 opacity-75">
-                    {message.role === "user" ? "You" : "AI Assistant"}
-                  </div>
-
-                  {message.parts.map((part, i) => {
-                    switch (part.type) {
-                      case "text":
-                        return (
-                          <div
-                            key={`${message.id}-${i}`}
-                            className={`space-y-3 text-[0.9375rem] leading-relaxed ${
-                              isUserMessage ? "text-white" : "text-gray-900 dark:text-gray-100"
-                            }`}
-                          >
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                p: ({ node: _node, ...props }) => <p className="text-[0.9375rem] leading-relaxed" {...props} />,
-                                ul: ({ node: _node, ...props }) => <ul className="list-disc space-y-1 pl-5" {...props} />,
-                                ol: ({ node: _node, ...props }) => <ol className="list-decimal space-y-1 pl-5" {...props} />,
-                                li: ({ node: _node, ...props }) => <li className="text-[0.9375rem]" {...props} />,
-                                strong: ({ node: _node, ...props }) => <strong className="font-semibold" {...props} />,
-                                table: ({ node: _node, ...props }) => (
-                                  <div className={`overflow-x-auto rounded-md border ${isUserMessage ? "border-white/40" : "border-gray-200"}`}>
-                                    <table
-                                      className={`min-w-full border-collapse text-left text-xs ${
-                                        isUserMessage ? "text-white" : "text-gray-900 dark:text-gray-100"
-                                      }`}
-                                      {...props}
-                                    />
-                                  </div>
-                                ),
-                                thead: ({ node: _node, ...props }) => <thead className={isUserMessage ? "bg-blue-600/40" : "bg-gray-50"} {...props} />,
-                                th: ({ node: _node, ...props }) => (
-                                  <th
-                                    className={`border px-3 py-2 text-xs font-semibold uppercase tracking-wide ${
-                                      isUserMessage ? "border-white/30 text-white" : "border-gray-200 text-gray-600"
-                                    }`}
-                                    {...props}
-                                  />
-                                ),
-                                td: ({ node: _node, ...props }) => (
-                                  <td className={`border px-3 py-2 ${isUserMessage ? "border-white/20" : "border-gray-200"}`} {...props} />
-                                ),
-                                tr: ({ node: _node, ...props }) => (
-                                  <tr className={isUserMessage ? "odd:bg-blue-500/50 even:bg-blue-500/60" : "odd:bg-white even:bg-gray-50"} {...props} />
-                                ),
-                                code: (props: any) => {
-                                  const { inline: isInline, node: _node, ...rest } = props || {};
-                                  return (
-                                    <code
-                                      className={`rounded px-1 py-0.5 text-[0.85rem] ${isInline ? "" : "block"} ${isUserMessage ? "bg-blue-600/50" : "bg-gray-100"}`}
-                                      {...rest}
-                                    />
-                                  );
-                                },
-                              }}
-                            >
-                              {part.text}
-                            </ReactMarkdown>
-                          </div>
-                        );
-
-                      case "tool-observations_count": {
-                        const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
-                        const input = (part.output as any)?.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🔍 Observations Count Tool</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {typeof count === "number" && (
-                              <div>
-                                <div>
-                                  Count: <strong>{count}</strong>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-observations_list": {
-                        const out = (part.output as any) || {};
-                        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">📋 Observations List ({String(out.count ?? list.length)})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {list.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {list.map((o: any) => (
-                                  <li key={o.id}>
-                                    <span className="font-medium">{o.title}</span>{" "}
-                                    <span className="opacity-75">— {o.approvalStatus} • Risk {o.riskCategory} • {o.auditTitle}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-audits_count": {
-                        const count = typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
-                        const input = (part.output as any)?.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🔍 Audits Count Tool</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {typeof count === "number" && (
-                              <div>
-                                <div>
-                                  Count: <strong>{count}</strong>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-audits_list": {
-                        const out = (part.output as any) || {};
-                        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">📋 Audits List ({String(out.count ?? list.length)})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {list.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {list.map((a: any) => (
-                                  <li key={a.id}>
-                                    <span className="font-medium">{a.title}</span>{" "}
-                                    <span className="opacity-75">— {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/{a.progress?.total ?? 0} resolved{a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-whoami": {
-                        const out = (part.output as any) || {};
-                        const u = out.user || {};
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🔐 Session Info</div>
-                            {out.allowed === false ? (
-                              <div>Unauthenticated</div>
-                            ) : (
-                              <div>
-                                <div>Role: <strong>{u.role ?? "unknown"}</strong></div>
-                                {u.email && (
-                                  <div>Email: <span className="opacity-80">{u.email}</span></div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-observations_find": {
-                        const out = (part.output as any) || {};
-                        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
-                        const ag = out.aggregation as any;
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🔎 Observations Find ({String(out.count ?? list.length)})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {ag?.by && Array.isArray(ag?.groups) && ag.groups.length > 0 && (
-                              <div className="mb-2">
-                                <div className="opacity-80 mb-1">Aggregation by {ag.by}</div>
-                                <ul className="list-disc pl-4 space-y-1">
-                                  {ag.groups.slice(0, 10).map((g: any, idx: number) => (
-                                    <li key={idx}>{g.key}: <strong>{g.count}</strong></li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {list.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {list.slice(0, 10).map((o: any) => (
-                                  <li key={o.id}>
-                                    <span className="font-medium">{o.title}</span>{" "}
-                                    <span className="opacity-75">— {o.approvalStatus} • {o.currentStatus} • Risk {o.riskCategory} • {o.auditTitle}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-audits_find": {
-                        const out = (part.output as any) || {};
-                        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
-                        const metrics = out.metrics as any;
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">📊 Audits Find ({String(out.count ?? list.length)})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {metrics?.kind && (
-                              <div className="mb-2 opacity-80">Metrics: {metrics.kind}</div>
-                            )}
-                            {list.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {list.slice(0, 10).map((a: any) => (
-                                  <li key={a.id}>
-                                    <span className="font-medium">{a.title}</span>{" "}
-                                    <span className="opacity-75">— {a.plantName} • {a.status}{a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-auditors_assignments_stats": {
-                        const out = (part.output as any) || {};
-                        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🧑‍💼 Auditor Assignment Stats ({rows.length})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {rows.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {rows.slice(0, 20).map((r: any, idx: number) => (
-                                  <li key={idx}>{r.name ?? r.auditorEmail ?? r.auditorId}: <strong>{r.auditsAssigned}</strong> audits</li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      case "tool-observations_similar": {
-                        const out = (part.output as any) || {};
-                        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
-                        const input = out.input;
-                        return (
-                          <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                            <div className="font-semibold mb-1">🔁 Similar Observations ({rows.length})</div>
-                            {input && (
-                              <pre className={`whitespace-pre-wrap text-[11px] mb-1 ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>{(() => { try { return JSON.stringify(input, null, 2); } catch { return String(input); } })()}</pre>
-                            )}
-                            {rows.length > 0 && (
-                              <ul className="list-disc pl-4 space-y-1">
-                                {rows.slice(0, 10).map((r: any) => (
-                                  <li key={r.id}>
-                                    <span className="font-medium">{r.auditTitle}</span>{" "}
-                                    <span className="opacity-75">— {r.plant} • Score {r.similarity}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      default:
-                        if (typeof (part as any)?.type === "string" && (part as any).type.startsWith("tool-")) {
-                          return (
-                            <div key={`${message.id}-${i}`} className="mt-2 p-2 bg-white/10 dark:bg-black/20 rounded text-xs">
-                              <div className="font-semibold mb-1">🧩 {String((part as any).type)}</div>
-                              <pre className={`whitespace-pre-wrap text-[11px] ${isUserMessage ? "text-white" : "text-gray-800 dark:text-gray-200"}`}>
-                                {(() => {
-                                  try { return JSON.stringify((part as any).output ?? {}, null, 2); } catch { return String((part as any).output ?? ""); }
-                                })()}
-                              </pre>
-                            </div>
-                          );
-                        }
-                        return null;
-                    }
-                  })}
-                </div>
-              </div>
-            );
-          })
-        )}
-
-        {status === "streaming" && (
-          <div className="flex justify-start">
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2">
-              <div className="flex items-center space-x-2">
-                <div className="animate-bounce">●</div>
-                <div className="animate-bounce delay-100">●</div>
-                <div className="animate-bounce delay-200">●</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-100 dark:bg-red-900/20 border border-red-500 text-red-700 dark:text-red-300 px-4 py-2 rounded">
-            <strong>Error:</strong> {error.message}
-          </div>
-        )}
+  const renderToolCard = (key: string, title: string, content: ReactNode) => (
+    <div
+      key={key}
+      className="rounded-2xl border px-4 py-3 text-xs"
+      style={{
+        borderColor: "var(--border-color-regular)",
+        background: "var(--c-bacSec)",
+        color: "var(--c-texPri)",
+        boxShadow: "0 8px 16px -10px rgba(0,0,0,0.15)",
+      }}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--c-palUiBlu600)" }}>
+        {title}
       </div>
+      <div className="mt-2 space-y-2">{content}</div>
+    </div>
+  );
 
-      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask a question about audits or observations..."
-              disabled={!sessionId}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-sm transition-all duration-150 ease-out focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-400 dark:focus:ring-blue-900/40"
-              rows={3}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <Button type="button" variant="secondary" onClick={handleClearChat} disabled={disableClear}>
-              Clear chat
-            </Button>
-            <Button type="submit" disabled={disableSend}>{status === "streaming" ? "Sending..." : "Send"}</Button>
-          </div>
-        </form>
-        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-          The AI assistant respects your role permissions. You can only see data you have access to.
+  const renderPart = (messageId: string, part: any, index: number, isUserMessage: boolean) => {
+    if (part.type === "text") {
+      const borderColor = "var(--border-color-regular)";
+      return (
+        <div key={`${messageId}-${index}`} className="space-y-3 text-sm leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              p: ({ node: _node, ...props }) => <p className="text-sm leading-relaxed" {...props} />,
+              ul: ({ node: _node, ...props }) => <ul className="ml-5 list-disc space-y-1 text-sm" {...props} />,
+              ol: ({ node: _node, ...props }) => <ol className="ml-5 list-decimal space-y-1 text-sm" {...props} />,
+              li: ({ node: _node, ...props }) => <li className="text-sm leading-relaxed" {...props} />,
+              strong: ({ node: _node, ...props }) => <strong className="font-semibold" {...props} />,
+              table: ({ node: _node, ...props }) => (
+                <div className="overflow-x-auto rounded-xl border" style={{ borderColor }}>
+                  <table className="min-w-full border-collapse text-left text-xs" {...props} />
+                </div>
+              ),
+              thead: ({ node: _node, ...props }) => (
+                <thead className="bg-[var(--c-bacSec)] text-xs uppercase tracking-wide" {...props} />
+              ),
+              th: ({ node: _node, ...props }) => (
+                <th className="border px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ borderColor }} {...props} />
+              ),
+              td: ({ node: _node, ...props }) => (
+                <td className="border px-3 py-2 text-xs" style={{ borderColor }} {...props} />
+              ),
+              tr: ({ node: _node, ...props }) => <tr {...props} />,
+              code: (props: any) => {
+                const { inline: isInline, node: _node, ...rest } = props || {};
+                return (
+                  <code
+                    className={cn(
+                      "rounded px-1 py-0.5 text-[0.85rem]",
+                      isInline ? "align-middle" : "block whitespace-pre-wrap",
+                    )}
+                    style={{
+                      background: isUserMessage ? "rgba(0,0,0,0.06)" : "var(--c-bacSec)",
+                    }}
+                    {...rest}
+                  />
+                );
+              },
+            }}
+          >
+            {part.text}
+          </ReactMarkdown>
+        </div>
+      );
+    }
+
+    switch (part.type) {
+      case "tool-observations_count": {
+        const count =
+          typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+        const input = (part.output as any)?.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          "Observations Count",
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {typeof count === "number" && (
+              <p className="text-sm">
+                Count: <strong>{count}</strong>
+              </p>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-observations_list": {
+        const out = (part.output as any) || {};
+        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Observations List (${String(out.count ?? list.length)})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {list.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {list.map((o: any) => (
+                  <li key={o.id}>
+                    <span className="font-medium">{o.title}</span>{" "}
+                    <span className="opacity-80">
+                      — {o.approvalStatus} • Risk {o.riskCategory} • {o.auditTitle}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-audits_count": {
+        const count =
+          typeof part.output === "object" && part.output && "count" in part.output ? (part.output as any).count : null;
+        const input = (part.output as any)?.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          "Audits Count",
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {typeof count === "number" && (
+              <p className="text-sm">
+                Count: <strong>{count}</strong>
+              </p>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-audits_list": {
+        const out = (part.output as any) || {};
+        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Audits List (${String(out.count ?? list.length)})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {list.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {list.map((a: any) => (
+                  <li key={a.id}>
+                    <span className="font-medium">{a.title}</span>{" "}
+                    <span className="opacity-80">
+                      — {a.plantName} • {a.status} • {a.progress?.resolved ?? 0}/{a.progress?.total ?? 0} resolved
+                      {a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-whoami": {
+        const out = (part.output as any) || {};
+        const u = out.user || {};
+        return renderToolCard(
+          `${messageId}-${index}`,
+          "Session Info",
+          out.allowed === false ? (
+            <p>Unauthenticated</p>
+          ) : (
+            <div className="space-y-1 text-sm">
+              <p>
+                Role: <strong>{u.role ?? "unknown"}</strong>
+              </p>
+              {u.email && (
+                <p>
+                  Email: <span className="opacity-80">{u.email}</span>
+                </p>
+              )}
+            </div>
+          ),
+        );
+      }
+
+      case "tool-observations_find": {
+        const out = (part.output as any) || {};
+        const list: Array<any> = Array.isArray(out.observations) ? out.observations : [];
+        const aggregation = out.aggregation as any;
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Observations Find (${String(out.count ?? list.length)})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {aggregation?.by && Array.isArray(aggregation?.groups) && aggregation.groups.length > 0 && (
+              <div className="space-y-1 rounded-xl bg-white px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide">Aggregation by {aggregation.by}</p>
+                <ul className="list-disc space-y-1 pl-4">
+                  {aggregation.groups.slice(0, 10).map((group: any, idx: number) => (
+                    <li key={idx}>
+                      {group.key}: <strong>{group.count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {list.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {list.slice(0, 10).map((o: any) => (
+                  <li key={o.id}>
+                    <span className="font-medium">{o.title}</span>{" "}
+                    <span className="opacity-80">
+                      — {o.approvalStatus} • {o.currentStatus} • Risk {o.riskCategory} • {o.auditTitle}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-audits_find": {
+        const out = (part.output as any) || {};
+        const list: Array<any> = Array.isArray(out.audits) ? out.audits : [];
+        const metrics = out.metrics as any;
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Audits Find (${String(out.count ?? list.length)})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {metrics?.kind && <p className="text-xs opacity-80">Metrics: {metrics.kind}</p>}
+            {list.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {list.slice(0, 10).map((a: any) => (
+                  <li key={a.id}>
+                    <span className="font-medium">{a.title}</span>{" "}
+                    <span className="opacity-80">
+                      — {a.plantName} • {a.status}
+                      {a.auditHead?.name ? ` • Head: ${a.auditHead.name}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-auditors_assignments_stats": {
+        const out = (part.output as any) || {};
+        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Auditor Assignment Stats (${rows.length})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {rows.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {rows.slice(0, 20).map((row: any, idx: number) => (
+                  <li key={idx}>
+                    {row.name ?? row.auditorEmail ?? row.auditorId}: <strong>{row.auditsAssigned}</strong> audits
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      case "tool-observations_similar": {
+        const out = (part.output as any) || {};
+        const rows: Array<any> = Array.isArray(out.results) ? out.results : [];
+        const input = out.input;
+        return renderToolCard(
+          `${messageId}-${index}`,
+          `Similar Observations (${rows.length})`,
+          <>
+            {input && (
+              <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                {formatJson(input)}
+              </pre>
+            )}
+            {rows.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs">
+                {rows.slice(0, 10).map((r: any) => (
+                  <li key={r.id}>
+                    <span className="font-medium">{r.auditTitle}</span>{" "}
+                    <span className="opacity-80">
+                      — {r.plant} • Score {r.similarity}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>,
+        );
+      }
+
+      default: {
+        if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+          return renderToolCard(
+            `${messageId}-${index}`,
+            part.type.replace("tool-", "").replace(/_/g, " "),
+            <pre className="rounded-xl bg-white px-3 py-2 text-[11px] leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+              {formatJson(part.output ?? {})}
+            </pre>,
+          );
+        }
+        return null;
+      }
+    }
+  };
+
+  const renderComposer = (variant: "hero" | "footer") => {
+    const isHero = variant === "hero";
+    return (
+      <div
+        className={cn(
+          "flex items-center gap-3 rounded-full border",
+          isHero
+            ? "px-6 py-4 shadow-[0_24px_60px_rgba(15,15,15,0.08)]"
+            : "px-4 py-3 shadow-[0_16px_32px_rgba(15,15,15,0.06)]",
+        )}
+        style={{
+          borderColor: "var(--border-color-regular)",
+          background: "var(--c-bacPri)",
+        }}
+      >
+        <button
+          type="button"
+          className={cn(
+            "flex items-center justify-center rounded-full border transition-colors",
+            isHero ? "h-11 w-11" : "h-9 w-9",
+          )}
+          style={{
+            borderColor: "var(--border-color-regular)",
+            background: "var(--c-bacPri)",
+            color: "var(--c-texSec)",
+          }}
+          aria-label="Insert attachment"
+        >
+          <Plus className={isHero ? "h-5 w-5" : "h-4 w-4"} />
+        </button>
+        <textarea
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything"
+          rows={1}
+          className={cn(
+            "max-h-32 min-h-[28px] flex-1 resize-none bg-transparent outline-none placeholder:text-neutral-400",
+            isHero ? "text-base leading-relaxed" : "text-sm leading-relaxed",
+          )}
+          style={{ color: "var(--c-texPri)" }}
+          disabled={!sessionId}
+        />
+        <button
+          type="submit"
+          disabled={disableSend}
+          className={cn(
+            "flex items-center justify-center rounded-full transition-colors",
+            isHero ? "h-11 w-11" : "h-9 w-9",
+            disableSend
+              ? "cursor-not-allowed bg-[var(--c-bacSec)] text-[var(--c-texSec)] opacity-60"
+              : "bg-[var(--c-texPri)] text-white hover:bg-[var(--c-texPri)]/90",
+          )}
+          aria-label="Send message"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  };
+
+  const renderErrorBanner = () =>
+    !error ? null : (
+      <div
+        className="rounded-2xl border px-3 py-2 text-sm"
+        style={{
+          borderColor: "rgba(220, 38, 38, 0.2)",
+          background: "rgba(254, 226, 226, 0.6)",
+          color: "#b91c1c",
+        }}
+      >
+        <strong className="font-semibold">Error:</strong> {error.message}
+      </div>
+    );
+
+  const emptyState = (
+    <div className="w-full max-w-2xl space-y-8 text-center">
+      <div className="space-y-2">
+        <h2 className="text-3xl font-semibold" style={{ color: "var(--c-texPri)" }}>
+          What&apos;s on your mind today?
+        </h2>
+        <p className="text-sm leading-relaxed" style={{ color: "var(--c-texSec)" }}>
+          Ask about audits, observations, reports, or assignments to get tailored answers instantly.
         </p>
       </div>
-    </>
+      <form onSubmit={handleSubmit}>{renderComposer("hero")}</form>
+      {renderErrorBanner()}
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {suggestions.map((suggestion, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handleSuggestionClick(suggestion)}
+              disabled={status !== "ready" || !sessionId}
+              className={cn(
+                "rounded-full border px-4 py-2 text-sm transition-colors",
+                "hover:bg-[var(--c-bacPri)] hover:text-[var(--c-palUiBlu600)]",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+              )}
+              style={{
+                borderColor: "var(--border-color-regular)",
+                background: "var(--c-bacSec)",
+                color: "var(--c-palUiBlu600)",
+              }}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderedMessages = (
+    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+      {messages.map((message) => {
+        const isUserMessage = message.role === "user";
+        return (
+          <div key={message.id} className={cn("flex w-full", isUserMessage ? "justify-end" : "justify-start")}>
+            {isUserMessage ? (
+              <div
+                className="max-w-[60%] rounded-[24px] px-5 py-3"
+                style={{
+                  background: "var(--c-bacSec)",
+                  color: "var(--c-texPri)",
+                  boxShadow: "0 8px 24px -16px rgba(15,15,15,0.25)",
+                }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--c-texTer)" }}>
+                  You
+                </p>
+                <div className="mt-2 space-y-4">
+                  {message.parts.map((part, idx) => renderPart(message.id, part, idx, true))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex max-w-[85%] items-start gap-3">
+                <div
+                  className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
+                  style={{ background: "var(--ca-palUiBlu100)" }}
+                >
+                  <Sparkles className="h-4 w-4" style={{ color: "var(--c-palUiBlu600)" }} />
+                </div>
+                <div
+                  className="flex-1 rounded-[24px] border px-5 py-3"
+                  style={{
+                    borderColor: "var(--border-color-regular)",
+                    background: "var(--c-bacPri)",
+                    color: "var(--c-texPri)",
+                    boxShadow: "0 8px 16px -8px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--c-texTer)" }}>
+                    AI Assistant
+                  </p>
+                  <div className="mt-2 space-y-4">
+                    {message.parts.map((part, idx) => renderPart(message.id, part, idx, false))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {status === "streaming" && (
+        <div className="flex justify-start">
+          <div className="flex items-start gap-3">
+            <div
+              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full"
+              style={{ background: "var(--ca-palUiBlu100)" }}
+            >
+              <Sparkles className="h-4 w-4" style={{ color: "var(--c-palUiBlu600)" }} />
+            </div>
+            <div
+              className="rounded-[24px] border px-5 py-3"
+              style={{
+                borderColor: "var(--border-color-regular)",
+                background: "var(--c-bacPri)",
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full"
+                  style={{ background: "var(--c-palUiBlu600)" }}
+                />
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full [animation-delay:120ms]"
+                  style={{ background: "var(--c-palUiBlu600)" }}
+                />
+                <span
+                  className="h-2 w-2 animate-bounce rounded-full [animation-delay:240ms]"
+                  style={{ background: "var(--c-palUiBlu600)" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const isEmptyState = !loading && messages.length === 0;
+  const bodyWrapperClass = cn(
+    "flex-1 px-8",
+    loading || isEmptyState ? "flex items-center justify-center" : "overflow-y-auto py-10",
+  );
+  const bodyContent = loading ? (
+    <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
+      Loading conversation…
+    </p>
+  ) : isEmptyState ? (
+    emptyState
+  ) : (
+    renderedMessages
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className={bodyWrapperClass}>{bodyContent}</div>
+
+      {!isEmptyState && (
+        <div
+          className="border-t px-6 py-5"
+          style={{
+            borderColor: "var(--border-color-regular)",
+            background: "var(--c-bacPri)",
+          }}
+        >
+          <div className="mx-auto w-full max-w-3xl space-y-3">
+            {renderErrorBanner()}
+            <form onSubmit={handleSubmit}>{renderComposer("footer")}</form>
+
+            <div className="flex items-center justify-between text-[0.75rem]" style={{ color: "var(--c-texSec)" }}>
+              <button
+                type="button"
+                onClick={handleClearChat}
+                disabled={disableClear}
+                className={cn(
+                  "font-medium transition-colors",
+                  "hover:underline",
+                  "disabled:cursor-not-allowed disabled:opacity-40",
+                )}
+                style={{ color: "var(--c-palUiBlu600)" }}
+              >
+                Clear chat
+              </button>
+              <p>
+                The AI assistant respects your role permissions. You can only see data you are allowed to access.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

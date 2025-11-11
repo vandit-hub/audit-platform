@@ -1,6 +1,6 @@
 "use client";
 
-import Badge from "./ui/Badge";
+import { Badge } from "./ui/Badge";
 
 export default function RoleBadge({ role }: { role: string }) {
   const variant =
