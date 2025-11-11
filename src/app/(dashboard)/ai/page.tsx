@@ -283,36 +283,25 @@ export default function AIAssistantPage() {
   // ChatPane computes input/button disabled states locally
 
   return (
-    <div className="h-[calc(100vh-140px)] flex gap-6 px-6 py-4">
+    <div className="flex h-[calc(100vh-56px)] overflow-hidden bg-[var(--c-bacPri)]">
       <aside
-        className="flex w-[280px] h-full flex-shrink-0 flex-col rounded-[28px] border"
+        className="flex h-full w-[280px] flex-shrink-0 flex-col border-r"
         style={{
           borderColor: "var(--border-color-regular)",
           background: "var(--c-bacPri)",
-          boxShadow: "0 24px 60px rgba(15, 15, 15, 0.05)",
         }}
       >
-            <div className="space-y-4 border-b px-5 pb-5 pt-6" style={{ borderColor: "var(--border-color-regular)" }}>
+            <div className="space-y-4 px-4 py-6">
               <Button
-                variant="outline"
                 onClick={handleNewConversation}
                 disabled={isStreaming}
                 className={cn(
-                  "h-12 w-full justify-start gap-3 rounded-full border text-sm font-medium transition-colors",
-                  "hover:bg-[var(--c-bacSec)]",
+                  "h-11 w-full items-center justify-center gap-2 rounded-lg bg-[var(--c-texPri)] text-sm font-medium text-white transition-colors",
+                  "hover:bg-[var(--c-texPri)]/90",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
                 )}
-                style={{
-                  borderColor: "var(--border-color-regular)",
-                  background: "var(--c-bacPri)",
-                  color: "var(--c-texPri)",
-                }}
               >
-                <span
-                  className="flex h-8 w-8 items-center justify-center rounded-full"
-                  style={{ background: "var(--c-bacSec)", color: "var(--c-palUiBlu600)" }}
-                >
-                  <Plus className="h-4 w-4" />
-                </span>
+                <Plus className="h-4 w-4" />
                 <span>New chat</span>
               </Button>
 
@@ -325,7 +314,7 @@ export default function AIAssistantPage() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search chats"
-                  className="h-10 rounded-2xl border pl-9 text-sm"
+                  className="h-9 rounded-lg border pl-9 text-sm"
                   style={{
                     borderColor: "var(--border-color-regular)",
                     background: "white",
@@ -333,32 +322,23 @@ export default function AIAssistantPage() {
                   }}
                 />
               </div>
-
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: "var(--c-texSec)" }}>
-                  Conversations
-                </p>
-                <p className="text-xs" style={{ color: "var(--c-texTer)" }}>
-                  {sessions.length} total
-                </p>
-              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-4">
+            <div className="flex-1 overflow-y-auto px-2 pb-0">
               {initializing ? (
-                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                <p className="px-3 text-sm" style={{ color: "var(--c-texSec)" }}>
                   Loading conversations…
                 </p>
               ) : sessions.length === 0 ? (
-                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                <p className="px-3 text-sm" style={{ color: "var(--c-texSec)" }}>
                   No conversations yet.
                 </p>
               ) : filteredSessions.length === 0 ? (
-                <p className="px-2 text-sm" style={{ color: "var(--c-texSec)" }}>
+                <p className="px-3 text-sm" style={{ color: "var(--c-texSec)" }}>
                   No matches for “{searchTerm.trim()}”.
                 </p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-1.5">
                   {filteredSessions.map((item, index) => {
                     const label = item.title?.trim() || `Conversation ${filteredSessions.length - index}`;
                     const isActive = item.id === activeSessionId;
@@ -369,8 +349,8 @@ export default function AIAssistantPage() {
                           onClick={() => loadSession(item.id)}
                           disabled={loadingMessages && item.id === activeSessionId}
                           className={cn(
-                            "w-full rounded-2xl px-3 py-2 text-left transition",
-                            "hover:bg-[var(--c-bacSec)]",
+                            "w-full rounded-lg px-3 py-2 text-left transition",
+                            "hover:bg-[var(--c-bacSec)] hover:text-[var(--c-texPri)]",
                           )}
                           style={{
                             background: isActive ? "var(--c-bacSec)" : "transparent",
@@ -398,61 +378,9 @@ export default function AIAssistantPage() {
             </div>
       </aside>
 
-      <section
-        className="flex min-w-0 flex-1 h-full flex-col rounded-[32px] border"
-        style={{
-          borderColor: "var(--border-color-regular)",
-          background: "var(--c-bacPri)",
-          boxShadow: "0 32px 90px -40px rgba(15, 15, 15, 0.2)",
-        }}
-      >
-        <header
-          className="flex flex-wrap items-center justify-between gap-4 border-b px-8 py-4"
-          style={{ borderColor: "var(--border-color-regular)" }}
-        >
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold" style={{ color: "var(--c-texPri)" }}>
-              {activeSession?.title?.trim() || "Conversation"}
-            </h1>
-            <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
-              {activeSession
-                ? `Last activity · ${formatTimestamp(activeSession.lastMessageAt ?? activeSession.updatedAt)}`
-                : "Select or start a conversation to chat with the assistant."}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleRenameConversation}
-              disabled={!activeSessionId || isStreaming}
-              className={cn(
-                "text-sm font-medium transition-colors",
-                "hover:text-[var(--c-texPri)]",
-                "disabled:cursor-not-allowed disabled:opacity-40",
-              )}
-              style={{ color: "var(--c-texSec)" }}
-            >
-              Rename
-            </button>
-            <span className="h-4 w-px rounded-full" style={{ background: "var(--border-color-regular)" }} />
-            <button
-              type="button"
-              onClick={handleDeleteConversation}
-              disabled={!activeSessionId || isStreaming}
-              className={cn(
-                "text-sm font-medium transition-colors",
-                "hover:text-[var(--c-texPri)]",
-                "disabled:cursor-not-allowed disabled:opacity-40",
-              )}
-              style={{ color: "var(--c-texSec)" }}
-            >
-              Delete
-            </button>
-          </div>
-        </header>
-
+      <section className="flex h-full min-w-0 flex-1 flex-col bg-[var(--c-bacPri)]">
         {uiError && (
-          <div className="px-8 pt-4 text-sm" style={{ color: "#dc2626" }}>
+          <div className="px-10 pb-4 text-sm" style={{ color: "#dc2626" }}>
             {uiError}
           </div>
         )}
@@ -920,25 +848,21 @@ function ChatPane({
     return (
       <div
         className={cn(
-          "flex items-center gap-3 rounded-full border",
-          isHero
-            ? "px-6 py-4 shadow-[0_24px_60px_rgba(15,15,15,0.08)]"
-            : "px-4 py-3 shadow-[0_16px_32px_rgba(15,15,15,0.06)]",
+          "flex items-center gap-3 rounded-2xl border bg-white",
+          isHero ? "px-6 py-4" : "px-4 py-2.5",
         )}
         style={{
           borderColor: "var(--border-color-regular)",
-          background: "var(--c-bacPri)",
         }}
       >
         <button
           type="button"
           className={cn(
-            "flex items-center justify-center rounded-full border transition-colors",
-            isHero ? "h-11 w-11" : "h-9 w-9",
+            "flex items-center justify-center rounded-xl transition-colors",
+            isHero ? "h-11 w-11" : "h-10 w-10",
           )}
           style={{
-            borderColor: "var(--border-color-regular)",
-            background: "var(--c-bacPri)",
+            background: "var(--c-bacSec)",
             color: "var(--c-texSec)",
           }}
           aria-label="Insert attachment"
@@ -962,11 +886,11 @@ function ChatPane({
           type="submit"
           disabled={disableSend}
           className={cn(
-            "flex items-center justify-center rounded-full transition-colors",
-            isHero ? "h-11 w-11" : "h-9 w-9",
+            "flex items-center justify-center rounded-xl transition-colors",
+            isHero ? "h-11 w-11" : "h-10 w-10",
             disableSend
               ? "cursor-not-allowed bg-[var(--c-bacSec)] text-[var(--c-texSec)] opacity-60"
-              : "bg-[var(--c-texPri)] text-white hover:bg-[var(--c-texPri)]/90",
+              : "bg-black text-white hover:bg-black/90",
           )}
           aria-label="Send message"
         >
@@ -1030,24 +954,17 @@ function ChatPane({
   );
 
   const renderedMessages = (
-    <div className="mx-auto flex max-w-3xl flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       {messages.map((message) => {
         const isUserMessage = message.role === "user";
         return (
           <div key={message.id} className={cn("flex w-full", isUserMessage ? "justify-end" : "justify-start")}>
             {isUserMessage ? (
               <div
-                className="max-w-[60%] rounded-[24px] px-5 py-3"
-                style={{
-                  background: "var(--c-bacSec)",
-                  color: "var(--c-texPri)",
-                  boxShadow: "0 8px 24px -16px rgba(15,15,15,0.25)",
-                }}
+                className="max-w-[70%] rounded-3xl px-4 py-3 text-sm leading-relaxed"
+                style={{ background: "var(--c-bacSec)", color: "var(--c-texPri)" }}
               >
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--c-texTer)" }}>
-                  You
-                </p>
-                <div className="mt-2 space-y-4">
+                <div className="space-y-4">
                   {message.parts.map((part, idx) => renderPart(message.id, part, idx, true))}
                 </div>
               </div>
@@ -1059,21 +976,8 @@ function ChatPane({
                 >
                   <Sparkles className="h-4 w-4" style={{ color: "var(--c-palUiBlu600)" }} />
                 </div>
-                <div
-                  className="flex-1 rounded-[24px] border px-5 py-3"
-                  style={{
-                    borderColor: "var(--border-color-regular)",
-                    background: "var(--c-bacPri)",
-                    color: "var(--c-texPri)",
-                    boxShadow: "0 8px 16px -8px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--c-texTer)" }}>
-                    AI Assistant
-                  </p>
-                  <div className="mt-2 space-y-4">
-                    {message.parts.map((part, idx) => renderPart(message.id, part, idx, false))}
-                  </div>
+                <div className="flex-1 space-y-4 text-sm leading-relaxed" style={{ color: "var(--c-texPri)" }}>
+                  {message.parts.map((part, idx) => renderPart(message.id, part, idx, false))}
                 </div>
               </div>
             )}
@@ -1085,32 +989,21 @@ function ChatPane({
         <div className="flex justify-start">
           <div className="flex items-start gap-3">
             <div
-              className="mt-1 flex h-9 w-9 items-center justify-center rounded-full"
+              className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
               style={{ background: "var(--ca-palUiBlu100)" }}
             >
               <Sparkles className="h-4 w-4" style={{ color: "var(--c-palUiBlu600)" }} />
             </div>
-            <div
-              className="rounded-[24px] border px-5 py-3"
-              style={{
-                borderColor: "var(--border-color-regular)",
-                background: "var(--c-bacPri)",
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 animate-bounce rounded-full"
-                  style={{ background: "var(--c-palUiBlu600)" }}
-                />
-                <span
-                  className="h-2 w-2 animate-bounce rounded-full [animation-delay:120ms]"
-                  style={{ background: "var(--c-palUiBlu600)" }}
-                />
-                <span
-                  className="h-2 w-2 animate-bounce rounded-full [animation-delay:240ms]"
-                  style={{ background: "var(--c-palUiBlu600)" }}
-                />
-              </div>
+            <div className="flex items-center gap-2 py-1">
+              <span className="h-2 w-2 animate-bounce rounded-full" style={{ background: "var(--c-palUiBlu600)" }} />
+              <span
+                className="h-2 w-2 animate-bounce rounded-full [animation-delay:120ms]"
+                style={{ background: "var(--c-palUiBlu600)" }}
+              />
+              <span
+                className="h-2 w-2 animate-bounce rounded-full [animation-delay:240ms]"
+                style={{ background: "var(--c-palUiBlu600)" }}
+              />
             </div>
           </div>
         </div>
@@ -1119,7 +1012,7 @@ function ChatPane({
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {loading ? (
         // Loading State - Centered
         <div className="flex-1 flex items-center justify-center">
@@ -1136,19 +1029,19 @@ function ChatPane({
         // Conversation View - Messages + Footer
         <>
           {/* Messages Area - Scrollable */}
-          <div className="flex-1 overflow-y-auto px-8 py-10">
+          <div className="flex-1 overflow-y-auto px-10 pt-6 pb-1">
             {renderedMessages}
           </div>
 
           {/* Input Footer - Fixed at bottom */}
           <div
-            className="border-t px-6 py-4"
+            className="border-t px-10 pt-2 pb-1"
             style={{
               borderColor: "var(--border-color-regular)",
               background: "var(--c-bacPri)",
             }}
           >
-            <div className="mx-auto w-full max-w-3xl space-y-3">
+            <div className="mx-auto w-full max-w-3xl space-y-2">
               {renderErrorBanner()}
               <form onSubmit={handleSubmit}>{renderComposer("footer")}</form>
 
