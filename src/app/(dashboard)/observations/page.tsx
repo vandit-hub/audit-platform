@@ -4,11 +4,11 @@ import { useEffect, useState, FormEvent, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import { LegacyCard as Card } from "@/components/ui/v2/legacy-card";
-import { Input } from "@/components/ui/Input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import { Button } from "@/components/ui/Button";
-import { Label } from "@/components/ui/Label";
+import { Card, CardContent } from "@/components/ui/v2/card";
+import { Input } from "@/components/ui/v2/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
+import { Button } from "@/components/ui/v2/button";
+import { Label } from "@/components/ui/v2/label";
 import { Badge } from "@/components/ui/v2/badge";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
@@ -211,7 +211,7 @@ export default function ObservationsPage() {
         </p>
       </header>
 
-      <Card >
+      <Card className="p-6">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
         <div className="space-y-6">
           <div>
@@ -379,7 +379,7 @@ export default function ObservationsPage() {
       </Card>
 
       {canCreate && (
-        <Card >
+        <Card className="p-6">
           <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Observation (Admin/Auditor)</h2>
           {error && (
             <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
@@ -422,7 +422,7 @@ export default function ObservationsPage() {
         </Card>
       )}
 
-      <Card >
+      <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-neutral-900">Results</h2>
           <span className="text-sm font-medium text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-md">
