@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
@@ -10,11 +10,21 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { Label } from "@/components/ui/Label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageContainer } from "@/components/PageContainer";
 import { PageTitle } from "@/components/PageTitle";
-import { UserPlus, Link2, Copy, Check } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
+import Spinner from "@/components/ui/Spinner";
+import { UserPlus, Link2, Copy, Check, User } from "lucide-react";
+
+interface ActiveUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -24,11 +34,39 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [users, setUsers] = useState<ActiveUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
   if (!session?.user?.role || !isCFOOrCXOTeam(session.user.role)) {
     redirect("/");
   }
+
+  // Fetch active users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setUsersLoading(true);
+        setUsersError(null);
+        const response = await fetch("/api/v1/users");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch users");
+        }
+
+        const data = await response.json();
+        setUsers(data.users || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setUsersError("Failed to load users");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,17 +141,11 @@ export default function AdminUsersPage() {
   return (
     <PageContainer className="space-y-6">
       <PageTitle
-        title="Admin"
-        description="System administration and configuration"
+        title="User Management"
+        description="Invite new users and manage existing users"
       />
 
-      <Tabs defaultValue="users">
-        <TabsList>
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          {isCFO(session?.user?.role) && <TabsTrigger value="import">Data Import</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="users" className="space-y-6">
+      <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Invite New User</CardTitle>
@@ -216,27 +248,62 @@ export default function AdminUsersPage() {
               <CardDescription>Users with access to the system</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">User list coming soon...</p>
-              </div>
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Spinner />
+                </div>
+              ) : usersError ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-destructive">{usersError}</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">No users found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary-100 text-primary-600">
+                          <User className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            {user.name || "No name"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant={
+                            user.role === "CFO"
+                              ? "default"
+                              : user.role === "CXO_TEAM"
+                              ? "secondary"
+                              : user.role === "AUDIT_HEAD"
+                              ? "outline"
+                              : "outline"
+                          }
+                          className="capitalize"
+                        >
+                          {user.role.replace("_", " ").toLowerCase()}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {isCFO(session?.user?.role) && (
-          <TabsContent value="import" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Import</CardTitle>
-                <CardDescription>Import data from Excel files (CFO only)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Data import functionality coming soon...</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-      </Tabs>
+      </div>
     </PageContainer>
   );
 }
