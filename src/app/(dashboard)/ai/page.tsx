@@ -283,24 +283,15 @@ export default function AIAssistantPage() {
   // ChatPane computes input/button disabled states locally
 
   return (
-    <div className="px-6 py-6">
-      <div className="mx-auto flex max-w-[1600px] flex-1 flex-col gap-4">
-        {session?.user && (
-          <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
-            Logged in as <span className="font-medium" style={{ color: "var(--c-texPri)" }}>{session.user.name}</span>{" "}
-            ({session.user.role})
-          </p>
-        )}
-
-        <div className="flex min-h-[calc(100vh-180px)] flex-1 gap-6">
-          <aside
-            className="flex w-[280px] flex-shrink-0 flex-col rounded-[28px] border"
-            style={{
-              borderColor: "var(--border-color-regular)",
-              background: "var(--c-bacPri)",
-              boxShadow: "0 24px 60px rgba(15, 15, 15, 0.05)",
-            }}
-          >
+    <div className="h-[calc(100vh-140px)] flex gap-6 px-6 py-4">
+      <aside
+        className="flex w-[280px] h-full flex-shrink-0 flex-col rounded-[28px] border"
+        style={{
+          borderColor: "var(--border-color-regular)",
+          background: "var(--c-bacPri)",
+          boxShadow: "0 24px 60px rgba(15, 15, 15, 0.05)",
+        }}
+      >
             <div className="space-y-4 border-b px-5 pb-5 pt-6" style={{ borderColor: "var(--border-color-regular)" }}>
               <Button
                 variant="outline"
@@ -405,79 +396,77 @@ export default function AIAssistantPage() {
                 </ul>
               )}
             </div>
-          </aside>
+      </aside>
 
-          <section
-            className="flex min-w-0 flex-1 flex-col rounded-[32px] border"
-            style={{
-              borderColor: "var(--border-color-regular)",
-              background: "var(--c-bacPri)",
-              boxShadow: "0 32px 90px -40px rgba(15, 15, 15, 0.2)",
-            }}
-          >
-            <header
-              className="flex flex-wrap items-center justify-between gap-4 border-b px-8 py-6"
-              style={{ borderColor: "var(--border-color-regular)" }}
+      <section
+        className="flex min-w-0 flex-1 h-full flex-col rounded-[32px] border"
+        style={{
+          borderColor: "var(--border-color-regular)",
+          background: "var(--c-bacPri)",
+          boxShadow: "0 32px 90px -40px rgba(15, 15, 15, 0.2)",
+        }}
+      >
+        <header
+          className="flex flex-wrap items-center justify-between gap-4 border-b px-8 py-4"
+          style={{ borderColor: "var(--border-color-regular)" }}
+        >
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold" style={{ color: "var(--c-texPri)" }}>
+              {activeSession?.title?.trim() || "Conversation"}
+            </h1>
+            <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
+              {activeSession
+                ? `Last activity · ${formatTimestamp(activeSession.lastMessageAt ?? activeSession.updatedAt)}`
+                : "Select or start a conversation to chat with the assistant."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRenameConversation}
+              disabled={!activeSessionId || isStreaming}
+              className={cn(
+                "text-sm font-medium transition-colors",
+                "hover:text-[var(--c-texPri)]",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+              )}
+              style={{ color: "var(--c-texSec)" }}
             >
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-semibold" style={{ color: "var(--c-texPri)" }}>
-                  {activeSession?.title?.trim() || "Conversation"}
-                </h1>
-                <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
-                  {activeSession
-                    ? `Last activity · ${formatTimestamp(activeSession.lastMessageAt ?? activeSession.updatedAt)}`
-                    : "Select or start a conversation to chat with the assistant."}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleRenameConversation}
-                  disabled={!activeSessionId || isStreaming}
-                  className={cn(
-                    "text-sm font-medium transition-colors",
-                    "hover:text-[var(--c-texPri)]",
-                    "disabled:cursor-not-allowed disabled:opacity-40",
-                  )}
-                  style={{ color: "var(--c-texSec)" }}
-                >
-                  Rename
-                </button>
-                <span className="h-4 w-px rounded-full" style={{ background: "var(--border-color-regular)" }} />
-                <button
-                  type="button"
-                  onClick={handleDeleteConversation}
-                  disabled={!activeSessionId || isStreaming}
-                  className={cn(
-                    "text-sm font-medium transition-colors",
-                    "hover:text-[var(--c-texPri)]",
-                    "disabled:cursor-not-allowed disabled:opacity-40",
-                  )}
-                  style={{ color: "var(--c-texSec)" }}
-                >
-                  Delete
-                </button>
-              </div>
-            </header>
+              Rename
+            </button>
+            <span className="h-4 w-px rounded-full" style={{ background: "var(--border-color-regular)" }} />
+            <button
+              type="button"
+              onClick={handleDeleteConversation}
+              disabled={!activeSessionId || isStreaming}
+              className={cn(
+                "text-sm font-medium transition-colors",
+                "hover:text-[var(--c-texPri)]",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+              )}
+              style={{ color: "var(--c-texSec)" }}
+            >
+              Delete
+            </button>
+          </div>
+        </header>
 
-            {uiError && (
-              <div className="px-8 pt-4 text-sm" style={{ color: "#dc2626" }}>
-                {uiError}
-              </div>
-            )}
+        {uiError && (
+          <div className="px-8 pt-4 text-sm" style={{ color: "#dc2626" }}>
+            {uiError}
+          </div>
+        )}
 
-            <ChatPane
-              key={activeSessionId ?? "none"}
-              sessionId={activeSessionId}
-              initialMessages={activeSessionMessages}
-              loading={loadingMessages}
-              suggestions={suggestions}
-              onMessagesChanged={refreshSessions}
-              onStreamingChange={setIsStreaming}
-            />
-          </section>
-        </div>
-      </div>
+        <ChatPane
+          key={activeSessionId ?? "none"}
+          sessionId={activeSessionId}
+          initialMessages={activeSessionMessages}
+          loading={loadingMessages}
+          suggestions={suggestions}
+          onMessagesChanged={refreshSessions}
+          onStreamingChange={setIsStreaming}
+        />
+      </section>
     </div>
   );
 }
@@ -1129,57 +1118,61 @@ function ChatPane({
     </div>
   );
 
-  const isEmptyState = !loading && messages.length === 0;
-  const bodyWrapperClass = cn(
-    "flex-1 px-8",
-    loading || isEmptyState ? "flex items-center justify-center" : "overflow-y-auto py-10",
-  );
-  const bodyContent = loading ? (
-    <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
-      Loading conversation…
-    </p>
-  ) : isEmptyState ? (
-    emptyState
-  ) : (
-    renderedMessages
-  );
-
   return (
     <div className="flex h-full flex-col">
-      <div className={bodyWrapperClass}>{bodyContent}</div>
+      {loading ? (
+        // Loading State - Centered
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm" style={{ color: "var(--c-texSec)" }}>
+            Loading conversation…
+          </p>
+        </div>
+      ) : messages.length === 0 ? (
+        // Empty State - Centered
+        <div className="flex-1 flex items-center justify-center px-8">
+          {emptyState}
+        </div>
+      ) : (
+        // Conversation View - Messages + Footer
+        <>
+          {/* Messages Area - Scrollable */}
+          <div className="flex-1 overflow-y-auto px-8 py-10">
+            {renderedMessages}
+          </div>
 
-      {!isEmptyState && (
-        <div
-          className="border-t px-6 py-5"
-          style={{
-            borderColor: "var(--border-color-regular)",
-            background: "var(--c-bacPri)",
-          }}
-        >
-          <div className="mx-auto w-full max-w-3xl space-y-3">
-            {renderErrorBanner()}
-            <form onSubmit={handleSubmit}>{renderComposer("footer")}</form>
+          {/* Input Footer - Fixed at bottom */}
+          <div
+            className="border-t px-6 py-4"
+            style={{
+              borderColor: "var(--border-color-regular)",
+              background: "var(--c-bacPri)",
+            }}
+          >
+            <div className="mx-auto w-full max-w-3xl space-y-3">
+              {renderErrorBanner()}
+              <form onSubmit={handleSubmit}>{renderComposer("footer")}</form>
 
-            <div className="flex items-center justify-between text-[0.75rem]" style={{ color: "var(--c-texSec)" }}>
-              <button
-                type="button"
-                onClick={handleClearChat}
-                disabled={disableClear}
-                className={cn(
-                  "font-medium transition-colors",
-                  "hover:underline",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-                style={{ color: "var(--c-palUiBlu600)" }}
-              >
-                Clear chat
-              </button>
-              <p>
-                The AI assistant respects your role permissions. You can only see data you are allowed to access.
-              </p>
+              <div className="flex items-center justify-between text-[0.75rem]" style={{ color: "var(--c-texSec)" }}>
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  disabled={disableClear}
+                  className={cn(
+                    "font-medium transition-colors",
+                    "hover:underline",
+                    "disabled:cursor-not-allowed disabled:opacity-40",
+                  )}
+                  style={{ color: "var(--c-palUiBlu600)" }}
+                >
+                  Clear chat
+                </button>
+                <p>
+                  The AI assistant respects your role permissions. You can only see data you are allowed to access.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
