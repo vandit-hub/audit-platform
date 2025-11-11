@@ -954,14 +954,14 @@ function ChatPane({
   );
 
   const renderedMessages = (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       {messages.map((message) => {
         const isUserMessage = message.role === "user";
         return (
           <div key={message.id} className={cn("flex w-full", isUserMessage ? "justify-end" : "justify-start")}>
             {isUserMessage ? (
               <div
-                className="max-w-[70%] rounded-3xl px-4 py-3 text-sm leading-relaxed"
+                className="max-w-[55%] rounded-3xl px-4 py-3 text-sm leading-relaxed"
                 style={{ background: "var(--c-bacSec)", color: "var(--c-texPri)" }}
               >
                 <div className="space-y-4">
@@ -969,7 +969,7 @@ function ChatPane({
                 </div>
               </div>
             ) : (
-              <div className="flex max-w-[85%] items-start gap-3">
+              <div className="flex max-w-[92%] items-start gap-3">
                 <div
                   className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
                   style={{ background: "var(--ca-palUiBlu100)" }}
@@ -1041,7 +1041,7 @@ function ChatPane({
               background: "var(--c-bacPri)",
             }}
           >
-            <div className="mx-auto w-full max-w-3xl space-y-2">
+            <div className="mx-auto w-full max-w-5xl space-y-2">
               {renderErrorBanner()}
               <form onSubmit={handleSubmit}>{renderComposer("footer")}</form>
 
