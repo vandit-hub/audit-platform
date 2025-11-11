@@ -2,9 +2,9 @@
 
 import React from "react";
 import { useToast } from "@/contexts/ToastContext";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Label } from "@/components/ui/Label";
+import { Button } from "@/components/ui/v2/button";
+import { Input } from "@/components/ui/v2/input";
+import { Label } from "@/components/ui/v2/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, AlertCircle, CheckCircle2 } from "lucide-react";
 
