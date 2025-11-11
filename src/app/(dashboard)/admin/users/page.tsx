@@ -5,11 +5,12 @@ import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
 import { isCFOOrCXOTeam, isCFO } from "@/lib/rbac";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Badge from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { Badge } from "@/components/ui/Badge";
+import { Label } from "@/components/ui/Label";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -97,7 +98,7 @@ export default function AdminUsersPage() {
         <p className="text-base text-neutral-600 mt-2">Invite new users to the audit platform</p>
       </div>
 
-      <Card padding="lg">
+      <Card >
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Invite New User</h2>
 
         <form onSubmit={handleInviteUser} className="space-y-6">
@@ -138,7 +139,7 @@ export default function AdminUsersPage() {
 
           <Button
             type="submit"
-            variant="primary"
+            variant="default"
             isLoading={isLoading}
             className="w-full"
           >
@@ -168,7 +169,7 @@ export default function AdminUsersPage() {
               />
               <Button
                 onClick={copyInviteLink}
-                variant="primary"
+                variant="default"
                 size="md"
               >
                 Copy

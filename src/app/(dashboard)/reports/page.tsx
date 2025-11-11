@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/v2/card";
 import { Button } from "@/components/ui/v2/button";
 import { Input } from "@/components/ui/v2/input";
-import Select from "@/components/ui/Select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/v2/badge";
 import { Skeleton } from "@/components/ui/v2/skeleton";
 import { PageContainer } from "@/components/v2/PageContainer";

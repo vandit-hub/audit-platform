@@ -2,9 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Label } from "@/components/ui/Label";
 
 export default function AcceptInvitePage() {
   const sp = useSearchParams();
@@ -49,7 +50,7 @@ export default function AcceptInvitePage() {
           <p className="text-neutral-600">Complete your account setup to get started</p>
         </div>
 
-        <Card padding="lg">
+        <Card className="p-6">
           {error && (
             <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg flex items-start gap-3">
               <svg className="h-5 w-5 text-error-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -60,38 +61,47 @@ export default function AcceptInvitePage() {
           )}
 
           <form onSubmit={onSubmit} className="space-y-6">
-            <Input
-              label="Invite Token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              required
-              placeholder="Paste your invitation token"
-              helperText="Enter the token you received from the Admin"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="token">Invite Token</Label>
+              <Input
+                id="token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                required
+                placeholder="Paste your invitation token"
+              />
+              <p className="text-xs text-muted-foreground">Enter the token you received from the Admin</p>
+            </div>
 
-            <Input
-              label="Your Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="John Doe"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="name">Your Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="John Doe"
+              />
+            </div>
 
-            <Input
-              type="password"
-              label="Create Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="••••••••"
-              helperText="Use at least 8 characters with letters, numbers & symbols"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="password">Create Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                placeholder="••••••••"
+              />
+              <p className="text-xs text-muted-foreground">Use at least 8 characters with letters, numbers & symbols</p>
+            </div>
 
             <Button
               type="submit"
-              variant="primary"
-              isLoading={busy}
+              variant="default"
+              disabled={busy}
               className="w-full"
             >
               {busy ? "Setting up your account..." : "Accept Invitation"}

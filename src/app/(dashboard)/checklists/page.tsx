@@ -1,4 +1,4 @@
-import Card from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 
 export default function ChecklistsPage() {
   return (
@@ -8,7 +8,7 @@ export default function ChecklistsPage() {
         <p className="text-base text-neutral-600 mt-2">Manage audit checklists and templates</p>
       </div>
 
-      <Card padding="lg">
+      <Card >
         <div className="text-center py-16 px-6">
           <div className="flex justify-center mb-6">
             <div className="p-4 bg-neutral-100 rounded-full">

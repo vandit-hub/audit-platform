@@ -1,4 +1,4 @@
-import Card from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 
 export const dynamic = "force-static";
 
@@ -12,7 +12,7 @@ export default function ImportSpecPage() {
         </div>
 
         <div className="space-y-6">
-          <Card padding="lg">
+          <Card >
             <h2 className="text-2xl font-semibold text-neutral-900 mb-4">Summary</h2>
             <ul className="space-y-2 list-disc list-inside text-neutral-700">
               <li>One .xlsx file, three sheets: <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Plants</code>, <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Audits</code>, <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Observations</code></li>
@@ -23,7 +23,7 @@ export default function ImportSpecPage() {
             </ul>
           </Card>
 
-          <Card padding="lg">
+          <Card >
             <h2 className="text-2xl font-semibold text-neutral-900 mb-4">File Format (.xlsx)</h2>
             <ul className="space-y-2 list-disc list-inside text-neutral-700">
               <li>Sheets required: <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Plants</code>, <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Audits</code>, <code className="px-1.5 py-0.5 bg-neutral-100 rounded text-sm font-mono">Observations</code> (exact names)</li>
@@ -43,7 +43,7 @@ export default function ImportSpecPage() {
             </ul>
           </Card>
 
-          <Card padding="lg">
+          <Card >
             <h2 className="text-2xl font-semibold text-neutral-900 mb-6">Sheets and Columns (Order Fixed)</h2>
             
             <div className="space-y-6">
@@ -183,7 +183,7 @@ export default function ImportSpecPage() {
             </div>
           </Card>
 
-          <Card padding="lg">
+          <Card >
             <h2 className="text-2xl font-semibold text-neutral-900 mb-4">Behavior</h2>
             <ul className="space-y-2 list-disc list-inside text-neutral-700">
               <li>Upsert by code; create defaults: Audit.status = PLANNED, Observation.approvalStatus = DRAFT, Observation.currentStatus = PENDING_MR, Observation.isPublished = false</li>
@@ -192,7 +192,7 @@ export default function ImportSpecPage() {
             </ul>
           </Card>
 
-          <Card padding="lg">
+          <Card >
             <h2 className="text-2xl font-semibold text-neutral-900 mb-4">Validation</h2>
             <ul className="space-y-2 list-disc list-inside text-neutral-700">
               <li>Dry-run returns errors with sheet, row, column, message</li>
@@ -200,7 +200,7 @@ export default function ImportSpecPage() {
             </ul>
           </Card>
 
-          <Card padding="lg">
+          <Card >
             <p className="text-neutral-700">
               Download the template from{" "}
               <a href="/api/v1/import/template" className="text-primary-600 hover:text-primary-700 underline font-medium">

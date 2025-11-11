@@ -6,11 +6,11 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
 import { useObservationWebSocket } from "@/lib/websocket/hooks";
 import PresenceBadge from "@/components/PresenceBadge";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Badge from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { Label } from "@/components/ui/Label";
 import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { Skeleton } from "@/components/ui/v2/skeleton";
@@ -585,13 +585,13 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const canDelete = isCFO(role) || (isAuditHead(role) && !o.audit.isLocked);
   const canManageAssignments = isCFOOrCXOTeam(role) || isAuditHead(role) || isAuditorOrAuditHead(role);
 
-  const getApprovalBadgeVariant = (status: string) => {
+  const getApprovalBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
-      case "DRAFT": return "neutral";
-      case "SUBMITTED": return "warning";
-      case "APPROVED": return "success";
-      case "REJECTED": return "error";
-      default: return "neutral";
+      case "DRAFT": return "outline";
+      case "SUBMITTED": return "secondary";
+      case "APPROVED": return "default";
+      case "REJECTED": return "destructive";
+      default: return "outline";
     }
   };
   const approvalLabel = humanizeStatus(o.approvalStatus);
@@ -752,7 +752,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       )}
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <form onSubmit={save} className="space-y-8 px-8 py-8">
@@ -1060,7 +1060,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           </div>
         </section>
         <div className="flex flex-wrap gap-3 border-t border-[var(--border-color-regular)] pt-6">
-          <Button type="submit" variant="primary">Save Changes</Button>
+          <Button type="submit" variant="default">Save Changes</Button>
           {auditorLockedByApproval && (
             <Button type="button" variant="secondary" onClick={requestChange}>
               Request Change (Auditor)
@@ -1089,7 +1089,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <>
               <Button
                 type="button"
-                variant="primary"
+                variant="default"
                 onClick={() => approve(true)}
                 disabled={o.audit?.isLocked && !canOverride}
                 title={o.audit?.isLocked && !canOverride ? "Audit is locked - cannot approve" : undefined}
@@ -1119,7 +1119,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
           )}
           {canRetest && (
             <>
-              <Button type="button" variant="primary" onClick={() => retest("PASS")}>Retest: Pass</Button>
+              <Button type="button" variant="default" onClick={() => retest("PASS")}>Retest: Pass</Button>
               <Button type="button" variant="destructive" onClick={() => retest("FAIL")}>Retest: Fail</Button>
             </>
           )}
@@ -1167,7 +1167,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1224,20 +1224,19 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             <div className="border-t border-[var(--border-color-regular)] pt-5">
               <h3 className="text-sm font-semibold text-[var(--c-texPri)]">Assign auditee</h3>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                <Select
-                  label=""
-                  value={selectedAuditee}
-                  onChange={(e) => setSelectedAuditee(e.target.value)}
-                  className="flex-1"
-                >
-                  <option value="">Select auditee</option>
-                  {auditees.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.email ?? u.name}
-                    </option>
-                  ))}
+                <Select value={selectedAuditee} onValueChange={setSelectedAuditee}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select auditee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {auditees.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.email ?? u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
-                <Button variant="primary" onClick={assignAuditee}>
+                <Button variant="default" onClick={assignAuditee}>
                   Assign
                 </Button>
               </div>
@@ -1247,7 +1246,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1345,7 +1344,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1372,7 +1371,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 <option value="ALL">All</option>
                 <option value="INTERNAL">Internal</option>
               </select>
-              <Button variant="primary" onClick={addNote} disabled={!note.trim()}>
+              <Button variant="default" onClick={addNote} disabled={!note.trim()}>
                 Add note
               </Button>
             </div>
@@ -1393,7 +1392,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 text-right">
-                    <Badge variant={n.visibility === "INTERNAL" ? "warning" : "neutral"} size="sm">
+                    <Badge variant={n.visibility === "INTERNAL" ? "secondary" : "outline"} className="text-xs">
                       {n.visibility}
                     </Badge>
                     <span className="text-xs text-[var(--c-texSec)]/70">
@@ -1413,7 +1412,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1467,7 +1466,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             )}
             <Button
               type="button"
-              variant="primary"
+              variant="default"
               onClick={addActionPlan}
               disabled={!apPlan.trim()}
               className="md:col-span-1"
@@ -1497,7 +1496,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-[var(--c-texPri)]">Retest:</span>
                     {ap.retest ? (
-                      <Badge variant={ap.retest === "PASS" ? "success" : ap.retest === "FAIL" ? "error" : "warning"} size="sm">
+                      <Badge variant={ap.retest === "PASS" ? "default" : ap.retest === "FAIL" ? "destructive" : "secondary"} className="text-xs">
                         {formatRetest(ap.retest)}
                       </Badge>
                     ) : (
@@ -1520,7 +1519,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1564,7 +1563,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       </Card>
 
       <Card
-        padding="none"
+        
         className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
       >
         <div className="px-8 pt-8">
@@ -1581,7 +1580,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2 text-[var(--c-texSec)]">
-                  <Badge variant={cr.status === "APPROVED" ? "success" : cr.status === "DENIED" ? "error" : "warning"}>
+                  <Badge variant={cr.status === "APPROVED" ? "default" : cr.status === "DENIED" ? "destructive" : "secondary"}>
                     {cr.status}
                   </Badge>
                   <div className="text-xs text-[var(--c-texSec)]/80">
@@ -1606,7 +1605,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 </div>
                 {canOverride && cr.status === "PENDING" && (
                   <div className="flex flex-col gap-2">
-                    <Button variant="primary" size="sm" onClick={() => decideChange(cr, true)}>
+                    <Button variant="default" size="sm" onClick={() => decideChange(cr, true)}>
                       Approve & apply
                     </Button>
                     <Button variant="destructive" size="sm" onClick={() => decideChange(cr, false)}>
