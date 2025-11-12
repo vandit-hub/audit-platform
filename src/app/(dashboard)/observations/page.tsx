@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/v2/button";
 import { Label } from "@/components/ui/v2/label";
 import { Badge } from "@/components/ui/v2/badge";
-import { Separator } from "@/components/ui/v2/separator";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
 import { CreateObservationDialog, CreateObservationFormValues } from "./_components/CreateObservationDialog";
@@ -43,28 +42,16 @@ export default function ObservationsPage() {
 
   const [plantId, setPlantId] = useState("");
   const [filterAuditId, setFilterAuditId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [risk, setRisk] = useState("");
-  const [proc, setProc] = useState("");
   const [status, setStatus] = useState("");
-  const [published, setPublished] = useState("");
   const [q, setQ] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState("desc");
 
   const resetFilters = useCallback(() => {
     setPlantId("");
     setFilterAuditId("");
-    setStartDate("");
-    setEndDate("");
     setRisk("");
-    setProc("");
     setStatus("");
-    setPublished("");
     setQ("");
-    setSortBy("createdAt");
-    setSortOrder("desc");
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
 
@@ -72,15 +59,12 @@ export default function ObservationsPage() {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (filterAuditId) qs.set("auditId", filterAuditId);
-    if (startDate) qs.set("startDate", startDate);
-    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
-    if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
-    if (published) qs.set("published", published);
     if (q) qs.set("q", q);
-    if (sortBy) qs.set("sortBy", sortBy);
-    if (sortOrder) qs.set("sortOrder", sortOrder);
+    // Hardcoded sort by createdAt desc
+    qs.set("sortBy", "createdAt");
+    qs.set("sortOrder", "desc");
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json().catch(() => ({}));
     if (res.ok) setRows(j.observations);
@@ -113,7 +97,7 @@ export default function ObservationsPage() {
 
   useEffect(() => {
     loadRows();
-  }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder]); // Run when filters change
+  }, [plantId, filterAuditId, risk, status, q]); // Run when filters change
 
   async function handleCreateObservation(values: CreateObservationFormValues) {
     const res = await fetch("/api/v1/observations", {
@@ -132,20 +116,17 @@ export default function ObservationsPage() {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (filterAuditId) qs.set("auditId", filterAuditId);
-    if (startDate) qs.set("startDate", startDate);
-    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
-    if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
-    if (published) qs.set("published", published);
     if (q) qs.set("q", q);
-    if (sortBy) qs.set("sortBy", sortBy);
-    if (sortOrder) qs.set("sortOrder", sortOrder);
+    // Hardcoded sort by createdAt desc
+    qs.set("sortBy", "createdAt");
+    qs.set("sortOrder", "desc");
     window.location.href = `/api/v1/observations/export?${qs.toString()}`;
     showSuccess("CSV export started! Download will begin shortly.");
   }
 
-  const canCreate = isAuditorOrAuditHead(role);
+  const canCreate = role === "CFO" || isAuditorOrAuditHead(role);
 
   const statusBadgeClass = (status: string) => {
     const upper = status.toUpperCase();
@@ -204,172 +185,77 @@ export default function ObservationsPage() {
 
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Basic Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Plant</Label>
-                <Select value={plantId} onValueChange={setPlantId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Plants" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {plants.map((p) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              <div className="space-y-2">
-                <Label>Audit</Label>
-                <Select value={filterAuditId} onValueChange={setFilterAuditId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Audits" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audits.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Audit Start Date</Label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Audit End Date</Label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="space-y-2">
+            <Label>Plant</Label>
+            <Select value={plantId} onValueChange={setPlantId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Plants" />
+              </SelectTrigger>
+              <SelectContent>
+                {plants.map((p) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Separator className="my-6" />
-
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Advanced Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>Risk Category</Label>
-                <Select value={risk} onValueChange={setRisk}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Risks" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">Risk A (High)</SelectItem>
-                    <SelectItem value="B">Risk B (Medium)</SelectItem>
-                    <SelectItem value="C">Risk C (Low)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Process</Label>
-                <Select value={proc} onValueChange={setProc}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Processes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="O2C">O2C</SelectItem>
-                    <SelectItem value="P2P">P2P</SelectItem>
-                    <SelectItem value="R2R">R2R</SelectItem>
-                    <SelectItem value="INVENTORY">Inventory</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING_MR">Pending MR</SelectItem>
-                    <SelectItem value="MR_UNDER_REVIEW">MR Under Review</SelectItem>
-                    <SelectItem value="REFERRED_BACK">Referred Back</SelectItem>
-                    <SelectItem value="OBSERVATION_FINALISED">Observation Finalised</SelectItem>
-                    <SelectItem value="RESOLVED">Resolved</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Published</Label>
-                <Select value={published} onValueChange={setPublished}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Any" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Published</SelectItem>
-                    <SelectItem value="0">Unpublished</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>Audit</Label>
+            <Select value={filterAuditId} onValueChange={setFilterAuditId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Audits" />
+              </SelectTrigger>
+              <SelectContent>
+                {audits.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Separator className="my-6" />
+          <div className="space-y-2">
+            <Label>Risk Level</Label>
+            <Select value={risk} onValueChange={setRisk}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Risks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A">Risk A (High)</SelectItem>
+                <SelectItem value="B">Risk B (Medium)</SelectItem>
+                <SelectItem value="C">Risk C (Low)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Sort & Search</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Sort By</Label>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="createdAt">Created Date</SelectItem>
-                    <SelectItem value="updatedAt">Updated Date</SelectItem>
-                    <SelectItem value="riskCategory">Risk Category</SelectItem>
-                    <SelectItem value="currentStatus">Current Status</SelectItem>
-                    <SelectItem value="approvalStatus">Approval Status</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING_MR">Pending MR</SelectItem>
+                <SelectItem value="MR_UNDER_REVIEW">MR Under Review</SelectItem>
+                <SelectItem value="REFERRED_BACK">Referred Back</SelectItem>
+                <SelectItem value="OBSERVATION_FINALISED">Observation Finalised</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="space-y-2">
-                <Label>Order</Label>
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Order" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="desc">Newest First</SelectItem>
-                    <SelectItem value="asc">Oldest First</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Search</Label>
-                <Input
-                  placeholder="Search observations..."
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>Search</Label>
+            <Input
+              placeholder="Search observations..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
         </div>
 
-        <Separator className="my-6" />
-
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 pt-4 border-t border-neutral-200">
           <Button variant="secondary" onClick={resetFilters}>Reset Filters</Button>
           <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
         </div>
