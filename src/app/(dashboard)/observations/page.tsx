@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useState, FormEvent, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import { Card, CardContent } from "@/components/ui/v2/card";
+import { Card } from "@/components/ui/v2/card";
 import { Input } from "@/components/ui/v2/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
 import { Button } from "@/components/ui/v2/button";
 import { Label } from "@/components/ui/v2/label";
 import { Badge } from "@/components/ui/v2/badge";
+import { Separator } from "@/components/ui/v2/separator";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
+import { CreateObservationDialog, CreateObservationFormValues } from "./_components/CreateObservationDialog";
 
 type Plant = { id: string; code: string; name: string };
 type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant; isLocked?: boolean };
@@ -50,12 +52,6 @@ export default function ObservationsPage() {
   const [q, setQ] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
-
-  // create form
-  const [auditId, setAuditId] = useState("");
-  const [observationText, setObservationText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const resetFilters = useCallback(() => {
     setPlantId("");
@@ -119,30 +115,17 @@ export default function ObservationsPage() {
     loadRows();
   }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder]); // Run when filters change
 
-  async function create(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/v1/observations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ auditId, observationText })
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Failed");
-      const selectedAudit = audits.find(a => a.id === auditId);
-      setAuditId("");
-      setObservationText("");
-      await loadRows();
-      showSuccess(`Observation created successfully for ${selectedAudit?.plant.name || "selected audit"}!`);
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to create observation";
-      setError(errorMessage);
-      showError(errorMessage);
-    } finally {
-      setBusy(false);
-    }
+  async function handleCreateObservation(values: CreateObservationFormValues) {
+    const res = await fetch("/api/v1/observations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(values)
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || "Failed to create observation");
+    const selectedAudit = audits.find(a => a.id === values.auditId);
+    await loadRows();
+    showSuccess(`Observation created successfully for ${selectedAudit?.plant.name || "selected audit"}!`);
   }
 
   function exportCsv() {
@@ -196,19 +179,27 @@ export default function ObservationsPage() {
 
   return (
     <PageContainer className="space-y-8">
-      <header className="space-y-2">
-        <h1
-          className="text-3xl font-semibold"
-          style={{ color: "var(--c-texPri)" }}
-        >
-          Observations
-        </h1>
-        <p
-          className="text-sm md:text-base"
-          style={{ color: "var(--c-texSec)" }}
-        >
-          Track and manage audit findings across plants with advanced filters.
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="space-y-2 flex-1">
+          <h1
+            className="text-3xl font-semibold"
+            style={{ color: "var(--c-texPri)" }}
+          >
+            Observations
+          </h1>
+          <p
+            className="text-sm md:text-base"
+            style={{ color: "var(--c-texSec)" }}
+          >
+            Track and manage audit findings across plants with advanced filters.
+          </p>
+        </div>
+        {canCreate && (
+          <CreateObservationDialog
+            audits={audits}
+            onCreate={handleCreateObservation}
+          />
+        )}
       </header>
 
       <Card className="p-6">
@@ -264,6 +255,8 @@ export default function ObservationsPage() {
               </div>
             </div>
           </div>
+
+          <Separator className="my-6" />
 
           <div>
             <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Advanced Filters</h3>
@@ -328,6 +321,8 @@ export default function ObservationsPage() {
             </div>
           </div>
 
+          <Separator className="my-6" />
+
           <div>
             <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Sort & Search</h3>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -372,55 +367,13 @@ export default function ObservationsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 pt-2 border-t border-neutral-100">
+        <Separator className="my-6" />
+
+        <div className="flex flex-wrap gap-3">
           <Button variant="secondary" onClick={resetFilters}>Reset Filters</Button>
           <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
         </div>
       </Card>
-
-      {canCreate && (
-        <Card className="p-6">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Observation (Admin/Auditor)</h2>
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-          <form onSubmit={create} className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="space-y-2 md:col-span-1">
-                <Label>Audit</Label>
-                <Select value={auditId} onValueChange={setAuditId} required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select audit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audits.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.title || `${a.plant.code} — ${a.plant.name} (${a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label>Observation</Label>
-                <Input
-                  value={observationText}
-                  onChange={(e) => setObservationText(e.target.value)}
-                  required
-                  placeholder="Enter observation details..."
-                />
-              </div>
-            </div>
-
-            <Button type="submit" variant="default" disabled={busy}>
-              {busy ? "Creating…" : "Create Observation"}
-            </Button>
-          </form>
-        </Card>
-      )}
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
