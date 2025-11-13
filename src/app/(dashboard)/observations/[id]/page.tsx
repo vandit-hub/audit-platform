@@ -6,15 +6,18 @@ import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
 import { useObservationWebSocket } from "@/lib/websocket/hooks";
 import PresenceBadge from "@/components/PresenceBadge";
-import { Card } from "@/components/ui/v2/card";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/v2/button";
 import { Badge } from "@/components/ui/v2/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
 import { Label } from "@/components/ui/v2/label";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { Skeleton } from "@/components/ui/v2/skeleton";
 import { cn } from "@/lib/utils";
+import { ChevronRight, Clock, Send, Plus, Upload, Download, Trash2, CheckCircle, XCircle, Lock, Unlock } from "lucide-react";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
@@ -73,10 +76,7 @@ type ChangeRequest = {
 const AUDITEE_EDITABLE_FIELDS = new Set([
   "auditeePersonTier1",
   "auditeePersonTier2",
-  "auditeeFeedback",
-  "targetDate",
-  "personResponsibleToImplement",
-  "currentStatus"
+  "auditeeFeedback"
 ]);
 
 const BASE_FIELD_CLASS =
@@ -117,6 +117,20 @@ function formatDateTime(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString();
+}
+
+function getInitials(name?: string | null, email?: string | null): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  if (email) {
+    return email.slice(0, 2).toUpperCase();
+  }
+  return "??";
 }
 
 export default function ObservationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -603,16 +617,25 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
 
   return (
-    <PageContainer className="space-y-8">
-      <button
-        className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-        onClick={() => router.back()}
-      >
-        <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back
-      </button>
+    <PageContainer className="space-y-4">
+      {/* Breadcrumb Navigation */}
+      <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--c-texSec)' }}>
+        <span
+          className="hover:underline cursor-pointer"
+          onClick={() => router.push('/audits')}
+        >
+          Audit #{o.audit.id}
+        </span>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span
+          className="hover:underline cursor-pointer"
+          onClick={() => router.push('/observations')}
+        >
+          Observations
+        </span>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span>OBS-{id}</span>
+      </div>
 
       {/* Audit Lock Banner */}
       {o.audit?.isLocked && !canOverride && (
@@ -649,99 +672,170 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-neutral-900">Observation</h1>
-          <p className="text-base text-neutral-600 mt-2">
-            {o.plant.code} — {o.plant.name}
-          </p>
-          <div className="flex items-center gap-3 mt-3">
-            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>
-              {o.approvalStatus}
-            </Badge>
-            <span className="text-sm text-neutral-500">
-              Created {new Date(o.createdAt).toLocaleString()}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          {isConnected && <PresenceBadge users={presence} currentUserId={userId} />}
-          {!isConnected && (
-            <div className="text-sm text-neutral-500 flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-neutral-400 rounded-full"></span>
-              Disconnected
+      {/* Header Section */}
+      <div className="space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <h1 className="text-3xl" style={{ color: 'var(--c-texPri)' }}>
+                {o.observationText}
+              </h1>
+              {o.approvalStatus === 'APPROVED' && (
+                <span
+                  className="px-2 py-1 rounded text-xs"
+                  style={{
+                    background: 'var(--c-palUiGre100)',
+                    color: 'var(--c-palUiGre700)'
+                  }}
+                >
+                  Approved
+                </span>
+              )}
+              {o.isPublished && (
+                <span
+                  className="px-2 py-1 rounded text-xs"
+                  style={{
+                    background: 'var(--c-palUiBlu100)',
+                    color: 'var(--c-palUiBlu700)'
+                  }}
+                >
+                  Published
+                </span>
+              )}
+              {o.currentStatus && (
+                <span
+                  className="px-2 py-1 rounded text-xs"
+                  style={{
+                    background:
+                      o.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel100)' :
+                      o.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu100)' :
+                      o.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed100)' :
+                      o.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre100)' :
+                      o.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre100)' :
+                      'var(--c-palUiBlu100)',
+                    color:
+                      o.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel700)' :
+                      o.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu700)' :
+                      o.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed700)' :
+                      o.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre700)' :
+                      o.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre700)' :
+                      'var(--c-palUiBlu700)'
+                  }}
+                >
+                  {o.currentStatus === 'PENDING_MR' ? 'Pending MR' :
+                   o.currentStatus === 'MR_UNDER_REVIEW' ? 'MR Under Review' :
+                   o.currentStatus === 'REFERRED_BACK' ? 'Referred Back' :
+                   o.currentStatus === 'OBSERVATION_FINALISED' ? 'Observation Finalised' :
+                   o.currentStatus === 'RESOLVED' ? 'Resolved' :
+                   o.currentStatus}
+                </span>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+            <p className="text-sm" style={{ color: 'var(--c-texSec)' }}>
+              OBS-{id} • Created on {new Date(o.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </p>
+          </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--ca-palUiBlu100)]/60 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--c-palUiBlu700)]">
-            Approval
+          <div className="flex items-center gap-4">
+            {isConnected && <PresenceBadge users={presence} currentUserId={userId} />}
+            {!isConnected && (
+              <div className="text-sm text-neutral-500 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 bg-neutral-400 rounded-full"></span>
+                Disconnected
+              </div>
+            )}
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-semibold text-[var(--c-palUiBlu700)]">
-              {approvalLabel}
-            </span>
-            <Badge variant={getApprovalBadgeVariant(o.approvalStatus)}>
-              {o.approvalStatus}
-            </Badge>
-          </div>
-          <p className="mt-2 text-xs text-[var(--c-palUiBlu700)]/80">
-            {canApprove ? "Audit heads can approve or reject from this workspace." : "View-only access to the approval state."}
-          </p>
         </div>
 
-        <div className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--cl-palOra100)]/70 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--cd-palOra500)]">
-            Workflow
-          </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-semibold text-[var(--cd-palOra500)]">
-              {workflowLabel}
-            </span>
-            <span className="text-xs font-medium text-[var(--cd-palOra500)]">
-              {riskLabel}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--cd-palOra500)]/80">
-            Track the current lifecycle and associated risk classification.
-          </p>
-        </div>
+        <Separator />
 
-        <div className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--cl-palGre100)]/70 p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--cd-palGre500)]">
-            Target date
-          </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-semibold text-[var(--cd-palGre500)]">
-              {targetDateLabel}
-            </span>
-            <span className="text-xs font-medium text-[var(--cd-palGre500)]">
-              Retest: {retestLabel}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--cd-palGre500)]/80">
-            Keep auditees aligned on remediation expectations.
-          </p>
-        </div>
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              className="h-8 px-3"
+              onClick={save}
+              disabled={isFieldDisabled("observationText")}
+              style={{
+                background: isFieldDisabled("observationText") ? 'var(--c-texTer)' : 'var(--c-palUiBlu600)',
+                color: 'white',
+                cursor: isFieldDisabled("observationText") ? 'not-allowed' : 'pointer',
+                opacity: isFieldDisabled("observationText") ? 0.5 : 1
+              }}
+            >
+              Save
+            </Button>
 
-        <div className="rounded-2xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] p-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-[var(--c-texSec)]">
-            Publication
+            {/* Audit Head buttons */}
+            {canApprove && (
+              <>
+                <Button
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => publish(!o.isPublished)}
+                  style={{
+                    background: o.isPublished ? 'var(--c-palUiOra600)' : 'var(--c-palUiGre600)',
+                    color: 'white'
+                  }}
+                >
+                  {o.isPublished ? 'Unpublish' : 'Publish'}
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => approve(true)}
+                  disabled={o.approvalStatus === 'APPROVED'}
+                  style={{
+                    background: o.approvalStatus === 'APPROVED' ? 'var(--c-palUiGre700)' : 'var(--c-palUiGre600)',
+                    color: 'white',
+                    opacity: o.approvalStatus === 'APPROVED' ? 0.7 : 1
+                  }}
+                >
+                  {o.approvalStatus === 'APPROVED' ? 'Approved' : 'Approve'}
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => approve(false)}
+                  disabled={o.approvalStatus !== 'APPROVED'}
+                  style={{
+                    background: 'var(--c-palUiRed600)',
+                    color: 'white',
+                    opacity: o.approvalStatus !== 'APPROVED' ? 0.5 : 1
+                  }}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+
+            {/* Submit for Approval button for auditors */}
+            {isAuditorOrAuditHead(role) && o.approvalStatus === 'DRAFT' && (
+              <Button
+                size="sm"
+                className="h-8 px-3"
+                onClick={submitForApproval}
+                style={{
+                  background: 'var(--c-palUiBlu600)',
+                  color: 'white'
+                }}
+              >
+                Submit for Approval
+              </Button>
+            )}
           </div>
-          <div className="mt-2 flex items-baseline justify-between">
-            <span className="text-2xl font-semibold text-[var(--c-texPri)]">
-              {publishedLabel}
-            </span>
-            <span className="text-xs font-medium text-[var(--c-texSec)]">
-              Audit window: {formatDate(o.audit.visitStartDate)} - {formatDate(o.audit.visitEndDate)}
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-[var(--c-texSec)]/80">
-            Publishing controls visibility across downstream dashboards.
-          </p>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 h-8"
+            onClick={deleteObservation}
+            style={{ color: 'var(--c-palUiRed600)' }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
         </div>
       </div>
 
@@ -751,11 +845,11 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <form onSubmit={save} className="space-y-8 px-8 py-8">
+      {/* Two-Column Layout: Main Content + Sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left Column - Main Details */}
+        <div className="lg:col-span-2 space-y-4">
+        <form onSubmit={save} className="space-y-4">
           {isAuditee(role) && (
             <div>
               {!o.assignments?.some((a) => a.auditee.id === userId) ? (
@@ -834,428 +928,445 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </div>
           )}
 
-          {/* Section 1: Auditor Section */}
-          <section className="space-y-6 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-6 py-6">
-            <div className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--c-texPri)]">
-                Auditor Section
-              </h2>
-              <p className="text-xs text-[var(--c-texSec)]">
-                Visible to all, editable by auditors and audit heads (when in draft or rejected status).
-              </p>
-            </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
+          {/* Auditor Section */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+            <CardHeader
+              className="border-b"
+              style={{ borderColor: 'var(--c-borPri)' }}
+            >
+              <div>
+                <h2 className="text-base mb-0" style={{ color: 'var(--c-texPri)' }}>
+                  Auditor Section
+                </h2>
+                <p className="text-xs leading-tight" style={{ color: 'var(--c-texSec)' }}>
+                  Information captured by auditors during the audit process
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              {/* Observation Text */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Observation text<span className="ml-1 text-[var(--c-palUiRed600)]">*</span>
-                  </label>
+                  <Label htmlFor="observationText" className="text-xs">
+                    Observation Text <span style={{ color: 'var(--c-palUiRed600)' }}>*</span>
+                  </Label>
                   {renderLockPill("observationText")}
                 </div>
                 <textarea
-                  className={getFieldClassName("observationText", "min-h-32 leading-relaxed")}
+                  id="observationText"
+                  className={getFieldClassName("observationText", "min-h-20 resize-none text-sm")}
                   value={draft.observationText}
                   onChange={(e) => setField("observationText", e.target.value)}
                   disabled={isFieldDisabled("observationText")}
                   required
                 />
               </div>
-              <div className="space-y-2">
+
+              {/* Risks Involved */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Risks involved
-                  </label>
+                  <Label htmlFor="risksInvolved" className="text-xs">Risks Involved</Label>
                   {renderLockPill("risksInvolved")}
                 </div>
                 <textarea
-                  className={getFieldClassName("risksInvolved", "min-h-28 leading-relaxed")}
+                  id="risksInvolved"
+                  className={getFieldClassName("risksInvolved", "min-h-16 resize-none text-sm")}
                   value={draft.risksInvolved}
                   onChange={(e) => setField("risksInvolved", e.target.value)}
                   disabled={isFieldDisabled("risksInvolved")}
+                  placeholder="Describe potential risks..."
                 />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Risk category
-                  </label>
-                  {renderLockPill("riskCategory")}
-                </div>
-                <select
-                  className={getFieldClassName("riskCategory", "appearance-none pr-8")}
-                  value={draft.riskCategory}
-                  onChange={(e) => setField("riskCategory", e.target.value)}
-                  disabled={isFieldDisabled("riskCategory")}
-                >
-                  <option value="">Select</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Likely impact
-                  </label>
-                  {renderLockPill("likelyImpact")}
-                </div>
-                <select
-                  className={getFieldClassName("likelyImpact", "appearance-none pr-8")}
-                  value={draft.likelyImpact}
-                  onChange={(e) => setField("likelyImpact", e.target.value)}
-                  disabled={isFieldDisabled("likelyImpact")}
-                >
-                  <option value="">Select</option>
-                  <option value="LOCAL">Local</option>
-                  <option value="ORG_WIDE">Org-wide</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Concerned process
-                  </label>
-                  {renderLockPill("concernedProcess")}
-                </div>
-                <select
-                  className={getFieldClassName("concernedProcess", "appearance-none pr-8")}
-                  value={draft.concernedProcess}
-                  onChange={(e) => setField("concernedProcess", e.target.value)}
-                  disabled={isFieldDisabled("concernedProcess")}
-                >
-                  <option value="">Select</option>
-                  <option value="O2C">O2C</option>
-                  <option value="P2P">P2P</option>
-                  <option value="R2R">R2R</option>
-                  <option value="INVENTORY">Inventory</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-[var(--c-texSec)]">
-                    Auditor
-                  </label>
-                  {renderLockPill("auditorPerson")}
-                </div>
-                <input
-                  className={getFieldClassName("auditorPerson")}
-                  value={draft.auditorPerson}
-                  onChange={(e) => setField("auditorPerson", e.target.value)}
-                  disabled={isFieldDisabled("auditorPerson")}
-                />
-              </div>
-            </div>
-          </section>
 
-        {/* Section 2: Auditee Section */}
-        <section className="space-y-6 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-6 py-6">
-          <div className="space-y-2">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--c-texPri)]">
-              Auditee Section
-            </h2>
-            <p className="text-xs text-[var(--c-texSec)]">
-              Visible to all, editable by assigned auditees (even after approval, while the audit is open).
-            </p>
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[var(--c-texSec)]">
-                  Auditee person (tier 1)
-                </label>
-                {renderLockPill("auditeePersonTier1")}
-              </div>
-              <input
-                className={getFieldClassName("auditeePersonTier1")}
-                value={draft.auditeePersonTier1}
-                onChange={(e) => setField("auditeePersonTier1", e.target.value)}
-                disabled={isFieldDisabled("auditeePersonTier1")}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[var(--c-texSec)]">
-                  Auditee person (tier 2)
-                </label>
-                {renderLockPill("auditeePersonTier2")}
-              </div>
-              <input
-                className={getFieldClassName("auditeePersonTier2")}
-                value={draft.auditeePersonTier2}
-                onChange={(e) => setField("auditeePersonTier2", e.target.value)}
-                disabled={isFieldDisabled("auditeePersonTier2")}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[var(--c-texSec)]">
-                  Auditee feedback
-                </label>
-                {renderLockPill("auditeeFeedback")}
-              </div>
-              <textarea
-                className={getFieldClassName("auditeeFeedback", "min-h-28 leading-relaxed")}
-                value={draft.auditeeFeedback}
-                onChange={(e) => setField("auditeeFeedback", e.target.value)}
-                disabled={isFieldDisabled("auditeeFeedback")}
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[var(--c-texSec)]">
-                  Auditor response to auditee remarks
-                </label>
-                {renderLockPill("auditorResponseToAuditee")}
-              </div>
-              <textarea
-                className={getFieldClassName("auditorResponseToAuditee", "min-h-28 leading-relaxed")}
-                value={draft.auditorResponseToAuditee}
-                onChange={(e) => setField("auditorResponseToAuditee", e.target.value)}
-                disabled={isFieldDisabled("auditorResponseToAuditee")}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Current Status */}
-        <section className="space-y-4 rounded-2xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-6 py-6">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--c-texPri)]">
-              Workflow & approvals
-            </h3>
-            <p className="text-xs text-[var(--c-texSec)]">
-              Update the lifecycle, trigger approvals, or adjust publication state.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-[var(--c-texSec)]">
-                  Current status
-                </label>
-                {renderLockPill("currentStatus")}
-              </div>
-              <select
-                className={getFieldClassName("currentStatus", "appearance-none pr-8")}
-                value={draft.currentStatus}
-                onChange={(e) => setField("currentStatus", e.target.value)}
-                disabled={isFieldDisabled("currentStatus")}
-              >
-                <option value="PENDING_MR">Pending MR</option>
-                <option value="MR_UNDER_REVIEW">MR under review</option>
-                <option value="REFERRED_BACK">Referred back for MR</option>
-                <option value="OBSERVATION_FINALISED">Observation finalised</option>
-                <option value="RESOLVED">Resolved</option>
-              </select>
-            </div>
-            <div className="space-y-1 rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-3 py-3 text-xs text-[var(--c-texSec)]">
-              <p>
-                <span className="font-medium text-[var(--c-texPri)]">Publication:</span> {publishedLabel}
-              </p>
-              <p>
-                <span className="font-medium text-[var(--c-texPri)]">Retest:</span> {retestLabel}
-              </p>
-            </div>
-          </div>
-        </section>
-        <div className="flex flex-wrap gap-3 border-t border-[var(--border-color-regular)] pt-6">
-          <Button type="submit" variant="default">Save Changes</Button>
-          {auditorLockedByApproval && (
-            <Button type="button" variant="secondary" onClick={requestChange}>
-              Request Change (Auditor)
-            </Button>
-          )}
-          {canSubmit && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={submitForApproval}
-              disabled={o.audit?.isLocked && !canOverride || o.approvalStatus === "SUBMITTED" || o.approvalStatus === "APPROVED"}
-              title={
-                o.audit?.isLocked && !canOverride
-                  ? "Audit is locked - cannot submit"
-                  : o.approvalStatus === "SUBMITTED"
-                    ? "Already submitted for approval"
-                    : o.approvalStatus === "APPROVED"
-                      ? "Already approved - use change request workflow"
-                      : undefined
-              }
-            >
-              Submit for Approval
-            </Button>
-          )}
-          {canApprove && (
-            <>
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => approve(true)}
-                disabled={o.audit?.isLocked && !canOverride}
-                title={o.audit?.isLocked && !canOverride ? "Audit is locked - cannot approve" : undefined}
-              >
-                Approve
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => approve(false)}
-                disabled={o.audit?.isLocked && !canOverride}
-                title={o.audit?.isLocked && !canOverride ? "Audit is locked - cannot reject" : undefined}
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          {canDelete && (
-            <Button type="button" variant="destructive" onClick={deleteObservation}>
-              Delete Observation
-            </Button>
-          )}
-          {canPublish && (
-            <Button type="button" variant="secondary" onClick={() => publish(!o.isPublished)}>
-              {o.isPublished ? "Unpublish" : "Publish"}
-            </Button>
-          )}
-          {canRetest && (
-            <>
-              <Button type="button" variant="default" onClick={() => retest("PASS")}>Retest: Pass</Button>
-              <Button type="button" variant="destructive" onClick={() => retest("FAIL")}>Retest: Fail</Button>
-            </>
-          )}
-          {canOverride && (
-            <div className="flex flex-col gap-2">
-              {o.lockedFields && o.lockedFields.length > 0 && (
-                <div className="rounded-xl border border-[var(--cl-palOra100)] bg-[var(--cl-palOra100)]/50 p-3">
-                  <div className="text-sm font-medium text-[var(--cd-palOra500)]">
-                    Locked fields ({o.lockedFields.length}):
+              {/* Risk Category & Likely Impact */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="riskCategory" className="text-xs">Risk Category</Label>
+                    {renderLockPill("riskCategory")}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {o.lockedFields.map((field) => (
-                      <div
-                        key={field}
-                        className="inline-flex items-center gap-1 rounded-full bg-[var(--ca-palUiBlu100)] px-2 py-1 text-xs font-medium text-[var(--c-palUiBlu700)]"
-                      >
-                        <span>{getFieldLabel(field)}</span>
+                  <select
+                    id="riskCategory"
+                    className={getFieldClassName("riskCategory", "h-9 text-sm appearance-none pr-8")}
+                    value={draft.riskCategory}
+                    onChange={(e) => setField("riskCategory", e.target.value)}
+                    disabled={isFieldDisabled("riskCategory")}
+                  >
+                    <option value="">Select</option>
+                    <option value="A">A - Critical</option>
+                    <option value="B">B - High</option>
+                    <option value="C">C - Medium</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="likelyImpact" className="text-xs">Likely Impact</Label>
+                    {renderLockPill("likelyImpact")}
+                  </div>
+                  <select
+                    id="likelyImpact"
+                    className={getFieldClassName("likelyImpact", "h-9 text-sm appearance-none pr-8")}
+                    value={draft.likelyImpact}
+                    onChange={(e) => setField("likelyImpact", e.target.value)}
+                    disabled={isFieldDisabled("likelyImpact")}
+                  >
+                    <option value="">Select</option>
+                    <option value="LOCAL">Local</option>
+                    <option value="ORG_WIDE">Org-wide</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Concerned Process & Auditor */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="concernedProcess" className="text-xs">Concerned Process</Label>
+                    {renderLockPill("concernedProcess")}
+                  </div>
+                  <select
+                    id="concernedProcess"
+                    className={getFieldClassName("concernedProcess", "h-9 text-sm appearance-none pr-8")}
+                    value={draft.concernedProcess}
+                    onChange={(e) => setField("concernedProcess", e.target.value)}
+                    disabled={isFieldDisabled("concernedProcess")}
+                  >
+                    <option value="">Select</option>
+                    <option value="O2C">O2C - Order to Cash</option>
+                    <option value="P2P">P2P - Procure to Pay</option>
+                    <option value="R2R">R2R - Record to Report</option>
+                    <option value="INVENTORY">Inventory</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auditorPerson" className="text-xs">Auditor</Label>
+                    {renderLockPill("auditorPerson")}
+                  </div>
+                  <input
+                    id="auditorPerson"
+                    className={getFieldClassName("auditorPerson", "h-9 text-sm")}
+                    value={draft.auditorPerson}
+                    onChange={(e) => setField("auditorPerson", e.target.value)}
+                    disabled={isFieldDisabled("auditorPerson")}
+                  />
+                </div>
+              </div>
+
+              {/* Assigned Auditees */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Assigned Auditees</Label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {o.assignments?.map((assignment) => (
+                    <div
+                      key={assignment.id}
+                      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-sm"
+                      style={{
+                        background: 'var(--c-palUiBlu100)',
+                        color: 'var(--c-palUiBlu700)'
+                      }}
+                    >
+                      <span>{assignment.auditee.name || assignment.auditee.email}</span>
+                      {!isFieldDisabled("observationText") && (
                         <button
                           type="button"
-                          className="text-[var(--cd-palOra500)] transition-colors hover:text-[var(--c-palUiRed600)]"
-                          onClick={() => lock([field], false)}
-                          title={`Unlock ${getFieldLabel(field)}`}
+                          onClick={() => removeAuditee(assignment.id)}
+                          className="hover:opacity-70"
                         >
                           ×
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3">
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!isFieldDisabled("observationText") && (
+                  <div className="flex gap-2">
+                    <select
+                      className={cn(BASE_FIELD_CLASS, "h-9 text-sm flex-1")}
+                      value={selectedAuditee}
+                      onChange={(e) => setSelectedAuditee(e.target.value)}
+                    >
+                      <option value="">Select auditee to assign...</option>
+                      {auditees.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.email}
+                        </option>
+                      ))}
+                    </select>
                     <Button
                       type="button"
-                      variant="secondary"
                       size="sm"
-                      onClick={() => lock(o.lockedFields!, false)}
+                      onClick={assignAuditee}
+                      disabled={!selectedAuditee}
+                      style={{
+                        background: selectedAuditee ? 'var(--c-palUiBlu600)' : 'var(--c-texTer)',
+                        color: 'white'
+                      }}
                     >
-                      Unlock all
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
                     </Button>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        </form>
-      </Card>
+                )}
+              </div>
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">
-            Assigned auditees
-          </h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Manage who participates in updates for this observation.
-          </p>
-        </div>
-        <div className="space-y-6 px-8 pb-8">
-          {o.assignments && o.assignments.length > 0 ? (
-            <div className="space-y-3">
-              {o.assignments.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--c-palUiGre600)] text-white">
-                      <span className="text-sm font-semibold">
-                        {(assignment.auditee.email ?? assignment.auditee.name ?? "A")[0].toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm font-medium text-[var(--c-texPri)]">
-                        {assignment.auditee.email ?? assignment.auditee.name}
-                      </div>
-                      <div className="text-xs text-[var(--c-texSec)]">
-                        Assigned on {new Date(assignment.assignedAt).toLocaleDateString()}
-                      </div>
-                    </div>
+              {/* Auditor Response to Auditee Remarks */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auditorResponse" className="text-xs">Auditor Response to Auditee Remarks</Label>
+                  {renderLockPill("auditorResponseToAuditee")}
+                </div>
+                <textarea
+                  id="auditorResponse"
+                  className={getFieldClassName("auditorResponseToAuditee", "min-h-16 resize-none text-sm")}
+                  value={draft.auditorResponseToAuditee}
+                  onChange={(e) => setField("auditorResponseToAuditee", e.target.value)}
+                  disabled={isFieldDisabled("auditorResponseToAuditee")}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Auditee Section */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacPri)' }}>
+            <CardHeader
+              className="border-b"
+              style={{ borderColor: 'var(--c-borPri)' }}
+            >
+              <div>
+                <h2 className="text-base mb-0" style={{ color: 'var(--c-texPri)' }}>
+                  Auditee Section
+                </h2>
+                <p className="text-xs leading-tight" style={{ color: 'var(--c-texSec)' }}>
+                  Response and action plans from assigned auditees
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              {/* Auditee Person Tier 1 & 2 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auditeePerson1" className="text-xs">Auditee Person (Tier 1)</Label>
+                    {renderLockPill("auditeePersonTier1")}
                   </div>
-                  {canManageAssignments && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeAuditee(assignment.id)}
-                      className="text-[var(--c-palUiRed600)] hover:bg-[var(--c-palUiRed100)]"
+                  <input
+                    id="auditeePerson1"
+                    className={getFieldClassName("auditeePersonTier1", "h-9 text-sm")}
+                    value={draft.auditeePersonTier1}
+                    onChange={(e) => setField("auditeePersonTier1", e.target.value)}
+                    disabled={isFieldDisabled("auditeePersonTier1")}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auditeePerson2" className="text-xs">Auditee Person (Tier 2)</Label>
+                    {renderLockPill("auditeePersonTier2")}
+                  </div>
+                  <input
+                    id="auditeePerson2"
+                    className={getFieldClassName("auditeePersonTier2", "h-9 text-sm")}
+                    value={draft.auditeePersonTier2}
+                    onChange={(e) => setField("auditeePersonTier2", e.target.value)}
+                    disabled={isFieldDisabled("auditeePersonTier2")}
+                  />
+                </div>
+              </div>
+
+              {/* Auditee Feedback */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auditeeFeedback" className="text-xs">Auditee Feedback</Label>
+                  {renderLockPill("auditeeFeedback")}
+                </div>
+                <textarea
+                  id="auditeeFeedback"
+                  className={getFieldClassName("auditeeFeedback", "min-h-20 resize-none text-sm")}
+                  value={draft.auditeeFeedback}
+                  onChange={(e) => setField("auditeeFeedback", e.target.value)}
+                  disabled={isFieldDisabled("auditeeFeedback")}
+                  placeholder="Monitoring system procurement in progress, expected implementation in Q1 2025"
+                />
+              </div>
+
+              {/* Action Plans */}
+              <div className="space-y-3 pt-4 mt-4 border-t" style={{ borderColor: 'var(--c-borPri)' }}>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Action Plans</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addActionPlan}
+                    disabled={!apPlan.trim()}
+                    className="flex items-center gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Plan
+                  </Button>
+                </div>
+
+                {/* Action Plan Input Form */}
+                <div className="grid gap-2 text-xs">
+                  <input
+                    className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
+                    placeholder="Plan description..."
+                    value={apPlan}
+                    onChange={(e) => setApPlan(e.target.value)}
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
+                      placeholder="Owner"
+                      value={apOwner}
+                      onChange={(e) => setApOwner(e.target.value)}
+                    />
+                    <input
+                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
+                      type="date"
+                      value={apDate}
+                      onChange={(e) => setApDate(e.target.value)}
+                    />
+                    <select
+                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
+                      value={apStatus}
+                      onChange={(e) => setApStatus(e.target.value)}
                     >
-                      Remove
-                    </Button>
+                      <option value="">Status</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                  {isAuditorOrAuditHead(role) && (
+                    <select
+                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
+                      value={apRetest}
+                      onChange={(e) => setApRetest(e.target.value)}
+                    >
+                      <option value="">Retest</option>
+                      <option value="RETEST_DUE">Retest due</option>
+                      <option value="PASS">Pass</option>
+                      <option value="FAIL">Fail</option>
+                    </select>
                   )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-6 text-center text-sm text-[var(--c-texSec)]">
-              No auditees assigned to this observation.
-            </div>
-          )}
 
-          {canManageAssignments && (
-            <div className="border-t border-[var(--border-color-regular)] pt-5">
-              <h3 className="text-sm font-semibold text-[var(--c-texPri)]">Assign auditee</h3>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <Select value={selectedAuditee} onValueChange={setSelectedAuditee}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select auditee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {auditees.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.email ?? u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button variant="default" onClick={assignAuditee}>
-                  Assign
-                </Button>
+                {/* Action Plans List */}
+                <div className="space-y-2">
+                  {o.actionPlans.map((ap) => (
+                    <div
+                      key={ap.id}
+                      className="flex items-start gap-3 p-3 rounded-lg border text-xs"
+                      style={{
+                        borderColor: 'var(--c-borPri)',
+                        background: 'white'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={ap.status === "Completed"}
+                        readOnly
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                      />
+                      <div className="flex-1 space-y-1">
+                        <div className="font-medium" style={{ color: 'var(--c-texPri)' }}>
+                          {ap.plan}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--c-texSec)' }}>
+                          <span>Owner: {ap.owner ?? "—"}</span>
+                          <span>Due: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}</span>
+                          <span>
+                            {ap.status && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs" style={{
+                                background: ap.status === "Completed" ? 'var(--c-palUiGre100)' : 'var(--c-palUiYel100)',
+                                color: ap.status === "Completed" ? 'var(--c-palUiGre700)' : 'var(--c-palUiYel700)'
+                              }}>
+                                {ap.status}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {o.actionPlans.length === 0 && (
+                    <div className="text-center py-4 text-xs" style={{ color: 'var(--c-texSec)' }}>
+                      No action plans yet
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </Card>
+            </CardContent>
+          </Card>
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">Attachments</h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Supporting documents and evidence captured for this observation.
-          </p>
-        </div>
-        <div className="grid gap-6 px-8 pb-8 md:grid-cols-2">
+          {/* CFO Field Unlock Controls */}
+          {canOverride && o.lockedFields && o.lockedFields.length > 0 && (
+            <Card style={{ borderColor: 'var(--cl-palOra100)', background: 'var(--cl-palOra100)' }}>
+              <CardContent className="p-4">
+                <div className="text-sm font-medium" style={{ color: 'var(--cd-palOra500)' }}>
+                  Locked fields ({o.lockedFields.length}):
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {o.lockedFields.map((field) => (
+                    <div
+                      key={field}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium"
+                      style={{
+                        background: 'var(--ca-palUiBlu100)',
+                        color: 'var(--c-palUiBlu700)'
+                      }}
+                    >
+                      <span>{getFieldLabel(field)}</span>
+                      <button
+                        type="button"
+                        className="transition-colors hover:opacity-70"
+                        style={{ color: 'var(--cd-palOra500)' }}
+                        onClick={() => lock([field], false)}
+                        title={`Unlock ${getFieldLabel(field)}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => lock(o.lockedFields!, false)}
+                    style={{
+                      background: 'var(--c-palUiBlu600)',
+                      color: 'white'
+                    }}
+                  >
+                    <Unlock className="h-4 w-4 mr-1" />
+                    Unlock all
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </form>
+
+      {/* Attachments Section */}
+      <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+        <CardHeader
+          className="border-b"
+          style={{ borderColor: 'var(--c-borPri)' }}
+        >
+          <div>
+            <h2 className="text-base mb-0" style={{ color: 'var(--c-texPri)' }}>
+              Attachments
+            </h2>
+            <p className="text-xs leading-tight" style={{ color: 'var(--c-texSec)' }}>
+              Supporting documents and evidence captured for this observation
+            </p>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-6 p-4 md:grid-cols-2">
           <div className="space-y-4">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wide text-[var(--c-texSec)]">
@@ -1340,289 +1451,205 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
           </div>
-        </div>
+        </CardContent>
       </Card>
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">Notes ({o.notes.length})</h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Capture running context, decisions, and reminders tied to this observation.
-          </p>
         </div>
-        <div className="space-y-6 px-8 pb-8">
-          <div className="flex flex-col gap-3 md:flex-row">
-            <textarea
-              className={cn(BASE_FIELD_CLASS, "min-h-28 flex-1 leading-relaxed")}
-              placeholder="Add a note..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-            />
-            <div className="flex w-full flex-col gap-2 md:w-48">
-              <select
-                className={cn(BASE_FIELD_CLASS)}
-                value={noteVis}
-                onChange={(e) => setNoteVis(e.target.value as "ALL" | "INTERNAL")}
-              >
-                <option value="ALL">All</option>
-                <option value="INTERNAL">Internal</option>
-              </select>
-              <Button variant="default" onClick={addNote} disabled={!note.trim()}>
-                Add note
-              </Button>
-            </div>
-          </div>
-          <ul className="space-y-3 text-sm">
-            {o.notes.map((n) => (
-              <li
-                key={n.id}
-                className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--c-texPri)]">
-                      {n.actor.email ?? n.actor.name ?? "User"}
-                    </div>
-                    <div className="mt-2 space-y-2 text-[var(--c-texSec)]">
-                      <p>{n.text}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 text-right">
-                    <Badge variant={n.visibility === "INTERNAL" ? "secondary" : "outline"} className="text-xs">
-                      {n.visibility}
-                    </Badge>
-                    <span className="text-xs text-[var(--c-texSec)]/70">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-            {o.notes.length === 0 && (
-              <li className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-6 text-center text-sm text-[var(--c-texSec)]">
-                No notes yet.
-              </li>
-            )}
-          </ul>
-        </div>
-      </Card>
+        {/* End of left column */}
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">
-            Action plans ({o.actionPlans.length})
-          </h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Track remediation tasks, owners, and retest outcomes for this observation.
-          </p>
-        </div>
-        <div className="space-y-6 px-8 pb-8">
-          <div className="grid gap-3 md:grid-cols-6">
-            <input
-              className={cn(BASE_FIELD_CLASS, "md:col-span-2")}
-              placeholder="Plan..."
-              value={apPlan}
-              onChange={(e) => setApPlan(e.target.value)}
-            />
-            <input
-              className={cn(BASE_FIELD_CLASS, "md:col-span-1")}
-              placeholder="Owner"
-              value={apOwner}
-              onChange={(e) => setApOwner(e.target.value)}
-            />
-            <input
-              className={cn(BASE_FIELD_CLASS, "md:col-span-1")}
-              type="date"
-              value={apDate}
-              onChange={(e) => setApDate(e.target.value)}
-            />
-            <select
-              className={cn(BASE_FIELD_CLASS, "md:col-span-1")}
-              value={apStatus}
-              onChange={(e) => setApStatus(e.target.value)}
-            >
-              <option value="">Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-            </select>
-            {isAuditorOrAuditHead(role) && (
-              <select
-                className={cn(BASE_FIELD_CLASS, "md:col-span-1")}
-                value={apRetest}
-                onChange={(e) => setApRetest(e.target.value)}
-              >
-                <option value="">Retest</option>
-                <option value="RETEST_DUE">Retest due</option>
-                <option value="PASS">Pass</option>
-                <option value="FAIL">Fail</option>
-              </select>
-            )}
-            <Button
-              type="button"
-              variant="default"
-              onClick={addActionPlan}
-              disabled={!apPlan.trim()}
-              className="md:col-span-1"
-            >
-              Add plan
-            </Button>
-          </div>
-          <ul className="space-y-3 text-sm">
-            {o.actionPlans.map((ap) => (
-              <li
-                key={ap.id}
-                className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-4 shadow-sm"
-              >
-                <div className="text-sm font-semibold text-[var(--c-texPri)]">
-                  {ap.plan}
-                </div>
-                <div className="mt-3 grid gap-x-4 gap-y-2 text-[var(--c-texSec)] md:grid-cols-2">
-                  <div>
-                    <span className="font-medium text-[var(--c-texPri)]">Owner:</span> {ap.owner ?? "—"}
+        {/* Right Column - Sidebar */}
+        <div className="lg:col-span-1 space-y-4">
+
+          {/* Running Notes Widget */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Running Notes ({o.notes.length})
+              </h3>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              {o.notes.length > 0 ? (
+                o.notes.map((n) => (
+                  <div key={n.id} className="flex gap-3">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback style={{ background: 'var(--c-palUiBlu100)', color: 'var(--c-palUiBlu700)' }}>
+                        {getInitials(n.actor.name, n.actor.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>
+                          {n.actor.name || n.actor.email || "User"}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
+                          {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>{n.text}</p>
+                      {n.visibility === "INTERNAL" && (
+                        <Badge variant="secondary" className="text-xs">Internal</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="font-medium text-[var(--c-texPri)]">Target:</span> {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString() : "—"}
-                  </div>
-                  <div>
-                    <span className="font-medium text-[var(--c-texPri)]">Status:</span> {ap.status ?? "—"}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-[var(--c-texPri)]">Retest:</span>
-                    {ap.retest ? (
-                      <Badge variant={ap.retest === "PASS" ? "default" : ap.retest === "FAIL" ? "destructive" : "secondary"} className="text-xs">
-                        {formatRetest(ap.retest)}
+                ))
+              ) : (
+                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No notes yet</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Change Requests Widget */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Change Requests ({changeRequests.length})
+              </h3>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              {changeRequests.length > 0 ? (
+                changeRequests.map((cr) => (
+                  <div key={cr.id} className="space-y-2 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant={cr.status === "APPROVED" ? "default" : cr.status === "DENIED" ? "destructive" : "secondary"} className="text-xs">
+                        {cr.status}
                       </Badge>
-                    ) : (
-                      <span className="text-[var(--c-texSec)]/70">—</span>
+                      <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
+                        {new Date(cr.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                      <span className="font-medium" style={{ color: 'var(--c-texPri)' }}>By:</span> {cr.requester.name || cr.requester.email || "User"}
+                    </p>
+                    {cr.comment && (
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>"{cr.comment}"</p>
                     )}
                   </div>
-                </div>
-                <div className="mt-3 text-xs text-[var(--c-texSec)]/70">
-                  {new Date(ap.createdAt).toLocaleString()}
-                </div>
-              </li>
-            ))}
-            {o.actionPlans.length === 0 && (
-              <li className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-6 text-center text-sm text-[var(--c-texSec)]">
-                No action plans yet.
-              </li>
-            )}
-          </ul>
-        </div>
-      </Card>
+                ))
+              ) : (
+                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No change requests</p>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">
-            Approvals ({o.approvals.length})
-          </h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Snapshot of the approval trail with comments and timestamps.
-          </p>
-        </div>
-        <div className="space-y-3 px-8 pb-8 text-sm">
-          {o.approvals.map((ap) => (
-            <div
-              key={ap.id}
-              className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-2 text-[var(--c-texSec)]">
-                  <Badge variant={getApprovalBadgeVariant(ap.status)}>{ap.status}</Badge>
-                  <div>
-                    <span className="font-medium text-[var(--c-texPri)]">By:</span> {ap.actor.email ?? ap.actor.name ?? "User"}
-                  </div>
-                  {ap.comment && (
-                    <div className="rounded-md border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-3 py-2 text-[var(--c-texSec)]">
-                      <span className="font-medium text-[var(--c-texPri)]">Comment:</span> {ap.comment}
+          {/* Approval History Widget */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Approval History ({o.approvals.length})
+              </h3>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+              {o.approvals.length > 0 ? (
+                o.approvals.map((ap) => (
+                  <div key={ap.id} className="flex gap-3">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarFallback style={{ background: 'var(--c-palUiGre100)', color: 'var(--c-palUiGre700)' }}>
+                        {getInitials(ap.actor.name, ap.actor.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>
+                          {ap.actor.name || ap.actor.email || "User"}
+                        </span>
+                        <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
+                          {new Date(ap.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <Badge variant={getApprovalBadgeVariant(ap.status)} className="text-xs">
+                        {ap.status}
+                      </Badge>
+                      {ap.comment && (
+                        <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>"{ap.comment}"</p>
+                      )}
                     </div>
-                  )}
-                </div>
-                <span className="text-xs text-[var(--c-texSec)]/70">
-                  {new Date(ap.createdAt).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          ))}
-          {o.approvals.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-6 text-center text-sm text-[var(--c-texSec)]">
-              No approval history yet.
-            </div>
-          )}
-        </div>
-      </Card>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No approvals yet</p>
+              )}
+            </CardContent>
+          </Card>
 
-      <Card
-        
-        className="rounded-3xl border-[var(--border-color-regular)] bg-[var(--c-bacPri)] shadow-sm"
-      >
-        <div className="px-8 pt-8">
-          <h2 className="text-base font-semibold text-[var(--c-texPri)]">Change requests</h2>
-          <p className="mt-2 text-sm text-[var(--c-texSec)]">
-            Audit trail of requested edits submitted after approval.
-          </p>
-        </div>
-        <div className="space-y-4 px-8 pb-8 text-sm">
-          {changeRequests.map((cr) => (
-            <div
-              key={cr.id}
-              className="rounded-xl border border-[var(--border-color-regular)] bg-[var(--c-bacSec)] px-4 py-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-2 text-[var(--c-texSec)]">
-                  <Badge variant={cr.status === "APPROVED" ? "default" : cr.status === "DENIED" ? "destructive" : "secondary"}>
-                    {cr.status}
-                  </Badge>
-                  <div className="text-xs text-[var(--c-texSec)]/80">
-                    <span className="font-medium text-[var(--c-texPri)]">By:</span> {cr.requester.email ?? cr.requester.name ?? "user"}
-                    <span className="mx-1">·</span>
-                    {new Date(cr.createdAt).toLocaleString()}
+          {/* Audit Trail Widget */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
+            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Audit Trail
+              </h3>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-3">
+                {/* Creation Event */}
+                <div className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: 'var(--c-palUiBlu100)' }}>
+                      <Plus className="h-4 w-4" style={{ color: 'var(--c-palUiBlu700)' }} />
+                    </div>
+                    {(o.approvals.length > 0 || o.isPublished) && (
+                      <div className="w-0.5 flex-1 my-1" style={{ background: 'var(--c-borSec)', minHeight: '24px' }} />
+                    )}
                   </div>
-                  {cr.comment && (
-                    <div className="rounded-md border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-3 py-2">
-                      <span className="font-medium text-[var(--c-texPri)]">Comment:</span> {cr.comment}
-                    </div>
-                  )}
-                  {cr.decidedAt && (
-                    <div className="text-xs text-[var(--c-texSec)]/80">
-                      <span className="font-medium text-[var(--c-texPri)]">Decision by:</span> {cr.decidedBy?.email ?? cr.decidedBy?.name ?? "admin"}
-                      <span className="mx-1">·</span>
-                      {new Date(cr.decidedAt).toLocaleString()}
-                      {cr.decisionComment ? ` - ${cr.decisionComment}` : ""}
-                    </div>
-                  )}
-                  <pre className="rounded-md border border-[var(--border-color-regular)] bg-[var(--c-bacPri)] px-3 py-2 text-xs text-[var(--c-texSec)] overflow-auto">{JSON.stringify(cr.patch, null, 2)}</pre>
+                  <div className="flex-1 pb-3">
+                    <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>Created</p>
+                    <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>
+                      {new Date(o.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                {canOverride && cr.status === "PENDING" && (
-                  <div className="flex flex-col gap-2">
-                    <Button variant="default" size="sm" onClick={() => decideChange(cr, true)}>
-                      Approve & apply
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => decideChange(cr, false)}>
-                      Deny
-                    </Button>
+
+                {/* Approval Events */}
+                {o.approvals.map((ap, idx) => (
+                  <div key={ap.id} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{
+                        background: ap.status === 'APPROVED' ? 'var(--c-palUiGre100)' : ap.status === 'REJECTED' ? 'var(--c-palUiRed100)' : 'var(--c-palUiOra100)'
+                      }}>
+                        {ap.status === 'APPROVED' ? (
+                          <CheckCircle className="h-4 w-4" style={{ color: 'var(--c-palUiGre700)' }} />
+                        ) : ap.status === 'REJECTED' ? (
+                          <XCircle className="h-4 w-4" style={{ color: 'var(--c-palUiRed700)' }} />
+                        ) : (
+                          <Clock className="h-4 w-4" style={{ color: 'var(--c-palUiOra700)' }} />
+                        )}
+                      </div>
+                      {(idx < o.approvals.length - 1 || o.isPublished) && (
+                        <div className="w-0.5 flex-1 my-1" style={{ background: 'var(--c-borSec)', minHeight: '24px' }} />
+                      )}
+                    </div>
+                    <div className="flex-1 pb-3">
+                      <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>{ap.status}</p>
+                      <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>
+                        {new Date(ap.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Published Event */}
+                {o.isPublished && (
+                  <div className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: 'var(--c-palUiBlu100)' }}>
+                        <Send className="h-4 w-4" style={{ color: 'var(--c-palUiBlu700)' }} />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>Published</p>
+                      <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>Current status</p>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-          ))}
-          {changeRequests.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[var(--border-color-regular)] bg-[var(--c-bacSec)]/60 px-6 py-6 text-center text-sm text-[var(--c-texSec)]">
-              No change requests.
-            </div>
-          )}
+            </CardContent>
+          </Card>
+
         </div>
-      </Card>
+        {/* End of right column */}
+
+      </div>
+      {/* End of two-column grid */}
+
     </PageContainer>
   );
 }
