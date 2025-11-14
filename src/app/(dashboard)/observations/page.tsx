@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/v2/button";
 import { Label } from "@/components/ui/v2/label";
 import { Badge } from "@/components/ui/v2/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
 import { CreateObservationDialog, CreateObservationFormValues } from "./_components/CreateObservationDialog";
@@ -46,6 +47,10 @@ export default function ObservationsPage() {
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
 
+  // Bulk action state
+  const [selectedObservations, setSelectedObservations] = useState<string[]>([]);
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
+
   const resetFilters = useCallback(() => {
     setPlantId("");
     setFilterAuditId("");
@@ -54,6 +59,152 @@ export default function ObservationsPage() {
     setQ("");
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
+
+  // Bulk action handlers
+  const handleSelectAll = () => {
+    if (selectedObservations.length === rows.length && rows.length > 0) {
+      setSelectedObservations([]);
+    } else {
+      setSelectedObservations(rows.map(r => r.id));
+    }
+  };
+
+  const handleSelectObservation = (id: string) => {
+    setSelectedObservations(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(obsId => obsId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const allSelected = rows.length > 0 && selectedObservations.length === rows.length;
+  const someSelected = selectedObservations.length > 0 && selectedObservations.length < rows.length;
+
+  const handleBulkApprove = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-approve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to approve observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully approved ${data.approved} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      showError("Failed to approve observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-reject", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to reject observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully rejected ${data.rejected} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      showError("Failed to reject observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkPublish = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-publish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to publish observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully published ${data.published} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      showError("Failed to publish observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkUnpublish = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-unpublish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to unpublish observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully unpublished ${data.unpublished} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      showError("Failed to unpublish observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
 
   const loadRows = async () => {
     const qs = new URLSearchParams();
@@ -127,6 +278,11 @@ export default function ObservationsPage() {
   }
 
   const canCreate = role === "CFO" || isAuditorOrAuditHead(role);
+
+  // Check if user can perform bulk actions
+  const canBulkApproveReject = role === "CFO" || role === "AUDIT_HEAD";
+  const canBulkPublishUnpublish = role === "CFO" || role === "CXO_TEAM";
+  const canUseBulkActions = canBulkApproveReject || canBulkPublishUnpublish;
 
   const statusBadgeClass = (status: string) => {
     const upper = status.toUpperCase();
@@ -268,10 +424,72 @@ export default function ObservationsPage() {
             {rows.length} {rows.length === 1 ? 'observation' : 'observations'}
           </span>
         </div>
+
+        {/* Bulk Action Toolbar */}
+        {canUseBulkActions && selectedObservations.length > 0 && (
+          <div className="mb-4 p-4 bg-primary-50 border border-primary-200 rounded-lg flex items-center justify-between">
+            <span className="text-sm font-medium text-primary-900">
+              {selectedObservations.length} observation(s) selected
+            </span>
+            <div className="flex gap-2">
+              {canBulkApproveReject && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleBulkApprove}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Approve"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkReject}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Reject"}
+                  </Button>
+                </>
+              )}
+              {canBulkPublishUnpublish && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleBulkPublish}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Publish"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleBulkUnpublish}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Unpublish"}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
+                {canUseBulkActions && (
+                  <th className="py-4 px-6 w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all observations"
+                      {...(someSelected && { "data-indeterminate": true })}
+                    />
+                  </th>
+                )}
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Status</th>
@@ -285,6 +503,15 @@ export default function ObservationsPage() {
             <tbody className="divide-y divide-neutral-100">
               {rows.map((r, index) => (
                 <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
+                  {canUseBulkActions && (
+                    <td className="py-4 px-6">
+                      <Checkbox
+                        checked={selectedObservations.includes(r.id)}
+                        onCheckedChange={() => handleSelectObservation(r.id)}
+                        aria-label={`Select observation ${r.title}`}
+                      />
+                    </td>
+                  )}
                   <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
                   <td className="py-4 px-6 text-neutral-700 text-xs">
                     {r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}
@@ -337,7 +564,7 @@ export default function ObservationsPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="py-8 text-neutral-500 text-center" colSpan={8}>
+                  <td className="py-8 text-neutral-500 text-center" colSpan={canUseBulkActions ? 9 : 8}>
                     No observations found. Try adjusting your filters.
                   </td>
                 </tr>
