@@ -44,7 +44,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const userRole = session?.user?.role;
 
-  const getInitials = (name?: string) => {
+  const getInitials = (name?: string | null) => {
     if (!name) return 'U';
     return name
       .split(' ')

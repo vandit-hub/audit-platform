@@ -1,5 +1,8 @@
 import { Badge } from "./ui/v2/badge";
-import { ObservationStatus, RiskLevel } from '../types';
+
+// Type definitions
+type ObservationStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+type RiskLevel = 'critical' | 'high' | 'medium' | 'low';
 
 interface StatusBadgeProps {
   status: ObservationStatus;

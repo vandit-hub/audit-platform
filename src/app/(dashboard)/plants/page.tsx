@@ -413,7 +413,7 @@ export default function PlantsPage() {
                       (OBSERVATION_STATUS_ORDER[statusB] ?? 99),
                   );
 
-                const riskRows: JSX.Element[] = [];
+                const riskRows: React.ReactElement[] = [];
 
                 for (const riskKey of RISK_ORDER) {
                   const count = stats.observations.byRisk[riskKey] ?? 0;
