@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/v2/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { Skeleton } from "@/components/ui/v2/skeleton";
@@ -148,12 +150,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [fileM, setFileM] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [noteVis, setNoteVis] = useState<"ALL" | "INTERNAL">("ALL");
+  const [noteSending, setNoteSending] = useState(false);
 
   const [apPlan, setApPlan] = useState("");
   const [apOwner, setApOwner] = useState("");
   const [apDate, setApDate] = useState("");
-  const [apStatus, setApStatus] = useState("");
-  const [apRetest, setApRetest] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [auditees, setAuditees] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
@@ -500,21 +502,74 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       body: JSON.stringify({
         plan: apPlan,
         owner: apOwner || undefined,
-        targetDate: apDate ? new Date(apDate).toISOString() : undefined,
-        status: apStatus || undefined,
-        retest: apRetest || undefined
+        targetDate: apDate ? new Date(apDate).toISOString() : undefined
       })
     });
     if (res.ok) {
       setApPlan("");
       setApOwner("");
       setApDate("");
-      setApStatus("");
-      setApRetest("");
+      setIsAddDialogOpen(false);
       await load();
       showSuccess("Action plan added successfully!");
     } else {
       showError("Failed to add action plan!");
+    }
+  }
+
+  async function toggleActionPlanStatus(actionId: string, currentStatus: string | null | undefined) {
+    const newStatus = currentStatus === "Completed" ? "Pending" : "Completed";
+    const res = await fetch(`/api/v1/observations/${id}/actions/${actionId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (res.ok) {
+      await load();
+      showSuccess(`Action plan marked as ${newStatus}!`);
+    } else {
+      showError("Failed to update action plan status!");
+    }
+  }
+
+  async function updateRetestStatus(actionId: string, retestValue: "RETEST_DUE" | "PASS" | "FAIL") {
+    const res = await fetch(`/api/v1/observations/${id}/actions/${actionId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ retest: retestValue })
+    });
+    if (res.ok) {
+      await load();
+      showSuccess(`Retest status updated to ${formatRetest(retestValue)}!`);
+    } else {
+      showError("Failed to update retest status!");
+    }
+  }
+
+  async function sendNote() {
+    if (!note.trim() || noteSending) return;
+    setNoteSending(true);
+    try {
+      const res = await fetch(`/api/v1/observations/${id}/notes`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          text: note,
+          visibility: noteVis
+        })
+      });
+      if (res.ok) {
+        setNote("");
+        await load();
+        showSuccess("Note added successfully!");
+      } else {
+        const j = await res.json();
+        showError(j.error || "Failed to add note!");
+      }
+    } catch (error) {
+      showError("Failed to add note!");
+    } finally {
+      setNoteSending(false);
     }
   }
 
@@ -1196,62 +1251,72 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               <div className="space-y-3 pt-4 mt-4 border-t" style={{ borderColor: 'var(--c-borPri)' }}>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Action Plans</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addActionPlan}
-                    disabled={!apPlan.trim()}
-                    className="flex items-center gap-1.5"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add Plan
-                  </Button>
-                </div>
-
-                {/* Action Plan Input Form */}
-                <div className="grid gap-2 text-xs">
-                  <input
-                    className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
-                    placeholder="Plan description..."
-                    value={apPlan}
-                    onChange={(e) => setApPlan(e.target.value)}
-                  />
-                  <div className="grid grid-cols-3 gap-2">
-                    <input
-                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
-                      placeholder="Owner"
-                      value={apOwner}
-                      onChange={(e) => setApOwner(e.target.value)}
-                    />
-                    <input
-                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
-                      type="date"
-                      value={apDate}
-                      onChange={(e) => setApDate(e.target.value)}
-                    />
-                    <select
-                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
-                      value={apStatus}
-                      onChange={(e) => setApStatus(e.target.value)}
-                    >
-                      <option value="">Status</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </div>
-                  {isAuditorOrAuditHead(role) && (
-                    <select
-                      className={cn(BASE_FIELD_CLASS, "text-xs h-8")}
-                      value={apRetest}
-                      onChange={(e) => setApRetest(e.target.value)}
-                    >
-                      <option value="">Retest</option>
-                      <option value="RETEST_DUE">Retest due</option>
-                      <option value="PASS">Pass</option>
-                      <option value="FAIL">Fail</option>
-                    </select>
-                  )}
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Plan
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px]">
+                      <DialogHeader>
+                        <DialogTitle>Add Action Plan</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="plan-desc">Plan Description</Label>
+                          <textarea
+                            id="plan-desc"
+                            className={cn(BASE_FIELD_CLASS, "min-h-[100px] resize-none")}
+                            placeholder="Describe the action plan..."
+                            value={apPlan}
+                            onChange={(e) => setApPlan(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="plan-owner">Owner</Label>
+                          <input
+                            id="plan-owner"
+                            className={BASE_FIELD_CLASS}
+                            placeholder="Plan owner..."
+                            value={apOwner}
+                            onChange={(e) => setApOwner(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="plan-date">Due Date</Label>
+                          <input
+                            id="plan-date"
+                            type="date"
+                            className={BASE_FIELD_CLASS}
+                            value={apDate}
+                            onChange={(e) => setApDate(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsAddDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={addActionPlan}
+                          disabled={!apPlan.trim()}
+                        >
+                          Add Plan
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 {/* Action Plans List */}
@@ -1259,37 +1324,91 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   {o.actionPlans.map((ap) => (
                     <div
                       key={ap.id}
-                      className="flex items-start gap-3 p-3 rounded-lg border text-xs"
+                      className="flex items-center gap-3 p-3 rounded-lg border"
                       style={{
                         borderColor: 'var(--c-borPri)',
                         background: 'white'
                       }}
                     >
-                      <input
-                        type="checkbox"
+                      {/* Checkbox */}
+                      <Checkbox
                         checked={ap.status === "Completed"}
-                        readOnly
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                        onCheckedChange={() => toggleActionPlanStatus(ap.id, ap.status)}
+                        className="flex-shrink-0"
                       />
-                      <div className="flex-1 space-y-1">
-                        <div className="font-medium" style={{ color: 'var(--c-texPri)' }}>
+
+                      {/* Plan Details */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="font-medium text-sm" style={{ color: 'var(--c-texPri)' }}>
                           {ap.plan}
                         </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'var(--c-texSec)' }}>
-                          <span>Owner: {ap.owner ?? "—"}</span>
-                          <span>Due: {ap.targetDate ? new Date(ap.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}</span>
-                          <span>
-                            {ap.status && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs" style={{
-                                background: ap.status === "Completed" ? 'var(--c-palUiGre100)' : 'var(--c-palUiYel100)',
-                                color: ap.status === "Completed" ? 'var(--c-palUiGre700)' : 'var(--c-palUiYel700)'
-                              }}>
-                                {ap.status}
-                              </span>
-                            )}
-                          </span>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {ap.owner && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded" style={{
+                              background: 'var(--c-palUiBlu100)',
+                              color: 'var(--c-palUiBlu700)'
+                            }}>
+                              {ap.owner}
+                            </span>
+                          )}
+                          {ap.targetDate && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded" style={{
+                              background: 'var(--c-bacSec)',
+                              color: 'var(--c-texSec)'
+                            }}>
+                              Due: {new Date(ap.targetDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          )}
                         </div>
                       </div>
+
+                      {/* Retest Buttons - Only for Auditor/Audit Head */}
+                      {isAuditorOrAuditHead(role) && (
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={ap.retest === "RETEST_DUE" ? "default" : "outline"}
+                            onClick={() => updateRetestStatus(ap.id, "RETEST_DUE")}
+                            className="text-xs h-7 px-2"
+                            style={ap.retest === "RETEST_DUE" ? {
+                              background: 'var(--c-palUiYel600)',
+                              color: 'white',
+                              borderColor: 'var(--c-palUiYel600)'
+                            } : {}}
+                          >
+                            Retest Due
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={ap.retest === "PASS" ? "default" : "outline"}
+                            onClick={() => updateRetestStatus(ap.id, "PASS")}
+                            className="text-xs h-7 px-2"
+                            style={ap.retest === "PASS" ? {
+                              background: 'var(--c-palUiGre600)',
+                              color: 'white',
+                              borderColor: 'var(--c-palUiGre600)'
+                            } : {}}
+                          >
+                            Pass
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={ap.retest === "FAIL" ? "default" : "outline"}
+                            onClick={() => updateRetestStatus(ap.id, "FAIL")}
+                            className="text-xs h-7 px-2"
+                            style={ap.retest === "FAIL" ? {
+                              background: 'var(--c-palUiRed600)',
+                              color: 'white',
+                              borderColor: 'var(--c-palUiRed600)'
+                            } : {}}
+                          >
+                            Fail
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {o.actionPlans.length === 0 && (
@@ -1461,166 +1580,228 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         <div className="lg:col-span-1 space-y-4">
 
           {/* Running Notes Widget */}
-          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
-            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
-                Running Notes ({o.notes.length})
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'white' }}>
+            <CardHeader className="border-b pb-3" style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Running Notes
               </h3>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
-              {o.notes.length > 0 ? (
-                o.notes.map((n) => (
-                  <div key={n.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarFallback style={{ background: 'var(--c-palUiBlu100)', color: 'var(--c-palUiBlu700)' }}>
-                        {getInitials(n.actor.name, n.actor.email)}
-                      </AvatarFallback>
-                    </Avatar>
+            <CardContent className="p-0">
+              {/* Messages Area */}
+              <div className="p-3 space-y-3 max-h-96 overflow-y-auto">
+                {o.notes.length > 0 ? (
+                  o.notes.map((n) => (
+                    <div key={n.id} className="flex gap-2">
+                      <Avatar className="h-10 w-10 flex-shrink-0">
+                        <AvatarFallback style={{ background: 'var(--c-palUiBlu600)', color: 'white' }}>
+                          {getInitials(n.actor.name, n.actor.email)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                            {n.actor.name || n.actor.email || "User"}
+                          </span>
+                          <span className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                            {new Date(n.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div
+                          className="rounded-lg px-3 py-2 text-sm"
+                          style={{
+                            background: 'var(--c-bacSec)',
+                            color: 'var(--c-texPri)',
+                            border: '1px solid var(--c-borPri)'
+                          }}
+                        >
+                          {n.text}
+                        </div>
+                        {n.visibility === "INTERNAL" && (
+                          <Badge variant="secondary" className="text-xs mt-1">Internal</Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-center py-8" style={{ color: 'var(--c-texSec)' }}>No messages yet</p>
+                )}
+              </div>
+
+              {/* Message Input */}
+              <div className="border-t p-3" style={{ borderColor: 'var(--c-borPri)' }}>
+                <div className="flex gap-2">
+                  <Avatar className="h-10 w-10 flex-shrink-0">
+                    <AvatarFallback style={{ background: 'var(--c-palUiBlu600)', color: 'white' }}>
+                      {getInitials(session?.user?.name, session?.user?.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 flex gap-2">
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendNote();
+                        }
+                      }}
+                      placeholder="Type your message..."
+                      className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                      style={{
+                        borderColor: 'var(--c-borPri)',
+                        background: 'var(--c-bacPri)',
+                        color: 'var(--c-texPri)'
+                      }}
+                      rows={2}
+                      disabled={noteSending}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={sendNote}
+                      disabled={!note.trim() || noteSending}
+                      className="px-3"
+                      style={{
+                        background: 'var(--c-palUiBlu600)',
+                        color: 'white'
+                      }}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Change Requests Widget */}
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'white' }}>
+            <CardHeader className="border-b pb-3" style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Change Requests
+              </h3>
+            </CardHeader>
+            <CardContent className="p-3 space-y-3 max-h-96 overflow-y-auto">
+              {changeRequests.length > 0 ? (
+                changeRequests.map((cr) => (
+                  <div key={cr.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                    <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-texSec)' }} />
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>
-                          {n.actor.name || n.actor.email || "User"}
+                        <span className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                          {cr.requester.name || cr.requester.email || "User"}
                         </span>
-                        <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
-                          {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        <Badge
+                          variant={cr.status === "APPROVED" ? "default" : cr.status === "DENIED" ? "destructive" : "secondary"}
+                          className="text-xs"
+                        >
+                          {cr.status}
+                        </Badge>
                       </div>
-                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>{n.text}</p>
-                      {n.visibility === "INTERNAL" && (
-                        <Badge variant="secondary" className="text-xs">Internal</Badge>
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                        {new Date(cr.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      {cr.comment && (
+                        <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>{cr.comment}</p>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No notes yet</p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Change Requests Widget */}
-          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
-            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
-                Change Requests ({changeRequests.length})
-              </h3>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
-              {changeRequests.length > 0 ? (
-                changeRequests.map((cr) => (
-                  <div key={cr.id} className="space-y-2 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant={cr.status === "APPROVED" ? "default" : cr.status === "DENIED" ? "destructive" : "secondary"} className="text-xs">
-                        {cr.status}
-                      </Badge>
-                      <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
-                        {new Date(cr.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
-                      <span className="font-medium" style={{ color: 'var(--c-texPri)' }}>By:</span> {cr.requester.name || cr.requester.email || "User"}
-                    </p>
-                    {cr.comment && (
-                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>"{cr.comment}"</p>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No change requests</p>
+                <p className="text-sm text-center py-4" style={{ color: 'var(--c-texSec)' }}>No change requests</p>
               )}
             </CardContent>
           </Card>
 
           {/* Approval History Widget */}
-          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
-            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
-                Approval History ({o.approvals.length})
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'white' }}>
+            <CardHeader className="border-b pb-3" style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                Approval History
               </h3>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 max-h-96 overflow-y-auto">
+            <CardContent className="p-3 space-y-3 max-h-96 overflow-y-auto">
               {o.approvals.length > 0 ? (
                 o.approvals.map((ap) => (
-                  <div key={ap.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarFallback style={{ background: 'var(--c-palUiGre100)', color: 'var(--c-palUiGre700)' }}>
-                        {getInitials(ap.actor.name, ap.actor.email)}
-                      </AvatarFallback>
-                    </Avatar>
+                  <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                    <div
+                      className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: ap.status === "APPROVED" ? 'var(--c-palUiGre100)' : 'var(--c-palUiRed100)'
+                      }}
+                    >
+                      {ap.status === "APPROVED" ? (
+                        <CheckCircle className="h-5 w-5" style={{ color: 'var(--c-palUiGre700)' }} />
+                      ) : (
+                        <XCircle className="h-5 w-5" style={{ color: 'var(--c-palUiRed700)' }} />
+                      )}
+                    </div>
                     <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>
-                          {ap.actor.name || ap.actor.email || "User"}
-                        </span>
-                        <span className="text-xs" style={{ color: 'var(--c-texTer)' }}>
-                          {new Date(ap.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <Badge variant={getApprovalBadgeVariant(ap.status)} className="text-xs">
-                        {ap.status}
-                      </Badge>
+                      <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                        Observation {ap.status === "APPROVED" ? "Approved" : "Rejected"}
+                      </h4>
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                        {new Date(ap.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                        {ap.actor.name || ap.actor.email || "User"} {ap.status === "APPROVED" ? "approved" : "rejected"} the {ap.status === "APPROVED" ? "finding" : "observation"}.
+                      </p>
                       {ap.comment && (
-                        <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>"{ap.comment}"</p>
+                        <p className="text-xs italic" style={{ color: 'var(--c-texSec)' }}>"{ap.comment}"</p>
                       )}
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-xs text-center" style={{ color: 'var(--c-texTer)' }}>No approvals yet</p>
+                <p className="text-sm text-center py-4" style={{ color: 'var(--c-texSec)' }}>No approvals yet</p>
               )}
             </CardContent>
           </Card>
 
           {/* Audit Trail Widget */}
-          <Card style={{ borderColor: 'var(--c-borPri)', background: 'var(--c-bacSec)' }}>
-            <CardHeader style={{ borderColor: 'var(--c-borPri)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+          <Card style={{ borderColor: 'var(--c-borPri)', background: 'white' }}>
+            <CardHeader className="border-b pb-3" style={{ borderColor: 'var(--c-borPri)' }}>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--c-texPri)' }}>
                 Audit Trail
               </h3>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-3 space-y-3">
               <div className="space-y-3">
                 {/* Creation Event */}
-                <div className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: 'var(--c-palUiBlu100)' }}>
-                      <Plus className="h-4 w-4" style={{ color: 'var(--c-palUiBlu700)' }} />
-                    </div>
-                    {(o.approvals.length > 0 || o.isPublished) && (
-                      <div className="w-0.5 flex-1 my-1" style={{ background: 'var(--c-borSec)', minHeight: '24px' }} />
-                    )}
-                  </div>
-                  <div className="flex-1 pb-3">
-                    <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>Created</p>
-                    <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>
-                      {new Date(o.createdAt).toLocaleDateString()}
+                <div className="flex gap-3 pb-3 border-b" style={{ borderColor: 'var(--c-borSec)' }}>
+                  <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-texSec)' }} />
+                  <div className="flex-1 space-y-1">
+                    <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                      Observation Created
+                    </h4>
+                    <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                      {new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                    <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                      Created by {session?.user?.name || session?.user?.email || "User"}.
                     </p>
                   </div>
                 </div>
 
                 {/* Approval Events */}
-                {o.approvals.map((ap, idx) => (
-                  <div key={ap.id} className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{
-                        background: ap.status === 'APPROVED' ? 'var(--c-palUiGre100)' : ap.status === 'REJECTED' ? 'var(--c-palUiRed100)' : 'var(--c-palUiOra100)'
-                      }}>
-                        {ap.status === 'APPROVED' ? (
-                          <CheckCircle className="h-4 w-4" style={{ color: 'var(--c-palUiGre700)' }} />
-                        ) : ap.status === 'REJECTED' ? (
-                          <XCircle className="h-4 w-4" style={{ color: 'var(--c-palUiRed700)' }} />
-                        ) : (
-                          <Clock className="h-4 w-4" style={{ color: 'var(--c-palUiOra700)' }} />
-                        )}
-                      </div>
-                      {(idx < o.approvals.length - 1 || o.isPublished) && (
-                        <div className="w-0.5 flex-1 my-1" style={{ background: 'var(--c-borSec)', minHeight: '24px' }} />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-3">
-                      <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>{ap.status}</p>
-                      <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>
-                        {new Date(ap.createdAt).toLocaleDateString()}
+                {o.approvals.map((ap) => (
+                  <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                    {ap.status === 'APPROVED' ? (
+                      <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiGre700)' }} />
+                    ) : ap.status === 'REJECTED' ? (
+                      <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiRed700)' }} />
+                    ) : (
+                      <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-texSec)' }} />
+                    )}
+                    <div className="flex-1 space-y-1">
+                      <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                        Observation {ap.status === 'APPROVED' ? 'Approved' : ap.status === 'REJECTED' ? 'Rejected' : ap.status}
+                      </h4>
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                        {new Date(ap.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                        {ap.status === 'APPROVED' ? 'Approved' : 'Rejected'} by {ap.actor.name || ap.actor.email || "User"}.
                       </p>
                     </div>
                   </div>
@@ -1629,14 +1810,17 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 {/* Published Event */}
                 {o.isPublished && (
                   <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: 'var(--c-palUiBlu100)' }}>
-                        <Send className="h-4 w-4" style={{ color: 'var(--c-palUiBlu700)' }} />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs font-medium" style={{ color: 'var(--c-texPri)' }}>Published</p>
-                      <p className="text-xs" style={{ color: 'var(--c-texTer)' }}>Current status</p>
+                    <Send className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiBlu700)' }} />
+                    <div className="flex-1 space-y-1">
+                      <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                        Observation Published
+                      </h4>
+                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                        Current status
+                      </p>
+                      <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                        Published to stakeholders.
+                      </p>
                     </div>
                   </div>
                 )}

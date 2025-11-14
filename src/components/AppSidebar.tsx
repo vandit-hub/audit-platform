@@ -332,7 +332,7 @@ export function AppSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} style={{ color: 'var(--c-texPri)' }}>
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: `${window.location.origin}/login` })} style={{ color: 'var(--c-texPri)' }}>
                   Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>

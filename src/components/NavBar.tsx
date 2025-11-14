@@ -93,7 +93,7 @@ export default function NavBar() {
                   {session.user.email}
                 </span>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  onClick={() => signOut({ callbackUrl: `${window.location.origin}/login` })}
                   className="btn-ghost text-sm"
                 >
                   Sign out

@@ -30,7 +30,7 @@ export default function SessionTimeout() {
         clearInterval(tickingRef.current as NodeJS.Timeout);
         tickingRef.current = null;
         // Session considered expired on client — perform sign out to redirect
-        signOut({ callbackUrl: "/login?expired=1" });
+        signOut({ callbackUrl: `${window.location.origin}/login?expired=1` });
       } else if (rem <= 60 * 1000) {
         setShowWarning(true);
       }
@@ -64,10 +64,10 @@ export default function SessionTimeout() {
         setShowWarning(false);
       } else {
         // Server already considers session invalid — sign out
-        signOut({ callbackUrl: "/login?expired=1" });
+        signOut({ callbackUrl: `${window.location.origin}/login?expired=1` });
       }
     } catch {
-      signOut({ callbackUrl: "/login?expired=1" });
+      signOut({ callbackUrl: `${window.location.origin}/login?expired=1` });
     }
   };
 
@@ -83,7 +83,7 @@ export default function SessionTimeout() {
         <div className="mt-5 flex items-center gap-3 justify-end">
           <button
             className="px-4 py-2 text-sm font-medium rounded-md border border-neutral-300 text-neutral-700 hover:bg-neutral-100"
-            onClick={() => signOut({ callbackUrl: "/login?expired=1" })}
+            onClick={() => signOut({ callbackUrl: `${window.location.origin}/login?expired=1` })}
           >
             Sign out now
           </button>

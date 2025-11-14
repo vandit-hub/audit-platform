@@ -364,7 +364,7 @@ export function AppSidebar() {
                 className="w-[--radix-popper-anchor-width]"
               >
                 <DropdownMenuItem
-                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  onClick={() => signOut({ callbackUrl: `${window.location.origin}/login` })}
                 >
                   <LogOut className="h-4 w-4" />
                   Sign out
