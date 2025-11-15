@@ -20,7 +20,7 @@ type Audit = { id: string; title?: string | null; startDate: string | null; endD
 type ObservationRow = {
   id: string;
   plant: Plant;
-  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null; isLocked?: boolean };
+  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null; isLocked?: boolean; auditHeadId?: string | null };
   riskCategory?: "A" | "B" | "C" | null;
   concernedProcess?: "O2C" | "P2P" | "R2R" | "INVENTORY" | null;
   currentStatus: "PENDING" | "IN_PROGRESS" | "RESOLVED";
@@ -35,6 +35,7 @@ type ObservationRow = {
 export default function ObservationsPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const userId = session?.user?.id ?? null;
   const { showSuccess, showError } = useToast();
 
   const [plants, setPlants] = useState<Plant[]>([]);
@@ -78,9 +79,6 @@ export default function ObservationsPage() {
       }
     });
   };
-
-  const allSelected = rows.length > 0 && selectedObservations.length === rows.length;
-  const someSelected = selectedObservations.length > 0 && selectedObservations.length < rows.length;
 
   const handleBulkApprove = async () => {
     if (selectedObservations.length === 0) return;
@@ -147,6 +145,20 @@ export default function ObservationsPage() {
   const handleBulkPublish = async () => {
     if (selectedObservations.length === 0) return;
 
+    if (!isCfo) {
+      const rowsToPublish = rows.filter(r => selectedObservations.includes(r.id));
+      const ownsAll = rowsToPublish.every(r => r.audit?.auditHeadId === userId);
+      if (!ownsAll) {
+        showError("You can only publish observations for audits you lead.");
+        return;
+      }
+      const locked = rowsToPublish.some(r => r.audit?.isLocked);
+      if (locked) {
+        showError("One or more selected audits are locked. Unlock them before publishing.");
+        return;
+      }
+    }
+
     setIsBulkActionLoading(true);
     try {
       const res = await fetch("/api/v1/observations/bulk-publish", {
@@ -177,6 +189,20 @@ export default function ObservationsPage() {
 
   const handleBulkUnpublish = async () => {
     if (selectedObservations.length === 0) return;
+
+    if (!isCfo) {
+      const rowsToUnpublish = rows.filter(r => selectedObservations.includes(r.id));
+      const ownsAll = rowsToUnpublish.every(r => r.audit?.auditHeadId === userId);
+      if (!ownsAll) {
+        showError("You can only unpublish observations for audits you lead.");
+        return;
+      }
+      const locked = rowsToUnpublish.some(r => r.audit?.isLocked);
+      if (locked) {
+        showError("One or more selected audits are locked. Unlock them before unpublishing.");
+        return;
+      }
+    }
 
     setIsBulkActionLoading(true);
     try {
@@ -280,9 +306,30 @@ export default function ObservationsPage() {
   const canCreate = role === "CFO" || isAuditorOrAuditHead(role);
 
   // Check if user can perform bulk actions
-  const canBulkApproveReject = role === "CFO" || role === "AUDIT_HEAD";
-  const canBulkPublishUnpublish = role === "CFO" || role === "CXO_TEAM";
+  const isCfo = role === "CFO";
+  const isAuditHeadRole = role === "AUDIT_HEAD";
+  const canBulkApproveReject = isCfo || isAuditHeadRole;
+  const canBulkPublishUnpublish = isCfo || isAuditHeadRole;
   const canUseBulkActions = canBulkApproveReject || canBulkPublishUnpublish;
+
+  const selectedRows = rows.filter(r => selectedObservations.includes(r.id));
+  const auditHeadOwnsSelection =
+    isAuditHeadRole && selectedRows.length > 0
+      ? selectedRows.every(r => r.audit?.auditHeadId === userId)
+      : false;
+  const selectionHasLockedAudit =
+    isAuditHeadRole && selectedRows.length > 0
+      ? selectedRows.some(r => r.audit?.isLocked)
+      : false;
+  const canExecuteBulkPublish = isCfo || (auditHeadOwnsSelection && !selectionHasLockedAudit);
+  const bulkPublishWarning =
+    !canExecuteBulkPublish && canBulkPublishUnpublish && selectedObservations.length > 0
+      ? selectionHasLockedAudit
+        ? "Selected audits are locked."
+        : "You can only publish/unpublish observations for unlocked audits you lead."
+      : null;
+  const allSelected = rows.length > 0 && selectedObservations.length === rows.length;
+  const someSelected = selectedObservations.length > 0 && selectedObservations.length < rows.length;
 
   const statusBadgeClass = (status: string) => {
     const upper = status.toUpperCase();
@@ -431,7 +478,7 @@ export default function ObservationsPage() {
             <span className="text-sm font-medium text-primary-900">
               {selectedObservations.length} observation(s) selected
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-end">
               {canBulkApproveReject && (
                 <>
                   <Button
@@ -453,24 +500,31 @@ export default function ObservationsPage() {
                 </>
               )}
               {canBulkPublishUnpublish && (
-                <>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleBulkPublish}
-                    disabled={isBulkActionLoading}
-                  >
-                    {isBulkActionLoading ? "Processing..." : "Publish"}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleBulkUnpublish}
-                    disabled={isBulkActionLoading}
-                  >
-                    {isBulkActionLoading ? "Processing..." : "Unpublish"}
-                  </Button>
-                </>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleBulkPublish}
+                      disabled={isBulkActionLoading || !canExecuteBulkPublish}
+                      title={bulkPublishWarning || undefined}
+                    >
+                      {isBulkActionLoading ? "Processing..." : "Publish"}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleBulkUnpublish}
+                      disabled={isBulkActionLoading || !canExecuteBulkPublish}
+                      title={bulkPublishWarning || undefined}
+                    >
+                      {isBulkActionLoading ? "Processing..." : "Unpublish"}
+                    </Button>
+                  </div>
+                  {bulkPublishWarning && (
+                    <span className="text-xs text-warning-800 text-right">{bulkPublishWarning}</span>
+                  )}
+                </div>
               )}
             </div>
           </div>

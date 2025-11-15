@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { assertCFOOrCXOTeam } from "@/lib/rbac";
+import { assertAuditHead, isCFO } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { notifyObservationUpdate } from "@/websocket/broadcast";
 
@@ -19,11 +19,7 @@ interface ValidationError {
  * RBAC v2: Bulk Unpublish Observations
  *
  * Unpublishes multiple observations in a single transaction (all-or-nothing).
- * Only CFO or CXO_TEAM can unpublish observations.
- *
- * Authorization:
- * - CFO or CXO_TEAM: Can unpublish any observation
- * - All others: 403 Forbidden
+ * Only CFO or the Audit Head for the observation's audit can unpublish.
  *
  * Transaction behavior:
  * - Validates ALL observations before making any changes
@@ -36,8 +32,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  // RBAC check: Must be CFO or CXO_TEAM
-  assertCFOOrCXOTeam(session.user.role);
+  const role = session.user.role;
+  const isCfoUser = isCFO(role);
+  if (!isCfoUser) {
+    assertAuditHead(role);
+  }
 
   // Parse request body
   const body = await req.json().catch(() => ({}));
@@ -52,7 +51,13 @@ export async function POST(req: NextRequest) {
     },
     select: {
       id: true,
-      isPublished: true
+      isPublished: true,
+      audit: {
+        select: {
+          auditHeadId: true,
+          isLocked: true
+        }
+      }
     }
   });
 
@@ -70,6 +75,24 @@ export async function POST(req: NextRequest) {
   const validationErrors: ValidationError[] = [];
 
   for (const obs of observations) {
+    if (!isCfoUser) {
+      if (obs.audit?.auditHeadId !== userId) {
+        validationErrors.push({
+          observationId: obs.id,
+          error: "Only the audit head for this audit can unpublish this observation"
+        });
+        continue;
+      }
+
+      if (obs.audit?.isLocked) {
+        validationErrors.push({
+          observationId: obs.id,
+          error: "Audit is locked. Cannot unpublish observation."
+        });
+        continue;
+      }
+    }
+
     // Check if already unpublished
     if (!obs.isPublished) {
       validationErrors.push({

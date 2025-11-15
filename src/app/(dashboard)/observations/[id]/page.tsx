@@ -36,7 +36,7 @@ type Observation = {
   id: string;
   createdAt: string;
   plant: Plant;
-  audit: { id: string; visitStartDate: string | null; visitEndDate: string | null; isLocked?: boolean; completedAt?: string | null };
+  audit: { id: string; visitStartDate: string | null; visitEndDate: string | null; isLocked?: boolean; completedAt?: string | null; auditHeadId?: string | null };
   observationText: string;
   risksInvolved?: string | null;
   riskCategory?: "A" | "B" | "C" | null;
@@ -340,7 +340,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       await load();
       showSuccess(`Observation ${shouldPublish ? 'published' : 'unpublished'} successfully!`);
     } else {
-      showError(`Failed to ${shouldPublish ? 'publish' : 'unpublish'} observation!`);
+      const j = await res.json().catch(() => ({}));
+      showError(j.error || `Failed to ${shouldPublish ? 'publish' : 'unpublish'} observation!`);
     }
   }
 
@@ -662,17 +663,21 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     </div>
   );
 
-  const canOverride = isCFO(role);
-  const isAuditorRole = isAuditorOrAuditHead(role) && !isAuditHead(role); // Pure auditor (not audit head)
+  const isCfo = isCFO(role);
+  const isAuditHeadRole = isAuditHead(role);
+  const canOverride = isCfo;
+  const isAuditorRole = isAuditorOrAuditHead(role) && !isAuditHeadRole; // Pure auditor (not audit head)
   const canApprove = canApproveObservations(role);
-  const canPublish = isCFO(role);
+  const isAuditHeadForThisAudit = isAuditHeadRole && o.audit?.auditHeadId === session.user.id;
+  const isAuditLocked = !!o.audit?.isLocked;
+  const canPublish = isCfo || (isAuditHeadForThisAudit && !isAuditLocked);
   const canSubmit = isAuditorOrAuditHead(role);
   const canRetest = isAuditorOrAuditHead(role);
   const canUploadAnnex = isAuditorOrAuditHead(role);
   const canUploadMgmt = isAuditorOrAuditHead(role) || isAuditee(role);
   const auditorLockedByApproval = isAuditorRole && o.approvalStatus === "APPROVED";
   const canSave = canOverride || (!auditorLockedByApproval);
-  const canDelete = isCFO(role) || (isAuditHead(role) && !o.audit.isLocked);
+  const canDelete = isCfo || (isAuditHeadRole && !o.audit.isLocked);
   const canManageAssignments = isCFOOrCXOTeam(role) || isAuditHead(role) || isAuditorOrAuditHead(role);
 
   // Debug: Verify button conditions
@@ -846,20 +851,30 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               Save
             </Button>
 
-            {/* Audit Head buttons */}
+            {/* Publish / Unpublish button */}
+            {canPublish && (
+              <Button
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => publish(!o.isPublished)}
+                disabled={!o.isPublished && o.approvalStatus !== 'APPROVED'}
+                title={!o.isPublished && o.approvalStatus !== 'APPROVED'
+                  ? 'Approve the observation before publishing.'
+                  : undefined}
+                style={{
+                  background: o.isPublished ? 'var(--cd-palOra500)' : 'var(--c-palUiGre600)',
+                  color: 'white',
+                  opacity: !o.isPublished && o.approvalStatus !== 'APPROVED' ? 0.5 : 1,
+                  cursor: !o.isPublished && o.approvalStatus !== 'APPROVED' ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {o.isPublished ? 'Unpublish' : 'Publish'}
+              </Button>
+            )}
+
+            {/* Audit Head / CFO approval buttons */}
             {canApprove && (
               <>
-                <Button
-                  size="sm"
-                  className="h-8 px-3"
-                  onClick={() => publish(!o.isPublished)}
-                  style={{
-                    background: o.isPublished ? 'var(--cd-palOra500)' : 'var(--c-palUiGre600)',
-                    color: 'white'
-                  }}
-                >
-                  {o.isPublished ? 'Unpublish' : 'Publish'}
-                </Button>
                 <Button
                   size="sm"
                   className="h-8 px-3"
@@ -889,8 +904,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               </>
             )}
 
-            {/* Submit for Approval button for auditors */}
-            {isAuditorOrAuditHead(role) && o.approvalStatus === 'DRAFT' && (
+            {/* Submit / Resubmit for Approval button for auditors */}
+            {isAuditorOrAuditHead(role) && (o.approvalStatus === 'DRAFT' || o.approvalStatus === 'REJECTED') && (
               <Button
                 size="sm"
                 className="h-8 px-3"
@@ -900,7 +915,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   color: 'white'
                 }}
               >
-                Submit for Approval
+                {o.approvalStatus === 'REJECTED' ? 'Resubmit for Approval' : 'Submit for Approval'}
               </Button>
             )}
 

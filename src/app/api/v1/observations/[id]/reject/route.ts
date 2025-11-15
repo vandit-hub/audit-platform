@@ -14,7 +14,7 @@ const rejectSchema = z.object({
  * RBAC v2: Reject Observation
  *
  * Transitions an observation from SUBMITTED to REJECTED state.
- * Rejection sends the observation back to DRAFT so the auditor can make changes and resubmit.
+ * Rejection keeps the observation in REJECTED until the auditor edits and resubmits it.
  * Only AUDIT_HEAD for the specific audit can reject (CFO can override).
  *
  * Authorization:

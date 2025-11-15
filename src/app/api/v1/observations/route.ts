@@ -155,7 +155,16 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       plant: true,
-      audit: { select: { id: true, title: true, visitStartDate: true, visitEndDate: true } },
+      audit: {
+        select: {
+          id: true,
+          title: true,
+          visitStartDate: true,
+          visitEndDate: true,
+          auditHeadId: true,
+          isLocked: true
+        }
+      },
       attachments: true,
       assignments: {
         include: { auditee: { select: { id: true, email: true, name: true } } }
