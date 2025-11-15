@@ -31,7 +31,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
       .catch(error => {
         // Silently handle token fetch errors (WebSocket server may not be running)
         if (process.env.NODE_ENV === 'development') {
-          console.warn('WebSocket token fetch failed (server may not be running)');
+          console.warn('WebSocket token fetch failed (server may not be running)', error);
         }
       });
 

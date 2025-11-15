@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
-import { isCFO, isAuditHead, isAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { isCFO, isAuditHead, isAuditor, isAuditee } from "@/lib/rbac";
 import { writeAuditEvent } from "@/server/auditTrail";
 import { getUserScope, isObservationInScope } from "@/lib/scope";
 

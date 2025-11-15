@@ -9,17 +9,15 @@ import PresenceBadge from "@/components/PresenceBadge";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/v2/button";
 import { Badge } from "@/components/ui/v2/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
 import { Label } from "@/components/ui/v2/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isCFO, isCFOOrCXOTeam, isCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
+import { isCFO, isCFOOrCXOTeam as _isCFOOrCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
 import { PageContainer } from "@/components/v2/PageContainer";
-import { Skeleton } from "@/components/ui/v2/skeleton";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Clock, Send, Plus, Upload, Download, Trash2, CheckCircle, XCircle, Lock, Unlock } from "lucide-react";
+import { ChevronRight, Clock, Send, Plus, Trash2, CheckCircle, XCircle, Lock, Unlock } from "lucide-react";
 
 type Plant = { id: string; code: string; name: string };
 type Attachment = { id: string; kind: "ANNEXURE" | "MGMT_DOC"; fileName: string; key: string };
@@ -97,7 +95,7 @@ function formatRetest(retest: string): string {
   return map[retest] || retest;
 }
 
-function humanizeStatus(value?: string | null): string {
+function _humanizeStatus(value?: string | null): string {
   if (!value) return "Not set";
   return value
     .toLowerCase()
@@ -105,20 +103,6 @@ function humanizeStatus(value?: string | null): string {
     .filter(Boolean)
     .map((part) => part[0].toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function formatDate(value?: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString();
-}
-
-function formatDateTime(value?: string | null): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
 }
 
 function getInitials(name?: string | null, email?: string | null): string {
@@ -149,7 +133,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileM, setFileM] = useState<File | null>(null);
   const [note, setNote] = useState("");
-  const [noteVis, setNoteVis] = useState<"ALL" | "INTERNAL">("ALL");
+  const [noteVis] = useState<"ALL" | "INTERNAL">("ALL");
   const [noteSending, setNoteSending] = useState(false);
 
   const [apPlan, setApPlan] = useState("");
@@ -345,20 +329,6 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  async function retest(result: "PASS" | "FAIL") {
-    const res = await fetch(`/api/v1/observations/${id}/retest`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ result })
-    });
-    if (res.ok) {
-      await load();
-      showSuccess(`Retest result recorded: ${result}`);
-    } else {
-      showError("Failed to record retest result!");
-    }
-  }
-
   async function upload(kind: "ANNEXURE" | "MGMT_DOC") {
     const file = kind === "ANNEXURE" ? fileA : fileM;
     if (!file) return;
@@ -395,22 +365,6 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       }
     } else {
       showError("Failed to upload file!");
-    }
-  }
-
-  async function addNote() {
-    if (!note.trim()) return;
-    const res = await fetch(`/api/v1/observations/${id}/notes`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: note, visibility: noteVis })
-    });
-    if (res.ok) {
-      setNote("");
-      await load();
-      showSuccess("Note added successfully!");
-    } else {
-      showError("Failed to add note!");
     }
   }
 
@@ -575,7 +529,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         const j = await res.json();
         showError(j.error || "Failed to add note!");
       }
-    } catch (error) {
+    } catch (_error) {
+      console.error("Failed to add note", _error);
       showError("Failed to add note!");
     } finally {
       setNoteSending(false);
@@ -636,20 +591,6 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  async function decideChange(cr: ChangeRequest, approve: boolean) {
-    const res = await fetch(`/api/v1/observations/${id}/change-requests/${cr.id}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve })
-    });
-    if (res.ok) {
-      await load();
-      showSuccess(`Change request ${approve ? 'approved and applied' : 'denied'} successfully!`);
-    } else {
-      showError(`Failed to ${approve ? 'approve' : 'deny'} change request!`);
-    }
-  }
-
   // Wait for both session and observation to load
   if (!session || !role || !o) return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -671,34 +612,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const isAuditHeadForThisAudit = isAuditHeadRole && o.audit?.auditHeadId === session.user.id;
   const isAuditLocked = !!o.audit?.isLocked;
   const canPublish = isCfo || (isAuditHeadForThisAudit && !isAuditLocked);
-  const canSubmit = isAuditorOrAuditHead(role);
-  const canRetest = isAuditorOrAuditHead(role);
   const canUploadAnnex = isAuditorOrAuditHead(role);
   const canUploadMgmt = isAuditorOrAuditHead(role) || isAuditee(role);
   const auditorLockedByApproval = isAuditorRole && o.approvalStatus === "APPROVED";
-  const canSave = canOverride || (!auditorLockedByApproval);
-  const canDelete = isCfo || (isAuditHeadRole && !o.audit.isLocked);
-  const canManageAssignments = isCFOOrCXOTeam(role) || isAuditHead(role) || isAuditorOrAuditHead(role);
-
-  // Debug: Verify button conditions
   console.log('[Request Change Button] isAuditorRole:', isAuditorRole, 'approvalStatus:', o.approvalStatus, 'shouldShow:', isAuditorRole && o.approvalStatus === 'APPROVED');
-
-  const getApprovalBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case "DRAFT": return "outline";
-      case "SUBMITTED": return "secondary";
-      case "APPROVED": return "default";
-      case "REJECTED": return "destructive";
-      default: return "outline";
-    }
-  };
-  const approvalLabel = humanizeStatus(o.approvalStatus);
-  const workflowLabel = humanizeStatus(o.currentStatus);
-  const riskLabel = o.riskCategory ? `Risk ${o.riskCategory}` : "Unclassified";
-  const targetDateLabel = formatDate(o.targetDate);
-  const publishedLabel = o.isPublished ? "Published" : "Unpublished";
-  const retestLabel = o.reTestResult ? formatRetest(o.reTestResult) : "Not recorded";
-
 
   return (
     <PageContainer className="space-y-4">

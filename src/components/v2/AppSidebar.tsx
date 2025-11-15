@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/v2/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/v2/avatar";
-import RoleBadge from "@/components/RoleBadge";
 import {
   isCFO,
   isCFOOrCXOTeam,

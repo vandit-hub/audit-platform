@@ -7,7 +7,6 @@ import {
   Eye,
   AlertTriangle,
   Clock,
-  User,
   Calendar,
   ArrowRight,
 } from "lucide-react";

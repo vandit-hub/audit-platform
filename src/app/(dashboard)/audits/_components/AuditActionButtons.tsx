@@ -155,6 +155,7 @@ export function AuditActionButtons({
       window.print();
       showSuccess("Print dialog opened. Use 'Save as PDF' to export.");
     } catch (err) {
+      console.error("Failed to open print dialog", err);
       showError("Failed to open print dialog.");
     } finally {
       setExportLoading(false);

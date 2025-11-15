@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/v2/input";
 import { Button } from "@/components/ui/v2/button";
-import { Card, CardContent } from "@/components/ui/v2/card";
+import { Card } from "@/components/ui/v2/card";
 import { Label } from "@/components/ui/v2/label";
 
 export default function LoginPage() {
@@ -34,7 +34,8 @@ export default function LoginPage() {
         // Redirect manually on success
         window.location.href = "/dashboard";
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Login failed", error);
       setError("An error occurred. Please try again.");
       setIsLoading(false);
     }

@@ -40,16 +40,6 @@ type AuditListItem = {
   auditHead: UserSummary | null;
 };
 
-const STATUS_BADGE_CLASSES: Record<AuditListItem["status"], string> = {
-  PLANNED: "bg-[var(--c-bacSec)] text-[var(--c-texPri)] border-transparent",
-  IN_PROGRESS:
-    "bg-[var(--ca-palUiBlu200)] border-transparent text-[var(--c-palUiBlu700)]",
-  SUBMITTED:
-    "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]",
-  SIGNED_OFF:
-    "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]",
-};
-
 export default function AuditsPage() {
   const { data: session } = useSession();
   const canManageAudits = isCFOOrCXOTeam(session?.user?.role);

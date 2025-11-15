@@ -105,6 +105,7 @@ export default function ObservationsPage() {
       setSelectedObservations([]);
       await loadRows();
     } catch (error) {
+      console.error("Failed to approve observations", error);
       showError("Failed to approve observations. Please try again.");
     } finally {
       setIsBulkActionLoading(false);
@@ -136,6 +137,7 @@ export default function ObservationsPage() {
       setSelectedObservations([]);
       await loadRows();
     } catch (error) {
+      console.error("Failed to reject observations", error);
       showError("Failed to reject observations. Please try again.");
     } finally {
       setIsBulkActionLoading(false);
@@ -181,6 +183,7 @@ export default function ObservationsPage() {
       setSelectedObservations([]);
       await loadRows();
     } catch (error) {
+      console.error("Failed to publish observations", error);
       showError("Failed to publish observations. Please try again.");
     } finally {
       setIsBulkActionLoading(false);
@@ -226,13 +229,14 @@ export default function ObservationsPage() {
       setSelectedObservations([]);
       await loadRows();
     } catch (error) {
+      console.error("Failed to unpublish observations", error);
       showError("Failed to unpublish observations. Please try again.");
     } finally {
       setIsBulkActionLoading(false);
     }
   };
 
-  const loadRows = async () => {
+  const loadRows = useCallback(async () => {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (filterAuditId) qs.set("auditId", filterAuditId);
@@ -246,7 +250,7 @@ export default function ObservationsPage() {
     const j = await res.json().catch(() => ({}));
     if (res.ok) setRows(j.observations);
     else setRows([]);
-  };
+  }, [filterAuditId, plantId, q, risk, status]);
 
   const load = async () => {
     const [pRes, aRes] = await Promise.all([
@@ -274,7 +278,7 @@ export default function ObservationsPage() {
 
   useEffect(() => {
     loadRows();
-  }, [plantId, filterAuditId, risk, status, q]); // Run when filters change
+  }, [loadRows]); // Run when filters change
 
   async function handleCreateObservation(values: CreateObservationFormValues) {
     const res = await fetch("/api/v1/observations", {

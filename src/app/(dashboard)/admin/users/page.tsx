@@ -99,6 +99,7 @@ export default function AdminUsersPage() {
           showError(errorMessage);
       }
     } catch (error) {
+      console.error("Failed to create invitation", error);
       const errorMessage = "An error occurred while creating the invitation";
       showError(errorMessage);
     } finally {

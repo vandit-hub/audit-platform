@@ -386,35 +386,53 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select
-              label="Plant"
-              value={plantId}
-              onChange={(e) => setPlantId(e.target.value)}
-            >
-              <option value="">All</option>
-              {plants.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} — {p.name}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-plant"
+              >
+                Plant
+              </label>
+              <Select value={plantId} onValueChange={setPlantId}>
+                <SelectTrigger id="reports-plant">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  {plants.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.code} — {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Audit"
-              value={auditId}
-              onChange={(e) => setAuditId(e.target.value)}
-            >
-              <option value="">All</option>
-              {audits.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.title || "Untitled"} — {a.plant.code} (
-                  {a.visitStartDate
-                    ? new Date(a.visitStartDate).toLocaleDateString()
-                    : "?"}
-                  )
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-audit"
+              >
+                Audit
+              </label>
+              <Select value={auditId} onValueChange={setAuditId}>
+                <SelectTrigger id="reports-audit">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  {audits.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.title || "Untitled"} — {a.plant.code} (
+                      {a.visitStartDate
+                        ? new Date(a.visitStartDate).toLocaleDateString()
+                        : "?"}
+                      )
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="flex flex-col gap-2">
               <label
@@ -448,53 +466,91 @@ export default function ReportsPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Select
-              label="Risk category"
-              value={risk}
-              onChange={(e) => setRisk(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-risk"
+              >
+                Risk category
+              </label>
+              <Select value={risk} onValueChange={setRisk}>
+                <SelectTrigger id="reports-risk">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="C">C</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Process"
-              value={process}
-              onChange={(e) => setProcess(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="O2C">O2C</option>
-              <option value="P2P">P2P</option>
-              <option value="R2R">R2R</option>
-              <option value="INVENTORY">Inventory</option>
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-process"
+              >
+                Process
+              </label>
+              <Select value={process} onValueChange={setProcess}>
+                <SelectTrigger id="reports-process">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="O2C">O2C</SelectItem>
+                  <SelectItem value="P2P">P2P</SelectItem>
+                  <SelectItem value="R2R">R2R</SelectItem>
+                  <SelectItem value="INVENTORY">Inventory</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="PENDING_MR">Pending MR</option>
-              <option value="MR_UNDER_REVIEW">MR Under Review</option>
-              <option value="REFERRED_BACK">Referred Back</option>
-              <option value="OBSERVATION_FINALISED">
-                Observation Finalised
-              </option>
-              <option value="RESOLVED">Resolved</option>
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-status"
+              >
+                Status
+              </label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="reports-status">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="PENDING_MR">Pending MR</SelectItem>
+                  <SelectItem value="MR_UNDER_REVIEW">
+                    MR Under Review
+                  </SelectItem>
+                  <SelectItem value="REFERRED_BACK">Referred Back</SelectItem>
+                  <SelectItem value="OBSERVATION_FINALISED">
+                    Observation Finalised
+                  </SelectItem>
+                  <SelectItem value="RESOLVED">Resolved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select
-              label="Published"
-              value={published}
-              onChange={(e) => setPublished(e.target.value)}
-            >
-              <option value="">Any</option>
-              <option value="1">Published</option>
-              <option value="0">Unpublished</option>
-            </Select>
+            <div className="flex flex-col gap-2">
+              <label
+                className="text-sm font-medium text-[var(--c-texSec)]"
+                htmlFor="reports-published"
+              >
+                Published
+              </label>
+              <Select value={published} onValueChange={setPublished}>
+                <SelectTrigger id="reports-published">
+                  <SelectValue placeholder="Any" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value="1">Published</SelectItem>
+                  <SelectItem value="0">Unpublished</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-[var(--border-color-regular)] pt-4">

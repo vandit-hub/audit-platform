@@ -77,7 +77,7 @@ export default function AIAssistantPage() {
         if (payload?.error && typeof payload.error === "string") {
           message = payload.error;
         }
-      } catch (err) {
+      } catch {
         // no-op, keep fallback message
       }
       throw new Error(message);
@@ -180,11 +180,6 @@ export default function AIAssistantPage() {
 
   // ChatPane will notify parent when messages change
 
-  const activeSession = useMemo(
-    () => sessions.find((item) => item.id === activeSessionId) || null,
-    [sessions, activeSessionId],
-  );
-
   const filteredSessions = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) {
@@ -211,59 +206,6 @@ export default function AIAssistantPage() {
       setUiError("Unable to start a new conversation.");
     }
   }, [createSession, loadSession, refreshSessions]);
-
-  const handleRenameConversation = useCallback(async () => {
-    if (!activeSessionId) return;
-    const current = sessions.find((item) => item.id === activeSessionId);
-    const nextTitle = window.prompt("Rename conversation", current?.title ?? "");
-    if (nextTitle === null) return;
-
-    try {
-      const res = await fetch(`/api/v1/ai/sessions/${activeSessionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: nextTitle }),
-      });
-      if (!res.ok) {
-        throw new Error("Failed to rename conversation");
-      }
-      await refreshSessions();
-    } catch (err) {
-      console.error(err);
-      setUiError("Unable to rename this conversation.");
-    }
-  }, [activeSessionId, refreshSessions, sessions]);
-
-  const handleDeleteConversation = useCallback(async () => {
-    if (!activeSessionId) return;
-    const confirmDelete = window.confirm(
-      "Delete this conversation? This cannot be undone.",
-    );
-    if (!confirmDelete) return;
-
-    try {
-      const res = await fetch(`/api/v1/ai/sessions/${activeSessionId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to delete conversation");
-      }
-      let list = await refreshSessions();
-      if (list.length === 0) {
-        await createSession();
-        list = await refreshSessions();
-      }
-      if (list.length > 0) {
-        await loadSession(list[0].id);
-      } else {
-        setActiveSessionId(null);
-        setActiveSessionMessages([]);
-      }
-    } catch (err) {
-      console.error(err);
-      setUiError("Unable to delete this conversation.");
-    }
-  }, [activeSessionId, createSession, loadSession, refreshSessions]);
 
   const formatTimestamp = (iso: string | null) => {
     if (!iso) return "No activity yet";

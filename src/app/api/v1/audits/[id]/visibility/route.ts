@@ -40,6 +40,7 @@ export async function POST(
   try {
     validatedRules = visibilitySchema.parse(rules);
   } catch (err) {
+    console.error("Invalid visibility rules payload", err);
     return NextResponse.json(
       { error: "Invalid visibility rules format" },
       { status: 400 }

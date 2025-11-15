@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Building2,
@@ -128,11 +128,7 @@ export default function PlantsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const { showError, showSuccess } = useToast();
 
-  useEffect(() => {
-    loadPlants();
-  }, []);
-
-  async function loadPlants() {
+  const loadPlants = useCallback(async () => {
     setIsFetching(true);
     try {
       const res = await fetch("/api/v1/plants?withStats=1", { cache: "no-store" });
@@ -148,7 +144,11 @@ export default function PlantsPage() {
     } finally {
       setIsFetching(false);
     }
-  }
+  }, [showError]);
+
+  useEffect(() => {
+    loadPlants();
+  }, [loadPlants]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
