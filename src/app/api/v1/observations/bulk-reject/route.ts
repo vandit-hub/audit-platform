@@ -20,7 +20,7 @@ interface ValidationError {
  * RBAC v2: Bulk Reject Observations
  *
  * Rejects multiple observations in a single transaction (all-or-nothing).
- * Rejection sends observations back to DRAFT so auditors can make changes and resubmit.
+ * Rejection keeps observations in REJECTED so auditors can make changes and resubmit.
  * Only AUDIT_HEAD for the specific audits can reject (CFO can override).
  *
  * Authorization:
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check approval status - can only reject if SUBMITTED
+    // Check approval status - can only reject if SUBMITTED or APPROVED
     if (obs.approvalStatus === "DRAFT") {
       validationErrors.push({
         observationId: obs.id,
@@ -120,13 +120,6 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    if (obs.approvalStatus === "APPROVED") {
-      validationErrors.push({
-        observationId: obs.id,
-        error: "Cannot reject an approved observation. Use change request workflow if needed."
-      });
-      continue;
-    }
   }
 
   // If any validation failed, return all errors and don't proceed
@@ -147,7 +140,8 @@ export async function POST(req: NextRequest) {
           id: { in: input.observationIds }
         },
         data: {
-          approvalStatus: "REJECTED"
+          approvalStatus: "REJECTED",
+          isPublished: false
         }
       });
 
@@ -166,7 +160,12 @@ export async function POST(req: NextRequest) {
 
     // After successful transaction, log audit events and send notifications
     // These are done outside the transaction as they should not cause rollback
+    const observationMap = new Map(observations.map(o => [o.id, o]));
+
     for (const obsId of input.observationIds) {
+      const original = observationMap.get(obsId);
+      const wasPublished = original?.isPublished ?? false;
+
       // Log audit event (never throws)
       await writeAuditEvent({
         entityType: "OBSERVATION",
@@ -175,9 +174,15 @@ export async function POST(req: NextRequest) {
         actorId: userId,
         diff: {
           approvalStatus: {
-            from: "SUBMITTED",
+            from: original?.approvalStatus ?? "SUBMITTED",
             to: "REJECTED"
           },
+          ...(wasPublished ? {
+            isPublished: {
+              from: true,
+              to: false
+            }
+          } : {}),
           comment: input.comment,
           bulkOperation: true
         }
@@ -186,6 +191,7 @@ export async function POST(req: NextRequest) {
       // Broadcast WebSocket notification
       notifyObservationUpdate(obsId, {
         approvalStatus: "REJECTED",
+        ...(wasPublished ? { isPublished: false } : {}),
         updatedBy: session.user.email
       });
     }

@@ -13,7 +13,7 @@ const rejectSchema = z.object({
 /**
  * RBAC v2: Reject Observation
  *
- * Transitions an observation from SUBMITTED to REJECTED state.
+ * Transitions an observation from SUBMITTED/APPROVED to REJECTED state.
  * Rejection keeps the observation in REJECTED until the auditor edits and resubmits it.
  * Only AUDIT_HEAD for the specific audit can reject (CFO can override).
  *
@@ -24,7 +24,7 @@ const rejectSchema = z.object({
  *
  * Blocked by:
  * - Audit lock (unless CFO)
- * - Observation not in SUBMITTED status
+ * - Observation not in SUBMITTED or APPROVED status
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  // Check current approval status - can only reject if SUBMITTED
+  // Check current approval status - can only reject if SUBMITTED or APPROVED
   if (obs.approvalStatus === "DRAFT") {
     return NextResponse.json({
       ok: false,
@@ -91,18 +91,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { status: 400 });
   }
 
-  if (obs.approvalStatus === "APPROVED") {
-    return NextResponse.json({
-      ok: false,
-      error: "Cannot reject an approved observation. Use change request workflow if needed."
-    }, { status: 400 });
-  }
+  const shouldUnpublish = obs.isPublished;
 
-  // Update observation to REJECTED status
+  // Update observation to REJECTED status (and unpublish if needed)
   const updated = await prisma.observation.update({
     where: { id },
     data: {
-      approvalStatus: "REJECTED"
+      approvalStatus: "REJECTED",
+      ...(shouldUnpublish ? { isPublished: false } : {})
     }
   });
 
@@ -124,9 +120,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     actorId: session.user.id,
     diff: {
       approvalStatus: {
-        from: "SUBMITTED",
+        from: obs.approvalStatus,
         to: "REJECTED"
       },
+      ...(shouldUnpublish ? {
+        isPublished: {
+          from: true,
+          to: false
+        }
+      } : {}),
       comment: input.comment
     }
   });
@@ -134,6 +136,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Broadcast WebSocket notification
   notifyObservationUpdate(id, {
     approvalStatus: "REJECTED",
+    ...(shouldUnpublish ? { isPublished: false } : {}),
     updatedBy: session.user.email
   });
 

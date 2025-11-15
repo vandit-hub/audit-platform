@@ -892,11 +892,15 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   size="sm"
                   className="h-8 px-3"
                   onClick={() => approve(false)}
-                  disabled={o.approvalStatus !== 'APPROVED'}
+                  disabled={!(o.approvalStatus === 'SUBMITTED' || o.approvalStatus === 'APPROVED')}
+                  title={o.approvalStatus === 'DRAFT'
+                    ? 'Submit the observation before rejecting.'
+                    : undefined}
                   style={{
                     background: 'var(--c-palUiRed600)',
                     color: 'white',
-                    opacity: o.approvalStatus !== 'APPROVED' ? 0.5 : 1
+                    opacity: !(o.approvalStatus === 'SUBMITTED' || o.approvalStatus === 'APPROVED') ? 0.5 : 1,
+                    cursor: !(o.approvalStatus === 'SUBMITTED' || o.approvalStatus === 'APPROVED') ? 'not-allowed' : 'pointer'
                   }}
                 >
                   Reject

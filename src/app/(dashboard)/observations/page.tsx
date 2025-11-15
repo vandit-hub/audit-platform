@@ -512,11 +512,17 @@ export default function ObservationsPage() {
                       {isBulkActionLoading ? "Processing..." : "Publish"}
                     </Button>
                     <Button
-                      variant="secondary"
+                      variant="default"
                       size="sm"
                       onClick={handleBulkUnpublish}
                       disabled={isBulkActionLoading || !canExecuteBulkPublish}
                       title={bulkPublishWarning || undefined}
+                      style={{
+                        background: 'var(--c-palUiRed600)',
+                        color: 'white',
+                        opacity: isBulkActionLoading || !canExecuteBulkPublish ? 0.5 : 1,
+                        cursor: isBulkActionLoading || !canExecuteBulkPublish ? 'not-allowed' : 'pointer'
+                      }}
                     >
                       {isBulkActionLoading ? "Processing..." : "Unpublish"}
                     </Button>
