@@ -3,9 +3,10 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import { Input } from "@/components/ui/v2/input";
+import { Button } from "@/components/ui/v2/button";
+import { Card } from "@/components/ui/v2/card";
+import { Label } from "@/components/ui/v2/label";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +34,8 @@ export default function LoginPage() {
         // Redirect manually on success
         window.location.href = "/dashboard";
       }
-    } catch (err) {
+    } catch (error) {
+      console.error("Login failed", error);
       setError("An error occurred. Please try again.");
       setIsLoading(false);
     }
@@ -51,7 +53,7 @@ export default function LoginPage() {
           <p className="text-neutral-600 mt-2">Sign in to your account</p>
         </div>
 
-        <Card padding="lg">
+        <Card className="p-6">
           {accepted && (
             <div className="mb-4 text-sm text-success-700 bg-success-50 border border-success-200 p-3 rounded-md">
               ✓ Invite accepted successfully. Please log in to continue.
@@ -64,30 +66,36 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={onSubmit} className="space-y-4">
-            <Input
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              autoFocus
-            />
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                autoFocus
+              />
+            </div>
 
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
             <Button
               type="submit"
-              variant="primary"
+              variant="default"
               className="w-full"
-              isLoading={isLoading}
+              disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>

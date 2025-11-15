@@ -8,6 +8,82 @@ const schema = z.object({
   checklistId: z.string().min(1)
 });
 
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
+
+  const audit = await prisma.audit.findUnique({
+    where: { id },
+    include: {
+      assignments: {
+        include: {
+          auditor: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          }
+        }
+      }
+    }
+  });
+  if (!audit) return NextResponse.json({ ok: false, error: "Audit not found" }, { status: 404 });
+
+  const auditChecklists = await prisma.auditChecklist.findMany({
+    where: { auditId: id },
+    include: {
+      checklist: {
+        include: {
+          items: true
+        }
+      },
+      items: true
+    }
+  });
+
+  // Get assigned auditors
+  const assignedAuditors = audit.assignments.map(a => a.auditor);
+
+  // Calculate progress for each checklist
+  const checklists = auditChecklists.map((ac, index) => {
+    const totalItems = ac.items.length;
+    const completedItems = ac.items.filter(item => item.status === "DONE").length;
+    const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+    // Determine status based on progress
+    let status: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+    if (progress === 100) {
+      status = "COMPLETED";
+    } else if (progress > 0) {
+      status = "IN_PROGRESS";
+    } else {
+      status = "NOT_STARTED";
+    }
+
+    // Distribute auditors across checklists (round-robin for simplicity)
+    const assignedAuditor = assignedAuditors.length > 0
+      ? assignedAuditors[index % assignedAuditors.length]
+      : null;
+
+    return {
+      id: ac.id,
+      checklistId: ac.checklistId,
+      name: ac.checklist.name,
+      description: ac.checklist.description,
+      status,
+      progress,
+      totalItems,
+      completedItems,
+      assignedAuditor,
+      createdAt: ac.createdAt
+    };
+  });
+
+  return NextResponse.json({ ok: true, checklists });
+}
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();

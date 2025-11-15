@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useState, FormEvent, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/contexts/ToastContext";
-import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import { Card } from "@/components/ui/v2/card";
+import { Input } from "@/components/ui/v2/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
+import { Button } from "@/components/ui/v2/button";
+import { Label } from "@/components/ui/v2/label";
+import { Badge } from "@/components/ui/v2/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PageContainer } from "@/components/v2/PageContainer";
 import { isAuditorOrAuditHead } from "@/lib/rbac";
+import { CreateObservationDialog, CreateObservationFormValues } from "./_components/CreateObservationDialog";
 
 type Plant = { id: string; code: string; name: string };
 type Audit = { id: string; title?: string | null; startDate: string | null; endDate: string | null; plant: Plant; isLocked?: boolean };
 type ObservationRow = {
   id: string;
   plant: Plant;
-  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null; isLocked?: boolean };
+  audit: { id: string; title?: string | null; startDate: string | null; endDate: string | null; isLocked?: boolean; auditHeadId?: string | null };
   riskCategory?: "A" | "B" | "C" | null;
   concernedProcess?: "O2C" | "P2P" | "R2R" | "INVENTORY" | null;
   currentStatus: "PENDING" | "IN_PROGRESS" | "RESOLVED";
@@ -31,6 +35,7 @@ type ObservationRow = {
 export default function ObservationsPage() {
   const { data: session } = useSession();
   const role = session?.user?.role;
+  const userId = session?.user?.id ?? null;
   const { showSuccess, showError } = useToast();
 
   const [plants, setPlants] = useState<Plant[]>([]);
@@ -39,55 +44,213 @@ export default function ObservationsPage() {
 
   const [plantId, setPlantId] = useState("");
   const [filterAuditId, setFilterAuditId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [risk, setRisk] = useState("");
-  const [proc, setProc] = useState("");
   const [status, setStatus] = useState("");
-  const [published, setPublished] = useState("");
   const [q, setQ] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState("desc");
 
-  // create form
-  const [auditId, setAuditId] = useState("");
-  const [observationText, setObservationText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Bulk action state
+  const [selectedObservations, setSelectedObservations] = useState<string[]>([]);
+  const [isBulkActionLoading, setIsBulkActionLoading] = useState(false);
 
   const resetFilters = useCallback(() => {
     setPlantId("");
     setFilterAuditId("");
-    setStartDate("");
-    setEndDate("");
     setRisk("");
-    setProc("");
     setStatus("");
-    setPublished("");
     setQ("");
-    setSortBy("createdAt");
-    setSortOrder("desc");
     showSuccess("Filters reset successfully!");
   }, [showSuccess]);
 
-  const loadRows = async () => {
+  // Bulk action handlers
+  const handleSelectAll = () => {
+    if (selectedObservations.length === rows.length && rows.length > 0) {
+      setSelectedObservations([]);
+    } else {
+      setSelectedObservations(rows.map(r => r.id));
+    }
+  };
+
+  const handleSelectObservation = (id: string) => {
+    setSelectedObservations(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(obsId => obsId !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-approve", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to approve observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully approved ${data.approved} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      console.error("Failed to approve observations", error);
+      showError("Failed to approve observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedObservations.length === 0) return;
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-reject", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to reject observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully rejected ${data.rejected} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      console.error("Failed to reject observations", error);
+      showError("Failed to reject observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkPublish = async () => {
+    if (selectedObservations.length === 0) return;
+
+    if (!isCfo) {
+      const rowsToPublish = rows.filter(r => selectedObservations.includes(r.id));
+      const ownsAll = rowsToPublish.every(r => r.audit?.auditHeadId === userId);
+      if (!ownsAll) {
+        showError("You can only publish observations for audits you lead.");
+        return;
+      }
+      const locked = rowsToPublish.some(r => r.audit?.isLocked);
+      if (locked) {
+        showError("One or more selected audits are locked. Unlock them before publishing.");
+        return;
+      }
+    }
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-publish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to publish observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully published ${data.published} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      console.error("Failed to publish observations", error);
+      showError("Failed to publish observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const handleBulkUnpublish = async () => {
+    if (selectedObservations.length === 0) return;
+
+    if (!isCfo) {
+      const rowsToUnpublish = rows.filter(r => selectedObservations.includes(r.id));
+      const ownsAll = rowsToUnpublish.every(r => r.audit?.auditHeadId === userId);
+      if (!ownsAll) {
+        showError("You can only unpublish observations for audits you lead.");
+        return;
+      }
+      const locked = rowsToUnpublish.some(r => r.audit?.isLocked);
+      if (locked) {
+        showError("One or more selected audits are locked. Unlock them before unpublishing.");
+        return;
+      }
+    }
+
+    setIsBulkActionLoading(true);
+    try {
+      const res = await fetch("/api/v1/observations/bulk-unpublish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ observationIds: selectedObservations })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.validationErrors) {
+          showError(`Validation failed: ${data.validationErrors.map((e: any) => e.error).join(", ")}`);
+        } else {
+          showError(data.error || "Failed to unpublish observations");
+        }
+        return;
+      }
+
+      showSuccess(`Successfully unpublished ${data.unpublished} observation(s)`);
+      setSelectedObservations([]);
+      await loadRows();
+    } catch (error) {
+      console.error("Failed to unpublish observations", error);
+      showError("Failed to unpublish observations. Please try again.");
+    } finally {
+      setIsBulkActionLoading(false);
+    }
+  };
+
+  const loadRows = useCallback(async () => {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (filterAuditId) qs.set("auditId", filterAuditId);
-    if (startDate) qs.set("startDate", startDate);
-    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
-    if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
-    if (published) qs.set("published", published);
     if (q) qs.set("q", q);
-    if (sortBy) qs.set("sortBy", sortBy);
-    if (sortOrder) qs.set("sortOrder", sortOrder);
+    // Hardcoded sort by createdAt desc
+    qs.set("sortBy", "createdAt");
+    qs.set("sortOrder", "desc");
     const res = await fetch(`/api/v1/observations?${qs.toString()}`, { cache: "no-store" });
     const j = await res.json().catch(() => ({}));
     if (res.ok) setRows(j.observations);
     else setRows([]);
-  };
+  }, [filterAuditId, plantId, q, risk, status]);
 
   const load = async () => {
     const [pRes, aRes] = await Promise.all([
@@ -115,231 +278,282 @@ export default function ObservationsPage() {
 
   useEffect(() => {
     loadRows();
-  }, [plantId, filterAuditId, startDate, endDate, risk, proc, status, published, q, sortBy, sortOrder]); // Run when filters change
+  }, [loadRows]); // Run when filters change
 
-  async function create(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/v1/observations", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ auditId, observationText })
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Failed");
-      const selectedAudit = audits.find(a => a.id === auditId);
-      setAuditId("");
-      setObservationText("");
-      await loadRows();
-      showSuccess(`Observation created successfully for ${selectedAudit?.plant.name || "selected audit"}!`);
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to create observation";
-      setError(errorMessage);
-      showError(errorMessage);
-    } finally {
-      setBusy(false);
-    }
+  async function handleCreateObservation(values: CreateObservationFormValues) {
+    const res = await fetch("/api/v1/observations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(values)
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || "Failed to create observation");
+    const selectedAudit = audits.find(a => a.id === values.auditId);
+    await loadRows();
+    showSuccess(`Observation created successfully for ${selectedAudit?.plant.name || "selected audit"}!`);
   }
 
   function exportCsv() {
     const qs = new URLSearchParams();
     if (plantId) qs.set("plantId", plantId);
     if (filterAuditId) qs.set("auditId", filterAuditId);
-    if (startDate) qs.set("startDate", startDate);
-    if (endDate) qs.set("endDate", endDate);
     if (risk) qs.set("risk", risk);
-    if (proc) qs.set("process", proc);
     if (status) qs.set("status", status);
-    if (published) qs.set("published", published);
     if (q) qs.set("q", q);
-    if (sortBy) qs.set("sortBy", sortBy);
-    if (sortOrder) qs.set("sortOrder", sortOrder);
+    // Hardcoded sort by createdAt desc
+    qs.set("sortBy", "createdAt");
+    qs.set("sortOrder", "desc");
     window.location.href = `/api/v1/observations/export?${qs.toString()}`;
     showSuccess("CSV export started! Download will begin shortly.");
   }
 
-  const canCreate = isAuditorOrAuditHead(role);
+  const canCreate = role === "CFO" || isAuditorOrAuditHead(role);
 
-  const statusVariant = (status: string) => {
-    if (status.includes("DRAFT")) return "neutral";
-    if (status.includes("SUBMITTED") || status.includes("UNDER_REVIEW")) return "warning";
-    if (status.includes("APPROVED") || status.includes("RESOLVED") || status.includes("FINALISED")) return "success";
-    if (status.includes("REJECTED") || status.includes("REFERRED")) return "error";
-    return "primary";
+  // Check if user can perform bulk actions
+  const isCfo = role === "CFO";
+  const isAuditHeadRole = role === "AUDIT_HEAD";
+  const canBulkApproveReject = isCfo || isAuditHeadRole;
+  const canBulkPublishUnpublish = isCfo || isAuditHeadRole;
+  const canUseBulkActions = canBulkApproveReject || canBulkPublishUnpublish;
+
+  const selectedRows = rows.filter(r => selectedObservations.includes(r.id));
+  const auditHeadOwnsSelection =
+    isAuditHeadRole && selectedRows.length > 0
+      ? selectedRows.every(r => r.audit?.auditHeadId === userId)
+      : false;
+  const selectionHasLockedAudit =
+    isAuditHeadRole && selectedRows.length > 0
+      ? selectedRows.some(r => r.audit?.isLocked)
+      : false;
+  const canExecuteBulkPublish = isCfo || (auditHeadOwnsSelection && !selectionHasLockedAudit);
+  const bulkPublishWarning =
+    !canExecuteBulkPublish && canBulkPublishUnpublish && selectedObservations.length > 0
+      ? selectionHasLockedAudit
+        ? "Selected audits are locked."
+        : "You can only publish/unpublish observations for unlocked audits you lead."
+      : null;
+  const allSelected = rows.length > 0 && selectedObservations.length === rows.length;
+  const someSelected = selectedObservations.length > 0 && selectedObservations.length < rows.length;
+
+  const statusBadgeClass = (status: string) => {
+    const upper = status.toUpperCase();
+    if (upper.includes("DRAFT")) {
+      return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
+    }
+    if (upper.includes("SUBMITTED") || upper.includes("UNDER_REVIEW")) {
+      return "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]";
+    }
+    if (upper.includes("APPROVED") || upper.includes("RESOLVED") || upper.includes("FINALISED")) {
+      return "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]";
+    }
+    if (upper.includes("REJECTED") || upper.includes("REFERRED")) {
+      return "bg-[var(--c-palUiRed100)] border-transparent text-[var(--c-palUiRed600)]";
+    }
+    return "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]";
   };
 
-  const riskVariant = (risk: string | null | undefined) => {
-    if (risk === "A") return "error";
-    if (risk === "B") return "warning";
-    if (risk === "C") return "neutral";
-    return "neutral";
+  const riskBadgeClass = (risk: string | null | undefined) => {
+    if (risk === "A") {
+      return "bg-[var(--c-palUiRed100)] border-transparent text-[var(--c-palUiRed600)]";
+    }
+    if (risk === "B") {
+      return "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]";
+    }
+    if (risk === "C") {
+      return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
+    }
+    return "bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]";
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Observations</h1>
-        <p className="text-base text-neutral-600 mt-2">Track and manage audit findings</p>
-      </div>
+    <PageContainer className="space-y-8">
+      <header className="flex items-start justify-between gap-4">
+        <div className="space-y-2 flex-1">
+          <h1
+            className="text-3xl font-semibold"
+            style={{ color: "var(--c-texPri)" }}
+          >
+            Observations
+          </h1>
+          <p
+            className="text-sm md:text-base"
+            style={{ color: "var(--c-texSec)" }}
+          >
+            Track and manage audit findings across plants with advanced filters.
+          </p>
+        </div>
+        {canCreate && (
+          <CreateObservationDialog
+            audits={audits}
+            onCreate={handleCreateObservation}
+          />
+        )}
+      </header>
 
-      <Card padding="lg">
+      <Card className="p-6">
         <h2 className="text-xl font-semibold text-neutral-900 mb-6">Filter Observations</h2>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Basic Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Select label="Plant" value={plantId} onChange={(e) => setPlantId(e.target.value)}>
-                <option value="">All Plants</option>
-                {plants.map((p) => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
-              </Select>
 
-              <Select label="Audit" value={filterAuditId} onChange={(e) => setFilterAuditId(e.target.value)}>
-                <option value="">All Audits</option>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="space-y-2">
+            <Label>Plant</Label>
+            <Select value={plantId} onValueChange={setPlantId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Plants" />
+              </SelectTrigger>
+              <SelectContent>
+                {plants.map((p) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Audit</Label>
+            <Select value={filterAuditId} onValueChange={setFilterAuditId}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Audits" />
+              </SelectTrigger>
+              <SelectContent>
                 {audits.map((a) => (
-                  <option key={a.id} value={a.id}>
+                  <SelectItem key={a.id} value={a.id}>
                     {a.title || `${a.plant.code} — ${a.startDate ? new Date(a.startDate).toLocaleDateString() : "No date"}`}
-                  </option>
+                  </SelectItem>
                 ))}
-              </Select>
-
-              <Input
-                type="date"
-                label="Audit Start Date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Audit End Date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Advanced Filters</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Select label="Risk Category" value={risk} onChange={(e) => setRisk(e.target.value)}>
-                <option value="">All Risks</option>
-                <option value="A">Risk A (High)</option>
-                <option value="B">Risk B (Medium)</option>
-                <option value="C">Risk C (Low)</option>
-              </Select>
-
-              <Select label="Process" value={proc} onChange={(e) => setProc(e.target.value)}>
-                <option value="">All Processes</option>
-                <option value="O2C">O2C</option>
-                <option value="P2P">P2P</option>
-                <option value="R2R">R2R</option>
-                <option value="INVENTORY">Inventory</option>
-              </Select>
-
-              <Select label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">All Statuses</option>
-                <option value="PENDING_MR">Pending MR</option>
-                <option value="MR_UNDER_REVIEW">MR Under Review</option>
-                <option value="REFERRED_BACK">Referred Back</option>
-                <option value="OBSERVATION_FINALISED">Observation Finalised</option>
-                <option value="RESOLVED">Resolved</option>
-              </Select>
-
-              <Select label="Published" value={published} onChange={(e) => setPublished(e.target.value)}>
-                <option value="">Any</option>
-                <option value="1">Published</option>
-                <option value="0">Unpublished</option>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Risk Level</Label>
+            <Select value={risk} onValueChange={setRisk}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Risks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="A">Risk A (High)</SelectItem>
+                <SelectItem value="B">Risk B (Medium)</SelectItem>
+                <SelectItem value="C">Risk C (Low)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wider">Sort & Search</h3>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Select label="Sort By" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                <option value="createdAt">Created Date</option>
-                <option value="updatedAt">Updated Date</option>
-                <option value="riskCategory">Risk Category</option>
-                <option value="currentStatus">Current Status</option>
-                <option value="approvalStatus">Approval Status</option>
-              </Select>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING_MR">Pending MR</SelectItem>
+                <SelectItem value="MR_UNDER_REVIEW">MR Under Review</SelectItem>
+                <SelectItem value="REFERRED_BACK">Referred Back</SelectItem>
+                <SelectItem value="OBSERVATION_FINALISED">Observation Finalised</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-              <Select label="Order" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-                <option value="desc">Newest First</option>
-                <option value="asc">Oldest First</option>
-              </Select>
-
-              <Input
-                label="Search"
-                placeholder="Search observations..."
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Search</Label>
+            <Input
+              placeholder="Search observations..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 pt-2 border-t border-neutral-100">
+        <div className="flex flex-wrap gap-3 pt-4 border-t border-neutral-200">
           <Button variant="secondary" onClick={resetFilters}>Reset Filters</Button>
           <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
         </div>
       </Card>
 
-      {canCreate && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Observation (Admin/Auditor)</h2>
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-          <form onSubmit={create} className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              <Select
-                label="Audit"
-                value={auditId}
-                onChange={(e) => setAuditId(e.target.value)}
-                required
-                className="md:col-span-1"
-              >
-                <option value="">Select audit</option>
-                {audits.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.title || `${a.plant.code} — ${a.plant.name} (${a.startDate ? new Date(a.startDate).toLocaleDateString() : "?"})`}
-                  </option>
-                ))}
-              </Select>
-
-              <Input
-                label="Observation"
-                value={observationText}
-                onChange={(e) => setObservationText(e.target.value)}
-                required
-                className="md:col-span-2"
-                placeholder="Enter observation details..."
-              />
-            </div>
-
-            <Button type="submit" variant="primary" isLoading={busy}>
-              {busy ? "Creating…" : "Create Observation"}
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      <Card padding="lg">
+      <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-neutral-900">Results</h2>
           <span className="text-sm font-medium text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-md">
             {rows.length} {rows.length === 1 ? 'observation' : 'observations'}
           </span>
         </div>
+
+        {/* Bulk Action Toolbar */}
+        {canUseBulkActions && selectedObservations.length > 0 && (
+          <div className="mb-4 p-4 bg-primary-50 border border-primary-200 rounded-lg flex items-center justify-between">
+            <span className="text-sm font-medium text-primary-900">
+              {selectedObservations.length} observation(s) selected
+            </span>
+            <div className="flex gap-2 flex-wrap justify-end">
+              {canBulkApproveReject && (
+                <>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleBulkApprove}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Approve"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkReject}
+                    disabled={isBulkActionLoading}
+                  >
+                    {isBulkActionLoading ? "Processing..." : "Reject"}
+                  </Button>
+                </>
+              )}
+              {canBulkPublishUnpublish && (
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleBulkPublish}
+                      disabled={isBulkActionLoading || !canExecuteBulkPublish}
+                      title={bulkPublishWarning || undefined}
+                    >
+                      {isBulkActionLoading ? "Processing..." : "Publish"}
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleBulkUnpublish}
+                      disabled={isBulkActionLoading || !canExecuteBulkPublish}
+                      title={bulkPublishWarning || undefined}
+                      style={{
+                        background: 'var(--c-palUiRed600)',
+                        color: 'white',
+                        opacity: isBulkActionLoading || !canExecuteBulkPublish ? 0.5 : 1,
+                        cursor: isBulkActionLoading || !canExecuteBulkPublish ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isBulkActionLoading ? "Processing..." : "Unpublish"}
+                    </Button>
+                  </div>
+                  {bulkPublishWarning && (
+                    <span className="text-xs text-warning-800 text-right">{bulkPublishWarning}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
+                {canUseBulkActions && (
+                  <th className="py-4 px-6 w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all observations"
+                      {...(someSelected && { "data-indeterminate": true })}
+                    />
+                  </th>
+                )}
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit</th>
                 <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Status</th>
@@ -353,20 +567,29 @@ export default function ObservationsPage() {
             <tbody className="divide-y divide-neutral-100">
               {rows.map((r, index) => (
                 <tr key={r.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
+                  {canUseBulkActions && (
+                    <td className="py-4 px-6">
+                      <Checkbox
+                        checked={selectedObservations.includes(r.id)}
+                        onCheckedChange={() => handleSelectObservation(r.id)}
+                        aria-label={`Select observation ${r.title}`}
+                      />
+                    </td>
+                  )}
                   <td className="py-4 px-6 font-medium text-neutral-900">{r.plant.code}</td>
                   <td className="py-4 px-6 text-neutral-700 text-xs">
                     {r.audit.title || (r.audit.startDate ? r.audit.startDate.split('T')[0] : "—")}
                   </td>
                   <td className="py-4 px-6">
                     {r.audit.isLocked ? (
-                      <Badge variant="warning">
+                      <Badge className="bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]">
                         <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                         Locked
                       </Badge>
                     ) : (
-                      <Badge variant="neutral">Open</Badge>
+                      <Badge className="bg-[var(--c-bacSec)] border-transparent text-[var(--c-texSec)]">Open</Badge>
                     )}
                   </td>
                   <td className="py-4 px-6 max-w-xs">
@@ -376,18 +599,20 @@ export default function ObservationsPage() {
                   </td>
                   <td className="py-4 px-6">
                     {r.riskCategory ? (
-                      <Badge variant={riskVariant(r.riskCategory)}>{r.riskCategory}</Badge>
+                      <Badge className={riskBadgeClass(r.riskCategory)}>
+                        {r.riskCategory}
+                      </Badge>
                     ) : (
                       <span className="text-neutral-400">—</span>
                     )}
                   </td>
                   <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.currentStatus)}>
+                    <Badge className={statusBadgeClass(r.currentStatus)}>
                       {r.currentStatus.replace("_", " ")}
                     </Badge>
                   </td>
                   <td className="py-4 px-6">
-                    <Badge variant={statusVariant(r.approvalStatus)}>
+                    <Badge className={statusBadgeClass(r.approvalStatus)}>
                       {r.approvalStatus}
                     </Badge>
                   </td>
@@ -403,7 +628,7 @@ export default function ObservationsPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td className="py-8 text-neutral-500 text-center" colSpan={8}>
+                  <td className="py-8 text-neutral-500 text-center" colSpan={canUseBulkActions ? 9 : 8}>
                     No observations found. Try adjusting your filters.
                   </td>
                 </tr>
@@ -412,6 +637,6 @@ export default function ObservationsPage() {
           </table>
         </div>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

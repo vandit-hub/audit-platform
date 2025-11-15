@@ -13,7 +13,9 @@ const createSchema = z.object({
   visitEndDate: z.string().datetime().optional(),
   visitDetails: z.string().optional(),
   managementResponseDate: z.string().datetime().optional(),
-  finalPresentationDate: z.string().datetime().optional()
+  finalPresentationDate: z.string().datetime().optional(),
+  auditHeadId: z.string().min(1).optional(),
+  auditorIds: z.array(z.string().min(1)).optional()
 });
 
 export async function GET(req: NextRequest) {
@@ -61,6 +63,7 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       plant: true,
+      auditHead: { select: { id: true, name: true, email: true } },
       assignments: { include: { auditor: { select: { id: true, name: true, email: true } } } }
     },
     orderBy: { createdAt: "desc" }
@@ -117,11 +120,15 @@ export async function GET(req: NextRequest) {
     id: a.id,
     plant: a.plant,
     title: a.title,
+    purpose: a.purpose,
     visitStartDate: a.visitStartDate,
     visitEndDate: a.visitEndDate,
     status: a.status,
+    isLocked: a.isLocked,
+    completedAt: a.completedAt,
     createdAt: a.createdAt,
     assignments: a.assignments.map((as) => as.auditor),
+    auditHead: a.auditHead ? { id: a.auditHead.id, name: a.auditHead.name, email: a.auditHead.email } : null,
     progress: { done: resolved.get(a.id) ?? 0, total: totals.get(a.id) ?? 0 }
   }));
 
@@ -143,7 +150,39 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const input = createSchema.parse(body);
 
-  const audit = await prisma.audit.create({
+  const auditorIds = Array.from(new Set(input.auditorIds ?? [])).filter(Boolean);
+
+  if (input.auditHeadId) {
+    const auditHead = await prisma.user.findUnique({
+      where: { id: input.auditHeadId },
+      select: { id: true, role: true }
+    });
+    if (!auditHead || auditHead.role !== "AUDIT_HEAD") {
+      return NextResponse.json(
+        { error: "auditHeadId must reference a user with role AUDIT_HEAD" },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (auditorIds.length > 0) {
+    const auditors = await prisma.user.findMany({
+      where: { id: { in: auditorIds } },
+      select: { id: true, role: true }
+    });
+    const invalid = auditorIds.filter(
+      (id) => !auditors.some((auditor) => auditor.id === id && auditor.role === "AUDITOR")
+    );
+    if (invalid.length > 0) {
+      return NextResponse.json(
+        { error: "auditorIds must reference users with role AUDITOR" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const createdAudit = await prisma.$transaction(async (tx) => {
+    const audit = await tx.audit.create({
     data: {
       plantId: input.plantId,
       title: input.title ?? null,
@@ -153,19 +192,52 @@ export async function POST(req: NextRequest) {
       visitDetails: input.visitDetails ?? null,
       managementResponseDate: input.managementResponseDate ? new Date(input.managementResponseDate) : null,
       finalPresentationDate: input.finalPresentationDate ? new Date(input.finalPresentationDate) : null,
+        auditHeadId: input.auditHeadId ?? null,
       createdById: session!.user.id
-    },
-    include: { plant: true }
+      }
+    });
+
+    if (auditorIds.length > 0) {
+      await tx.auditAssignment.createMany({
+        data: auditorIds.map((auditorId) => ({
+          auditId: audit.id,
+          auditorId
+        })),
+        skipDuplicates: true
+      });
+    }
+
+    return tx.audit.findUniqueOrThrow({
+      where: { id: audit.id },
+      include: {
+        plant: true,
+        auditHead: { select: { id: true, name: true, email: true } },
+        assignments: {
+          include: {
+            auditor: { select: { id: true, name: true, email: true } }
+          }
+        }
+      }
+    });
   });
 
   // Log audit trail
   await writeAuditEvent({
     entityType: 'AUDIT',
-    entityId: audit.id,
+    entityId: createdAudit.id,
     action: 'CREATED',
     actorId: session!.user.id,
-    diff: { plantId: input.plantId, title: input.title }
+    diff: {
+      plantId: input.plantId,
+      title: input.title,
+      auditHeadId: input.auditHeadId,
+      auditorIds
+    }
   });
 
-  return NextResponse.json({ ok: true, audit });
+  return NextResponse.json({
+    ok: true,
+    audit: createdAudit,
+    progress: { done: 0, total: 0 }
+  });
 }

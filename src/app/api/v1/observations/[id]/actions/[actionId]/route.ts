@@ -72,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; actionId: string }> }) {
-  const { id, actionId } = await params;
+  const { actionId } = await params;
   const session = await auth();
   if (!session?.user) return NextResponse.json({ ok: false }, { status: 401 });
 

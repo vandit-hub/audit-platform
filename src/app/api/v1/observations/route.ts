@@ -155,14 +155,28 @@ export async function GET(req: NextRequest) {
     where,
     include: {
       plant: true,
-      audit: { select: { id: true, title: true, visitStartDate: true, visitEndDate: true } },
-      attachments: true
+      audit: {
+        select: {
+          id: true,
+          title: true,
+          visitStartDate: true,
+          visitEndDate: true,
+          auditHeadId: true,
+          isLocked: true
+        }
+      },
+      attachments: true,
+      assignments: {
+        include: { auditee: { select: { id: true, email: true, name: true } } }
+      }
     },
     orderBy: { [sortBy]: sortOrder }
   });
 
   const shaped = obs.map((o) => ({
     id: o.id,
+    code: o.code,
+    observationText: o.observationText,
     plant: o.plant,
     audit: o.audit,
     riskCategory: o.riskCategory,
@@ -173,7 +187,8 @@ export async function GET(req: NextRequest) {
     createdAt: o.createdAt,
     title: o.observationText.slice(0, 120),
     annexures: o.attachments.filter((a) => a.kind === "ANNEXURE").length,
-    mgmtDocs: o.attachments.filter((a) => a.kind === "MGMT_DOC").length
+    mgmtDocs: o.attachments.filter((a) => a.kind === "MGMT_DOC").length,
+    assignments: o.assignments
   }));
 
   return NextResponse.json({ ok: true, observations: shaped });

@@ -42,7 +42,8 @@ function logToolUsage(
         payload,
       )}`
     );
-  } catch (err) {
+  } catch (error) {
+    console.error("Failed to stringify AI tool payload", error);
     console.log(
       `[AI Tool] ${toolName} user=${userId ?? "unknown"} role=${role ?? "unknown"} payload=[unserializable]`,
     );
@@ -1140,7 +1141,7 @@ export async function POST(req: NextRequest) {
         }
 
         const role = session.user.role;
-        const userId = session.user.id;
+        const _userId = session.user.id;
 
         // Only CFO and CXO_TEAM have org-wide assignment stats access
         if (!(isCFO(role) || isCXOTeam(role))) {
@@ -1352,6 +1353,7 @@ export async function POST(req: NextRequest) {
           tools: tools as any,
         });
       } catch (secondaryError) {
+        console.error("AI chat message validation failed after sanitizing history", secondaryError);
         // As a last resort, start with the new incoming message(s) only
         try {
           validatedMessages = await validateUIMessages({

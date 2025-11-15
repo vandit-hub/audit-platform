@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import NavBar from "@/components/NavBar";
 import DashboardContent from "@/components/DashboardContent";
 
 export default function HomeClient() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
@@ -24,14 +23,7 @@ export default function HomeClient() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <NavBar />
-      <main className="max-w-6xl mx-auto p-4">
-        <DashboardContent />
-      </main>
-    </div>
-  );
+  return <DashboardContent />;
 }
 
 

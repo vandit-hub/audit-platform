@@ -1,282 +1,427 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { ExternalLink, Lock, ShieldCheck, Unlock } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
-import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Button from "@/components/ui/Button";
-import Badge from "@/components/ui/Badge";
+import { PageContainer } from "@/components/v2/PageContainer";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Progress,
+} from "@/components/ui/v2";
 import { isCFOOrCXOTeam } from "@/lib/rbac";
+import {
+  CreateAuditDialog,
+  CreateAuditFormValues,
+} from "./_components/CreateAuditDialog";
 
 type Plant = { id: string; code: string; name: string };
+type UserSummary = { id: string; name: string | null; email: string | null };
 type AuditListItem = {
   id: string;
   plant: Plant;
   title?: string | null;
+  purpose?: string | null;
   visitStartDate?: string | null;
   visitEndDate?: string | null;
   status: "PLANNED" | "IN_PROGRESS" | "SUBMITTED" | "SIGNED_OFF";
   createdAt: string;
-  assignments: { id: string; name: string | null; email: string | null }[];
+  assignments: UserSummary[];
   progress: { done: number; total: number };
   isLocked?: boolean;
   completedAt?: string | null;
+  auditHead: UserSummary | null;
 };
 
 export default function AuditsPage() {
   const { data: session } = useSession();
   const canManageAudits = isCFOOrCXOTeam(session?.user?.role);
-  const [plants, setPlants] = useState<Plant[]>([]);
-  const [audits, setAudits] = useState<AuditListItem[]>([]);
-  const [plantId, setPlantId] = useState("");
-  const [title, setTitle] = useState("");
-  const [purpose, setPurpose] = useState("");
-  const [visitStartDate, setVisitStartDate] = useState("");
-  const [visitEndDate, setVisitEndDate] = useState("");
-  const [visitDetails, setVisitDetails] = useState("");
-  const [managementResponseDate, setManagementResponseDate] = useState("");
-  const [finalPresentationDate, setFinalPresentationDate] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const { showSuccess, showError } = useToast();
 
-  async function load() {
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [audits, setAudits] = useState<AuditListItem[]>([]);
+  const [auditHeads, setAuditHeads] = useState<UserSummary[]>([]);
+  const [auditors, setAuditors] = useState<UserSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
     const [plantsRes, auditsRes] = await Promise.all([
       fetch("/api/v1/plants", { cache: "no-store" }),
-      fetch("/api/v1/audits", { cache: "no-store" })
-    ]);
-    
-    if (plantsRes.ok) {
-      const plantsJson = await plantsRes.json();
-      setPlants(plantsJson.plants || []);
+        fetch("/api/v1/audits", { cache: "no-store" }),
+      ]);
+
+      const plantsJson = await plantsRes.json().catch(() => ({}));
+      if (!plantsRes.ok) {
+        throw new Error(
+          (plantsJson as { error?: string }).error || "Failed to load plants.",
+        );
+      }
+      setPlants(plantsJson.plants ?? []);
+
+      const auditsJson = await auditsRes.json().catch(() => ({}));
+      if (!auditsRes.ok) {
+        throw new Error(
+          (auditsJson as { error?: string }).error || "Failed to load audits.",
+        );
+      }
+      setAudits(auditsJson.audits ?? []);
+
+      if (canManageAudits) {
+        const [headsRes, auditorsRes] = await Promise.all([
+          fetch("/api/v1/users?role=AUDIT_HEAD", { cache: "no-store" }),
+          fetch("/api/v1/users?role=AUDITOR", { cache: "no-store" }),
+        ]);
+
+        if (headsRes.ok) {
+          const headsJson = await headsRes.json().catch(() => ({}));
+          setAuditHeads((headsJson as { users?: UserSummary[] }).users ?? []);
+        } else {
+          setAuditHeads([]);
     }
     
-    if (auditsRes.ok) {
-      const auditsJson = await auditsRes.json();
-      setAudits(auditsJson.audits || []);
+        if (auditorsRes.ok) {
+          const auditorJson = await auditorsRes.json().catch(() => ({}));
+          setAuditors(
+            (auditorJson as { users?: UserSummary[] }).users ?? [],
+          );
+        } else {
+          setAuditors([]);
+        }
+      } else {
+        setAuditHeads([]);
+        setAuditors([]);
     }
-  }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load audit data.";
+      setLoadError(message);
+      showError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [canManageAudits, showError]);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
 
-  async function onCreate(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBusy(true);
-    try {
+  const handleCreate = useCallback(
+    async (values: CreateAuditFormValues) => {
+      const payload = {
+        plantId: values.plantId,
+        title: values.title?.trim() || undefined,
+        purpose: values.purpose?.trim() || undefined,
+        visitStartDate: values.visitStartDate
+          ? new Date(values.visitStartDate).toISOString()
+          : undefined,
+        visitEndDate: values.visitEndDate
+          ? new Date(values.visitEndDate).toISOString()
+          : undefined,
+        auditHeadId: values.auditHeadId,
+        auditorIds: values.auditorIds,
+      };
+
       const res = await fetch("/api/v1/audits", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          plantId,
-          title: title || undefined,
-          purpose: purpose || undefined,
-          visitStartDate: visitStartDate ? new Date(visitStartDate).toISOString() : undefined,
-          visitEndDate: visitEndDate ? new Date(visitEndDate).toISOString() : undefined,
-          visitDetails: visitDetails || undefined,
-          managementResponseDate: managementResponseDate ? new Date(managementResponseDate).toISOString() : undefined,
-          finalPresentationDate: finalPresentationDate ? new Date(finalPresentationDate).toISOString() : undefined
-        })
+        body: JSON.stringify(payload),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to create audit");
-      const selectedPlant = plants.find(p => p.id === plantId);
-      setPlantId("");
-      setTitle("");
-      setPurpose("");
-      setVisitStartDate("");
-      setVisitEndDate("");
-      setVisitDetails("");
-      setManagementResponseDate("");
-      setFinalPresentationDate("");
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (json as { error?: string }).error || "Failed to create audit.";
+        showError(message);
+        throw new Error(message);
+      }
+
       await load();
-      showSuccess(`Audit created successfully for ${selectedPlant?.name || "selected plant"}!`);
-    } catch (err: any) {
-      const errorMessage = err.message || "Failed to create audit";
-      setError(errorMessage);
-      showError(errorMessage);
+      const plantName =
+        plants.find((plant) => plant.id === values.plantId)?.name ??
+        "selected plant";
+      showSuccess(`Audit created successfully for ${plantName}!`);
+    },
+    [load, plants, showError, showSuccess],
+  );
+
+  const toggleLock = useCallback(
+    async (audit: AuditListItem) => {
+      if (!canManageAudits || audit.completedAt) return;
+
+      setActionBusy(audit.id);
+      const action = audit.isLocked ? "unlock" : "lock";
+      try {
+        const res = await fetch(`/api/v1/audits/${audit.id}/${action}`, {
+          method: "POST",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            (json as { error?: string }).error ||
+              `Failed to ${action} audit.`,
+          );
+        }
+
+        showSuccess(
+          audit.isLocked ? "Audit unlocked successfully!" : "Audit locked successfully!",
+        );
+        await load();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unable to update audit state.";
+        showError(message);
     } finally {
-      setBusy(false);
-    }
-  }
+        setActionBusy(null);
+      }
+    },
+    [canManageAudits, load, showError, showSuccess],
+  );
+
+  const tableRows = useMemo(() => {
+    return audits.map((audit) => {
+      const start = audit.visitStartDate
+        ? new Date(audit.visitStartDate).toLocaleDateString()
+        : "—";
+      const end = audit.visitEndDate
+        ? new Date(audit.visitEndDate).toLocaleDateString()
+        : "—";
+      const percent =
+        audit.progress.total > 0
+          ? Math.round((audit.progress.done / audit.progress.total) * 100)
+          : 0;
+
+      const lockState = audit.completedAt
+        ? {
+            label: "Completed",
+            icon: ShieldCheck,
+            className:
+              "bg-[var(--cl-palGre100)] border-transparent text-[var(--cd-palGre500)]",
+          }
+        : audit.isLocked
+        ? {
+            label: "Locked",
+            icon: Lock,
+            className:
+              "bg-[var(--cl-palOra100)] border-transparent text-[var(--cd-palOra500)]",
+          }
+        : {
+            label: "Unlocked",
+            icon: Unlock,
+            className:
+              "bg-[var(--ca-palUiBlu100)] border-transparent text-[var(--c-palUiBlu700)]",
+          };
+
+      const teamLabel = audit.auditHead
+        ? audit.auditHead.name ?? audit.auditHead.email ?? "Audit head"
+        : "Not assigned";
+      const additionalAuditors = audit.assignments.length;
+
+      return {
+        audit,
+        start,
+        end,
+        percent,
+        lockState,
+        teamLabel,
+        additionalAuditors,
+      };
+    });
+  }, [audits]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">Audits</h1>
-        <p className="text-base text-neutral-600 mt-2">Create and manage audit schedules</p>
-      </div>
-
-      {canManageAudits && (
-        <Card padding="lg">
-          <h2 className="text-xl font-semibold text-neutral-900 mb-6">Create Audit (CFO/CXO Team)</h2>
-          {error && (
-            <div className="mb-6 text-sm text-error-700 bg-error-50 border border-error-200 p-3 rounded-md">
-              {error}
-            </div>
-          )}
-          <form onSubmit={onCreate} className="space-y-6">
-            <div className="grid sm:grid-cols-2 gap-6">
-              <Select
-                label="Plant"
-                value={plantId}
-                onChange={(e) => setPlantId(e.target.value)}
-                required
-              >
-                <option value="">Select plant</option>
-                {plants.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} — {p.name}
-                  </option>
-                ))}
-              </Select>
-
-              <div className="sm:col-span-2">
-                <Input
-                  label="Audit Title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Q1 2024 Internal Audit"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  Audit Purpose
-                </label>
-                <textarea
-                  className="w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all duration-200 ease-out shadow-sm border-neutral-300 bg-white hover:border-neutral-400 focus:border-primary-500 focus:ring-primary-100 focus:outline-none focus:ring-4"
-                  value={purpose}
-                  onChange={(e) => setPurpose(e.target.value)}
-                  placeholder="Describe the purpose and scope of this audit..."
-                  rows={3}
-                />
-              </div>
-
-              <Input
-                type="date"
-                label="Visit Start Date"
-                value={visitStartDate}
-                onChange={(e) => setVisitStartDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Visit End Date"
-                value={visitEndDate}
-                onChange={(e) => setVisitEndDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Management Response Date"
-                value={managementResponseDate}
-                onChange={(e) => setManagementResponseDate(e.target.value)}
-              />
-
-              <Input
-                type="date"
-                label="Final Presentation Date"
-                value={finalPresentationDate}
-                onChange={(e) => setFinalPresentationDate(e.target.value)}
-              />
-
-              <div className="sm:col-span-2">
-                <Input
-                  label="Visit Details"
-                  value={visitDetails}
-                  onChange={(e) => setVisitDetails(e.target.value)}
-                  placeholder="Additional visit information..."
-                />
-              </div>
-            </div>
-
-            <Button type="submit" variant="primary" isLoading={busy}>
-              {busy ? "Creating…" : "Create Audit"}
-            </Button>
-          </form>
-        </Card>
-      )}
+    <PageContainer className="space-y-8">
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold text-[var(--c-texPri)]">
+          Audits
+        </h1>
+          <p className="text-sm text-[var(--c-texSec)]">
+            Manage audit processes and keep track of progress across plants.
+        </p>
+        </div>
+        {canManageAudits && (
+          <CreateAuditDialog
+            plants={plants}
+            auditHeads={auditHeads}
+            auditors={auditors}
+            onCreate={handleCreate}
+          />
+        )}
+      </header>
 
       {!canManageAudits && (
-        <div className="bg-primary-50 border border-primary-200 rounded-lg p-5 text-sm text-primary-800">
-          <div className="flex items-start gap-3">
-            <svg className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p>You can view audits assigned to you below. Only CFO and CXO Team can create new audits.</p>
-          </div>
+        <div className="rounded-xl border border-[var(--ca-palUiBlu200)] bg-[var(--ca-palUiBlu100)]/40 px-5 py-4 text-sm text-[var(--c-palUiBlu700)]">
+          Only CFO and CXO team members can create new audits. You can still
+          review audits assigned to you below.
         </div>
       )}
 
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">
-          {canManageAudits ? "All Audits" : "My Assigned Audits"}
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-left text-neutral-600 bg-neutral-100 border-b-2 border-neutral-200">
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Audit Title</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Plant</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Period</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Lock Status</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Progress</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider">Auditors</th>
-                <th className="py-4 px-6 font-semibold text-xs uppercase tracking-wider"></th>
+        <Card className="rounded-3xl border border-[var(--border-color-regular)] bg-white shadow-none">
+         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+           <div aria-hidden="true" className="space-y-1 opacity-0">
+             <CardTitle className="text-lg font-semibold text-[var(--c-texPri)]">
+               {canManageAudits ? "All Audits" : "My Assigned Audits"}
+             </CardTitle>
+             <CardDescription>
+               Complete list of audit processes with real-time status.
+             </CardDescription>
+           </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/reports">
+              <ExternalLink className="mr-2 size-4" />
+              Export summary
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="overflow-x-auto px-0">
+          {isLoading ? (
+            <div className="space-y-4 px-6">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-16 animate-pulse rounded-2xl bg-[var(--c-bacPri)]"
+                />
+              ))}
+            </div>
+          ) : loadError ? (
+            <div className="rounded-xl border border-[var(--c-palUiRed200)] bg-[var(--c-palUiRed100)]/60 px-4 py-6 text-sm text-[var(--c-palUiRed700)] mx-6">
+              {loadError}
+            </div>
+          ) : audits.length === 0 ? (
+            <div className="mx-6 rounded-2xl border border-dashed border-[var(--border-color-regular)] bg-white px-6 py-12 text-center">
+              <h3 className="text-lg font-semibold text-[var(--c-texPri)]">
+                No audits yet
+              </h3>
+              <p className="mt-1 text-sm text-[var(--c-texSec)]">
+                Once audits are created, they will appear here for tracking.
+              </p>
+            </div>
+          ) : (
+          <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase tracking-wide text-[var(--c-texSec)]/70">
+                <tr className="text-left">
+                  <th className="px-6 pb-3 font-medium">Title</th>
+                  <th className="px-6 pb-3 font-medium">Plant</th>
+                  <th className="px-6 pb-3 font-medium">Period</th>
+                  <th className="px-6 pb-3 font-medium">Lock Status</th>
+                  <th className="px-6 pb-3 font-medium">Progress</th>
+                  <th className="px-6 pb-3 font-medium">Auditors</th>
+                  <th className="px-6 pb-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {audits.map((a, index) => (
-                <tr key={a.id} className={`transition-all duration-150 hover:bg-primary-50 hover:shadow-sm ${index % 2 === 0 ? "bg-white" : "bg-neutral-25"}`}>
-                  <td className="py-4 px-6 font-medium text-neutral-900">{a.title || "—"}</td>
-                  <td className="py-4 px-6 text-neutral-700">
-                    {a.plant.code} — {a.plant.name}
+            <tbody>
+                {tableRows.map(
+                  ({ audit, start, end, percent, lockState, teamLabel, additionalAuditors }) => {
+                    const LockIcon = lockState.icon;
+
+                return (
+                  <tr
+                    key={audit.id}
+                        className="border-t border-[var(--border-color-regular)]/60 first:border-t-0"
+                  >
+                        <td className="px-6 py-5 text-[var(--c-texPri)]">
+                          <div className="space-y-1.5">
+                            <p className="font-medium">
+                              {audit.title?.trim() || "Untitled audit"}
+                            </p>
+                            {audit.purpose && (
+                              <p className="text-xs text-[var(--c-texSec)]/80">
+                                {audit.purpose}
+                              </p>
+                            )}
+                          </div>
+                    </td>
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
+                          {audit.plant.code} · {audit.plant.name}
                   </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.visitStartDate ? new Date(a.visitStartDate).toLocaleDateString() : "—"}{" "}
-                    → {a.visitEndDate ? new Date(a.visitEndDate).toLocaleDateString() : "—"}
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
+                          {start} — {end}
                   </td>
-                  <td className="py-4 px-6">
-                    {a.completedAt ? (
-                      <Badge variant="success">Completed</Badge>
-                    ) : a.isLocked ? (
-                      <Badge variant="warning">
-                        <svg className="inline-block h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                        Locked
+                        <td className="px-6 py-5">
+                          <Badge className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs ${lockState.className}`}>
+                            <LockIcon className="size-3" />
+                            {lockState.label}
                       </Badge>
-                    ) : (
-                      <Badge variant="neutral">Open</Badge>
-                    )}
                   </td>
-                  <td className="py-4 px-6 text-neutral-600">
-                    <span className="font-medium text-neutral-900">{a.progress.done}</span>
-                    <span className="text-neutral-500">/{a.progress.total}</span>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-28">
+                              <Progress value={percent} />
+                            </div>
+                            <span className="text-sm font-medium text-[var(--c-texPri)]">
+                              {percent}%
+                      </span>
+                          </div>
+                          <p className="mt-1 text-xs text-[var(--c-texSec)]/80">
+                            {audit.progress.done} of {audit.progress.total} resolved
+                          </p>
                   </td>
-                  <td className="py-4 px-6 text-neutral-600 text-xs">
-                    {a.assignments.map((u) => u.email ?? u.name).join(", ") || "—"}
+                        <td className="px-6 py-5 text-[var(--c-texSec)]">
+                          <div className="space-y-1.5">
+                            <p className="font-medium text-[var(--c-texPri)]">
+                              {teamLabel}
+                            </p>
+                            <p className="text-xs text-[var(--c-texSec)]/80">
+                              {additionalAuditors > 0
+                                ? `+${additionalAuditors} auditors`
+                                : "No additional auditors"}
+                            </p>
+                          </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <Link
-                      href={`/audits/${a.id}`}
-                      className="text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      Open →
-                    </Link>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              asChild
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                            >
+                              <Link href={`/audits/${audit.id}`}>
+                                <ExternalLink className="size-3" />
+                                Open
+                              </Link>
+                            </Button>
+                            {canManageAudits && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={actionBusy === audit.id || !!audit.completedAt}
+                                onClick={() => toggleLock(audit)}
+                                aria-label={audit.isLocked ? "Unlock audit" : "Lock audit"}
+                              >
+                                {actionBusy === audit.id ? (
+                                  <span className="size-4 animate-spin rounded-full border-2 border-[var(--c-texSec)] border-t-transparent" />
+                                ) : audit.isLocked ? (
+                                  <Unlock className="size-4" />
+                                ) : (
+                                  <Lock className="size-4" />
+                                )}
+                        </Button>
+                            )}
+                      </div>
                   </td>
                 </tr>
-              ))}
+                );
+                  },
+                )}
             </tbody>
           </table>
-        </div>
+          )}
+        </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,15 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
 import { isCFOOrCXOTeam, isCFO } from "@/lib/rbac";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import Badge from "@/components/ui/Badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/v2/card";
+import { Button } from "@/components/ui/v2/button";
+import { Input } from "@/components/ui/v2/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/v2/select";
+import { Label } from "@/components/ui/v2/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PageContainer } from "@/components/v2/PageContainer";
+import { PageTitle } from "@/components/PageTitle";
+import { Badge } from "@/components/ui/v2/badge";
+import Spinner from "@/components/ui/Spinner";
+import { UserPlus, Link2, Copy, Check, User } from "lucide-react";
+
+interface ActiveUser {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -18,11 +33,40 @@ export default function AdminUsersPage() {
   const [expiresInDays, setExpiresInDays] = useState(7);
   const [isLoading, setIsLoading] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [users, setUsers] = useState<ActiveUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const { showSuccess, showError } = useToast();
 
   if (!session?.user?.role || !isCFOOrCXOTeam(session.user.role)) {
     redirect("/");
   }
+
+  // Fetch active users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setUsersLoading(true);
+        setUsersError(null);
+        const response = await fetch("/api/v1/users");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch users");
+        }
+
+        const data = await response.json();
+        setUsers(data.users || []);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        setUsersError("Failed to load users");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +99,7 @@ export default function AdminUsersPage() {
           showError(errorMessage);
       }
     } catch (error) {
+      console.error("Failed to create invitation", error);
       const errorMessage = "An error occurred while creating the invitation";
       showError(errorMessage);
     } finally {
@@ -70,6 +115,8 @@ export default function AdminUsersPage() {
         // Try using the modern clipboard API (requires HTTPS)
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(inviteUrl);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
           showSuccess("Invite link copied to clipboard!");
         } else {
           // Fallback for HTTP - create a temporary textarea
@@ -81,6 +128,8 @@ export default function AdminUsersPage() {
           textarea.select();
           document.execCommand('copy');
           document.body.removeChild(textarea);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
           showSuccess("Invite link copied to clipboard!");
         }
       } catch (err) {
@@ -91,92 +140,171 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-neutral-900">User Management</h1>
-        <p className="text-base text-neutral-600 mt-2">Invite new users to the audit platform</p>
+    <PageContainer className="space-y-6">
+      <PageTitle
+        title="User Management"
+        description="Invite new users and manage existing users"
+      />
+
+      <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invite New User</CardTitle>
+              <CardDescription>Send an invitation to join the system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleInviteUser} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <Select value={role} onValueChange={(value) => setRole(value as any)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="GUEST">Guest</SelectItem>
+                        <SelectItem value="AUDITEE">Auditee</SelectItem>
+                        <SelectItem value="AUDITOR">Auditor</SelectItem>
+                        {isCFO(session?.user?.role) && (
+                          <>
+                            <SelectItem value="CXO_TEAM">CXO Team</SelectItem>
+                            <SelectItem value="AUDIT_HEAD">Audit Head</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expiry">Expiry (Days)</Label>
+                    <Input
+                      id="expiry"
+                      type="number"
+                      placeholder="7"
+                      min="1"
+                      max="30"
+                      value={expiresInDays.toString()}
+                      onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Invitation will expire after this many days (1-30)
+                    </p>
+                  </div>
+                </div>
+                <Button type="submit" disabled={isLoading} className="gap-2">
+                  <UserPlus className="h-4 w-4" />
+                  {isLoading ? "Creating Invitation..." : "Generate Invite Link"}
+                </Button>
+              </form>
+
+              {inviteToken && (
+                <div className="mt-6 space-y-3">
+                  <Alert>
+                    <Link2 className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <code className="flex-1 text-sm bg-gray-100 p-2 rounded break-all">
+                          {`${window.location.origin}/accept-invite?token=${inviteToken}`}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={copyInviteLink}
+                          className="gap-2 shrink-0"
+                        >
+                          {copied ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Users</CardTitle>
+              <CardDescription>Users with access to the system</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Spinner />
+                </div>
+              ) : usersError ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-destructive">{usersError}</p>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-muted-foreground">No users found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {users.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary-100 text-primary-600">
+                          <User className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">
+                            {user.name || "No name"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant={
+                            user.role === "CFO"
+                              ? "default"
+                              : user.role === "CXO_TEAM"
+                              ? "secondary"
+                              : user.role === "AUDIT_HEAD"
+                              ? "outline"
+                              : "outline"
+                          }
+                          className="capitalize"
+                        >
+                          {user.role.replace("_", " ").toLowerCase()}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
       </div>
-
-      <Card padding="lg">
-        <h2 className="text-xl font-semibold text-neutral-900 mb-6">Invite New User</h2>
-
-        <form onSubmit={handleInviteUser} className="space-y-6">
-          <Input
-            type="email"
-            label="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            placeholder="user@example.com"
-          />
-
-          <Select
-            label="Role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as any)}
-          >
-            <option value="GUEST">Guest</option>
-            <option value="AUDITEE">Auditee</option>
-            <option value="AUDITOR">Auditor</option>
-            {isCFO(session?.user?.role) && (
-              <>
-                <option value="CXO_TEAM">CXO Team</option>
-                <option value="AUDIT_HEAD">Audit Head</option>
-              </>
-            )}
-          </Select>
-
-          <Input
-            type="number"
-            label="Expires In (Days)"
-            value={expiresInDays.toString()}
-            onChange={(e) => setExpiresInDays(parseInt(e.target.value) || 7)}
-            min="1"
-            max="30"
-            helperText="Invitation will expire after this many days (1-30)"
-          />
-
-          <Button
-            type="submit"
-            variant="primary"
-            isLoading={isLoading}
-            className="w-full"
-          >
-            {isLoading ? "Creating Invitation..." : "Send Invitation"}
-          </Button>
-        </form>
-
-        {inviteToken && (
-          <div className="mt-6 p-5 bg-primary-50 border border-primary-200 rounded-lg">
-            <div className="flex items-start gap-3 mb-4">
-              <svg className="h-6 w-6 text-primary-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <h3 className="text-sm font-semibold text-primary-900 mb-1">Invitation Created Successfully</h3>
-                <p className="text-sm text-primary-700">
-                  Share this invitation link with the user:
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                readOnly
-                value={`${window.location.origin}/accept-invite?token=${inviteToken}`}
-                className="flex-1 px-3.5 py-2.5 text-sm bg-white border border-primary-300 rounded-lg focus:border-primary-500 focus:ring-4 focus:ring-primary-100 focus:outline-none"
-              />
-              <Button
-                onClick={copyInviteLink}
-                variant="primary"
-                size="md"
-              >
-                Copy
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
-    </div>
+    </PageContainer>
   );
 }

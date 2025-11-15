@@ -308,7 +308,7 @@ await writeAuditEvent({
 - Broadcast WebSocket notification
 
 **Context**:
-Rejection sends the observation back to DRAFT state so the auditor can make changes and resubmit. Only the assigned Audit Head can reject.
+Rejection keeps the observation in the REJECTED state so the auditor can make changes and resubmit. Only the assigned Audit Head can reject.
 
 **Acceptance**:
 - Only AUDIT_HEAD for the specific audit can reject (CFO can override)
