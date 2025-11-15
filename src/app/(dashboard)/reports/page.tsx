@@ -68,6 +68,10 @@ export default function ReportsPage() {
   const [status, setStatus] = useState("");
   const [published, setPublished] = useState("");
 
+  const ALL_VALUE = "__all";
+  const toSelectValue = (value: string) => (value === "" ? ALL_VALUE : value);
+  const fromSelectValue = (value: string) => (value === ALL_VALUE ? "" : value);
+
   const savePreset = useCallback(() => {
     localStorage.setItem("reports.filters", JSON.stringify({ plantId, auditId, startDate, endDate, risk, process, status, published, days }));
   }, [plantId, auditId, startDate, endDate, risk, process, status, published, days]);
@@ -393,12 +397,15 @@ export default function ReportsPage() {
               >
                 Plant
               </label>
-              <Select value={plantId} onValueChange={setPlantId}>
+              <Select
+                value={toSelectValue(plantId)}
+                onValueChange={(value) => setPlantId(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-plant">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value={ALL_VALUE}>All</SelectItem>
                   {plants.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.code} — {p.name}
@@ -415,12 +422,15 @@ export default function ReportsPage() {
               >
                 Audit
               </label>
-              <Select value={auditId} onValueChange={setAuditId}>
+              <Select
+                value={toSelectValue(auditId)}
+                onValueChange={(value) => setAuditId(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-audit">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value={ALL_VALUE}>All</SelectItem>
                   {audits.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.title || "Untitled"} — {a.plant.code} (
@@ -473,12 +483,15 @@ export default function ReportsPage() {
               >
                 Risk category
               </label>
-              <Select value={risk} onValueChange={setRisk}>
+              <Select
+                value={toSelectValue(risk)}
+                onValueChange={(value) => setRisk(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-risk">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value={ALL_VALUE}>All</SelectItem>
                   <SelectItem value="A">A</SelectItem>
                   <SelectItem value="B">B</SelectItem>
                   <SelectItem value="C">C</SelectItem>
@@ -493,12 +506,15 @@ export default function ReportsPage() {
               >
                 Process
               </label>
-              <Select value={process} onValueChange={setProcess}>
+              <Select
+                value={toSelectValue(process)}
+                onValueChange={(value) => setProcess(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-process">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value={ALL_VALUE}>All</SelectItem>
                   <SelectItem value="O2C">O2C</SelectItem>
                   <SelectItem value="P2P">P2P</SelectItem>
                   <SelectItem value="R2R">R2R</SelectItem>
@@ -514,12 +530,15 @@ export default function ReportsPage() {
               >
                 Status
               </label>
-              <Select value={status} onValueChange={setStatus}>
+              <Select
+                value={toSelectValue(status)}
+                onValueChange={(value) => setStatus(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-status">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value={ALL_VALUE}>All</SelectItem>
                   <SelectItem value="PENDING_MR">Pending MR</SelectItem>
                   <SelectItem value="MR_UNDER_REVIEW">
                     MR Under Review
@@ -540,12 +559,15 @@ export default function ReportsPage() {
               >
                 Published
               </label>
-              <Select value={published} onValueChange={setPublished}>
+              <Select
+                value={toSelectValue(published)}
+                onValueChange={(value) => setPublished(fromSelectValue(value))}
+              >
                 <SelectTrigger id="reports-published">
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Any</SelectItem>
+                  <SelectItem value={ALL_VALUE}>Any</SelectItem>
                   <SelectItem value="1">Published</SelectItem>
                   <SelectItem value="0">Unpublished</SelectItem>
                 </SelectContent>
