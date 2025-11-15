@@ -160,6 +160,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [auditees, setAuditees] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
   const [selectedAuditee, setSelectedAuditee] = useState("");
+  const [auditors, setAuditors] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
 
   // WebSocket integration
   const { presence, lastUpdate, isConnected } = useObservationWebSocket(id);
@@ -185,10 +186,11 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
         personResponsibleToImplement: j.observation.personResponsibleToImplement ?? "",
         currentStatus: j.observation.currentStatus
       });
-      // load change requests and auditees list
-      const [crRes, auditeeRes] = await Promise.all([
+      // load change requests, auditees list, and auditors list
+      const [crRes, auditeeRes, auditorRes] = await Promise.all([
         fetch(`/api/v1/observations/${id}/change-requests`, { cache: "no-store" }),
-        fetch(`/api/v1/users?role=AUDITEE`, { cache: "no-store" })
+        fetch(`/api/v1/users?role=AUDITEE`, { cache: "no-store" }),
+        fetch(`/api/v1/users?role=AUDITOR`, { cache: "no-store" })
       ]);
       if (crRes.ok) {
         const crJ = await crRes.json();
@@ -197,6 +199,10 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       if (auditeeRes.ok) {
         const auditeeJ = await auditeeRes.json();
         setAuditees(auditeeJ.users || []);
+      }
+      if (auditorRes.ok) {
+        const auditorJ = await auditorRes.json();
+        setAuditors(auditorJ.users || []);
       }
     } else {
       setError(j.error || "Failed to load");
@@ -1100,13 +1106,20 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                     <Label htmlFor="auditorPerson" className="text-xs">Auditor</Label>
                     {renderLockPill("auditorPerson")}
                   </div>
-                  <input
+                  <select
                     id="auditorPerson"
-                    className={getFieldClassName("auditorPerson", "h-9 text-sm")}
+                    className={getFieldClassName("auditorPerson", "h-9 text-sm appearance-none pr-8")}
                     value={draft.auditorPerson}
                     onChange={(e) => setField("auditorPerson", e.target.value)}
                     disabled={isFieldDisabled("auditorPerson")}
-                  />
+                  >
+                    <option value="">Select auditor...</option>
+                    {auditors.map((auditor) => (
+                      <option key={auditor.id} value={auditor.name || auditor.email || ""}>
+                        {auditor.name || auditor.email}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
