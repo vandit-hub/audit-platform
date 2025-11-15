@@ -156,6 +156,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const [apOwner, setApOwner] = useState("");
   const [apDate, setApDate] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isChangeRequestDialogOpen, setIsChangeRequestDialogOpen] = useState(false);
+  const [changeRequestComment, setChangeRequestComment] = useState("");
 
   const [changeRequests, setChangeRequests] = useState<ChangeRequest[]>([]);
   const [auditees, setAuditees] = useState<{ id: string; name: string | null; email: string | null }[]>([]);
@@ -598,17 +600,27 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     return patch;
   }
 
-  async function requestChange() {
+  function openChangeRequestDialog() {
     const patch = computeAuditorPatch();
     if (Object.keys(patch).length === 0) {
       setError("No changes detected to request.");
+      showInfo("No changes detected to request.");
       return;
     }
-    const comment = window.prompt("Optional comment for the admin:");
+    setIsChangeRequestDialogOpen(true);
+  }
+
+  async function submitChangeRequest() {
+    const patch = computeAuditorPatch();
+    if (Object.keys(patch).length === 0) {
+      setError("No changes detected to request.");
+      showError("No changes detected to request.");
+      return;
+    }
     const res = await fetch(`/api/v1/observations/${id}/change-requests`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ patch, comment: comment || undefined })
+      body: JSON.stringify({ patch, comment: changeRequestComment || undefined })
     });
     const j = await res.json();
     if (!res.ok) {
@@ -618,6 +630,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     } else {
       await load();
       showSuccess("Change request submitted successfully!");
+      setIsChangeRequestDialogOpen(false);
+      setChangeRequestComment("");
     }
   }
 
@@ -635,7 +649,8 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  if (!o) return (
+  // Wait for both session and observation to load
+  if (!session || !role || !o) return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-center">
         <svg className="animate-spin h-12 w-12 text-primary-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -659,6 +674,9 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
   const canSave = canOverride || (!auditorLockedByApproval);
   const canDelete = isCFO(role) || (isAuditHead(role) && !o.audit.isLocked);
   const canManageAssignments = isCFOOrCXOTeam(role) || isAuditHead(role) || isAuditorOrAuditHead(role);
+
+  // Debug: Verify button conditions
+  console.log('[Request Change Button] isAuditorRole:', isAuditorRole, 'approvalStatus:', o.approvalStatus, 'shouldShow:', isAuditorRole && o.approvalStatus === 'APPROVED');
 
   const getApprovalBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
@@ -836,7 +854,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   className="h-8 px-3"
                   onClick={() => publish(!o.isPublished)}
                   style={{
-                    background: o.isPublished ? 'var(--c-palUiOra600)' : 'var(--c-palUiGre600)',
+                    background: o.isPublished ? 'var(--cd-palOra500)' : 'var(--c-palUiGre600)',
                     color: 'white'
                   }}
                 >
@@ -885,6 +903,21 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 Submit for Approval
               </Button>
             )}
+
+            {/* Request Change button for auditors with approved observations */}
+            {isAuditorRole && o.approvalStatus === 'APPROVED' && (
+              <Button
+                size="sm"
+                className="h-8 px-3"
+                onClick={openChangeRequestDialog}
+                style={{
+                  background: 'var(--cd-palOra500)',
+                  color: 'white'
+                }}
+              >
+                Request Change
+              </Button>
+            )}
           </div>
 
           <Button
@@ -903,6 +936,28 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
       {error && (
         <div className="text-sm text-error-700 bg-error-50 border border-error-200 p-4 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {/* Visual Indicator for Locked Approved Observations */}
+      {auditorLockedByApproval && (
+        <div className="rounded-lg border px-4 py-3" style={{
+          background: 'var(--cl-palOra100)/60',
+          borderColor: 'var(--cd-palOra500)'
+        }}>
+          <div className="flex items-start gap-3" style={{ color: 'var(--cd-palOra500)' }}>
+            <Lock className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-sm mb-1">
+                Observation Approved & Locked
+              </h4>
+              <p className="text-sm">
+                This observation has been approved and fields are locked for editing.
+                To modify this observation, make your changes and click the
+                <strong> "Request Change" </strong> button to submit a change request to the Audit Head.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1896,6 +1951,55 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
 
       </div>
       {/* End of two-column grid */}
+
+      {/* Change Request Dialog */}
+      <Dialog open={isChangeRequestDialogOpen} onOpenChange={setIsChangeRequestDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Request Change to Approved Observation</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <p className="text-sm" style={{ color: 'var(--c-texSec)' }}>
+                This observation is approved and locked. You can request changes from the Audit Head.
+                Your current field edits will be included in the change request.
+              </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="change-comment">Comment (Optional)</Label>
+              <textarea
+                id="change-comment"
+                className={cn(BASE_FIELD_CLASS, "min-h-[120px] resize-none")}
+                placeholder="Explain why these changes are needed..."
+                value={changeRequestComment}
+                onChange={(e) => setChangeRequestComment(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsChangeRequestDialogOpen(false);
+                setChangeRequestComment("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={submitChangeRequest}
+              style={{
+                background: 'var(--cd-palOra500)',
+                color: 'white'
+              }}
+            >
+              Submit Request
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </PageContainer>
   );
