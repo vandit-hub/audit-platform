@@ -1735,36 +1735,68 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="p-3 space-y-3 max-h-96 overflow-y-auto">
               {o.approvals.length > 0 ? (
-                o.approvals.map((ap) => (
-                  <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
-                    <div
-                      className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        background: ap.status === "APPROVED" ? 'var(--c-palUiGre100)' : 'var(--c-palUiRed100)'
-                      }}
-                    >
-                      {ap.status === "APPROVED" ? (
-                        <CheckCircle className="h-5 w-5" style={{ color: 'var(--c-palUiGre700)' }} />
-                      ) : (
-                        <XCircle className="h-5 w-5" style={{ color: 'var(--c-palUiRed700)' }} />
-                      )}
+                o.approvals.map((ap) => {
+                  // Determine display properties based on approval status
+                  const getStatusDisplay = () => {
+                    switch (ap.status) {
+                      case "APPROVED":
+                        return {
+                          bgColor: 'var(--c-palUiGre100)',
+                          icon: <CheckCircle className="h-5 w-5" style={{ color: 'var(--c-palUiGre700)' }} />,
+                          title: "Observation Approved",
+                          description: "approved the observation"
+                        };
+                      case "REJECTED":
+                        return {
+                          bgColor: 'var(--c-palUiRed100)',
+                          icon: <XCircle className="h-5 w-5" style={{ color: 'var(--c-palUiRed700)' }} />,
+                          title: "Observation Rejected",
+                          description: "rejected the observation"
+                        };
+                      case "SUBMITTED":
+                        return {
+                          bgColor: 'var(--c-palUiBlu100)',
+                          icon: <Clock className="h-5 w-5" style={{ color: 'var(--c-palUiBlu700)' }} />,
+                          title: "Observation Submitted",
+                          description: "submitted the observation for approval"
+                        };
+                      default:
+                        return {
+                          bgColor: 'var(--c-bacSec)',
+                          icon: <Clock className="h-5 w-5" style={{ color: 'var(--c-texSec)' }} />,
+                          title: `Observation ${ap.status}`,
+                          description: `performed action: ${ap.status}`
+                        };
+                    }
+                  };
+
+                  const display = getStatusDisplay();
+
+                  return (
+                    <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                      <div
+                        className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0"
+                        style={{ background: display.bgColor }}
+                      >
+                        {display.icon}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                          {display.title}
+                        </h4>
+                        <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                          {new Date(ap.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </p>
+                        <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                          {ap.actor.name || ap.actor.email || "User"} {display.description}.
+                        </p>
+                        {ap.comment && (
+                          <p className="text-xs italic" style={{ color: 'var(--c-texSec)' }}>"{ap.comment}"</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex-1 space-y-1">
-                      <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
-                        Observation {ap.status === "APPROVED" ? "Approved" : "Rejected"}
-                      </h4>
-                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
-                        {new Date(ap.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                      <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
-                        {ap.actor.name || ap.actor.email || "User"} {ap.status === "APPROVED" ? "approved" : "rejected"} the {ap.status === "APPROVED" ? "finding" : "observation"}.
-                      </p>
-                      {ap.comment && (
-                        <p className="text-xs italic" style={{ color: 'var(--c-texSec)' }}>"{ap.comment}"</p>
-                      )}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-sm text-center py-4" style={{ color: 'var(--c-texSec)' }}>No approvals yet</p>
               )}
@@ -1788,7 +1820,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                       Observation Created
                     </h4>
                     <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
-                      {new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(o.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
                     </p>
                     <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
                       Created by {session?.user?.name || session?.user?.email || "User"}.
@@ -1797,28 +1829,46 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 </div>
 
                 {/* Approval Events */}
-                {o.approvals.map((ap) => (
-                  <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
-                    {ap.status === 'APPROVED' ? (
-                      <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiGre700)' }} />
-                    ) : ap.status === 'REJECTED' ? (
-                      <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiRed700)' }} />
-                    ) : (
-                      <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-texSec)' }} />
-                    )}
-                    <div className="flex-1 space-y-1">
-                      <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
-                        Observation {ap.status === 'APPROVED' ? 'Approved' : ap.status === 'REJECTED' ? 'Rejected' : ap.status}
-                      </h4>
-                      <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
-                        {new Date(ap.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                      <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
-                        {ap.status === 'APPROVED' ? 'Approved' : 'Rejected'} by {ap.actor.name || ap.actor.email || "User"}.
-                      </p>
+                {o.approvals.map((ap) => {
+                  // Get appropriate description based on status
+                  const getDescription = () => {
+                    switch (ap.status) {
+                      case 'APPROVED':
+                        return `Approved by ${ap.actor.name || ap.actor.email || "User"}.`;
+                      case 'REJECTED':
+                        return `Rejected by ${ap.actor.name || ap.actor.email || "User"}.`;
+                      case 'SUBMITTED':
+                        return `Submitted for approval by ${ap.actor.name || ap.actor.email || "User"}.`;
+                      default:
+                        return `${ap.status} by ${ap.actor.name || ap.actor.email || "User"}.`;
+                    }
+                  };
+
+                  return (
+                    <div key={ap.id} className="flex gap-3 pb-3 border-b last:border-0" style={{ borderColor: 'var(--c-borSec)' }}>
+                      {ap.status === 'APPROVED' ? (
+                        <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiGre700)' }} />
+                      ) : ap.status === 'REJECTED' ? (
+                        <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiRed700)' }} />
+                      ) : ap.status === 'SUBMITTED' ? (
+                        <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-palUiBlu700)' }} />
+                      ) : (
+                        <Clock className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: 'var(--c-texSec)' }} />
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <h4 className="text-sm font-semibold" style={{ color: 'var(--c-texPri)' }}>
+                          Observation {ap.status === 'APPROVED' ? 'Approved' : ap.status === 'REJECTED' ? 'Rejected' : ap.status}
+                        </h4>
+                        <p className="text-xs" style={{ color: 'var(--c-texSec)' }}>
+                          {new Date(ap.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </p>
+                        <p className="text-sm" style={{ color: 'var(--c-texPri)' }}>
+                          {getDescription()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Published Event */}
                 {o.isPublished && (
