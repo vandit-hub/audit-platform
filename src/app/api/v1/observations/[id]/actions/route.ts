@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
-import { getUserScope, isObservationInScope } from "@/lib/scope";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const createSchema = z.object({
@@ -63,7 +62,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const obs = await prisma.observation.findUnique({
     where: { id },
-    select: { id: true, auditId: true }
+    select: {
+      id: true,
+      auditId: true,
+      assignments: {
+        select: {
+          auditeeId: true
+        }
+      }
+    }
   });
   if (!obs) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
@@ -79,8 +86,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
     }
   } else if (isAuditee(session.user.role)) {
-    const scoped = isObservationInScope(obs, await getUserScope(session.user.id));
-    if (!scoped) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+    const hasAssignment = obs.assignments.some(a => a.auditeeId === session.user.id);
+    if (!hasAssignment) {
+      return NextResponse.json({ ok: false, error: "You are not assigned to this observation" }, { status: 403 });
+    }
   }
 
   const body = await req.json();

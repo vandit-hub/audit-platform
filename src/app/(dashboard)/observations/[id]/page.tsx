@@ -757,12 +757,12 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
               size="sm"
               className="h-8 px-3"
               onClick={save}
-              disabled={isFieldDisabled("observationText")}
+              disabled={isAuditee(role) ? (!o.assignments?.some(a => a.auditee.id === userId) || o.audit?.isLocked) : isFieldDisabled("observationText")}
               style={{
-                background: isFieldDisabled("observationText") ? 'var(--c-texTer)' : 'var(--c-palUiBlu600)',
+                background: (isAuditee(role) ? (!o.assignments?.some(a => a.auditee.id === userId) || o.audit?.isLocked) : isFieldDisabled("observationText")) ? 'var(--c-texTer)' : 'var(--c-palUiBlu600)',
                 color: 'white',
-                cursor: isFieldDisabled("observationText") ? 'not-allowed' : 'pointer',
-                opacity: isFieldDisabled("observationText") ? 0.5 : 1
+                cursor: (isAuditee(role) ? (!o.assignments?.some(a => a.auditee.id === userId) || o.audit?.isLocked) : isFieldDisabled("observationText")) ? 'not-allowed' : 'pointer',
+                opacity: (isAuditee(role) ? (!o.assignments?.some(a => a.auditee.id === userId) || o.audit?.isLocked) : isFieldDisabled("observationText")) ? 0.5 : 1
               }}
             >
               Save
