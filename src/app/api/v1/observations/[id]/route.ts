@@ -41,8 +41,8 @@ const AUDITEE_FIELDS = new Set([
   "auditeePersonTier2",
   "auditeeFeedback",
   "targetDate",
-  "personResponsibleToImplement",
-  "currentStatus"
+  "personResponsibleToImplement"
+  // NOTE: currentStatus is NOT editable by auditees - handled separately
 ]);
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -254,6 +254,35 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } else {
         data[k] = v;
       }
+    }
+  }
+
+  // Special handling for currentStatus (only Audit Heads and Assigned Auditors can edit)
+  if (input.currentStatus !== undefined) {
+    // CFO can always edit
+    if (isCFO(role)) {
+      data.currentStatus = input.currentStatus;
+    }
+    // Audit Head can edit
+    else if (isAuditHead(role)) {
+      data.currentStatus = input.currentStatus;
+    }
+    // Auditor with assignment can edit (only in DRAFT/REJECTED)
+    else if (isAuditor(role)) {
+      if (orig.approvalStatus !== "DRAFT" && orig.approvalStatus !== "REJECTED") {
+        return NextResponse.json({
+          ok: false,
+          error: "Can only edit currentStatus when observation is DRAFT or REJECTED"
+        }, { status: 403 });
+      }
+      data.currentStatus = input.currentStatus;
+    }
+    // Auditees and others cannot edit currentStatus
+    else {
+      return NextResponse.json({
+        ok: false,
+        error: "Only Audit Heads and Assigned Auditors can edit observation status"
+      }, { status: 403 });
     }
   }
 

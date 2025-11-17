@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { isCFO, isCFOOrCXOTeam as _isCFOOrCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditee, canApproveObservations } from "@/lib/rbac";
+import { isCFO, isCFOOrCXOTeam as _isCFOOrCXOTeam, isAuditHead, isAuditorOrAuditHead, isAuditor, isAuditee, canApproveObservations } from "@/lib/rbac";
 import { PageContainer } from "@/components/v2/PageContainer";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Clock, Send, Plus, Trash2, CheckCircle, XCircle, Lock, Unlock } from "lucide-react";
@@ -431,6 +431,18 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     // Check if field is locked (applies to non-CFO users)
     if (isFieldLocked(fieldName)) return true;
 
+    // Special handling for currentStatus - only Audit Heads and Assigned Auditors can edit
+    if (fieldName === "currentStatus") {
+      // Auditees cannot edit status
+      if (isAuditee(role)) return true;
+      // Audit Heads can edit
+      if (isAuditHead(role)) return false;
+      // Auditors can edit (if they have assignment to the audit)
+      if (isAuditor(role)) return false;
+      // Others cannot edit
+      return true;
+    }
+
     // For auditees, check assignment and field restrictions
     if (isAuditee(role)) {
       // Check if user is assigned to this observation
@@ -716,34 +728,35 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                   Published
                 </span>
               )}
-              {o.currentStatus && (
-                <span
-                  className="px-2 py-1 rounded text-xs"
-                  style={{
-                    background:
-                      o.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel100)' :
-                      o.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu100)' :
-                      o.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed100)' :
-                      o.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre100)' :
-                      o.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre100)' :
-                      'var(--c-palUiBlu100)',
-                    color:
-                      o.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel700)' :
-                      o.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu700)' :
-                      o.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed700)' :
-                      o.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre700)' :
-                      o.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre700)' :
-                      'var(--c-palUiBlu700)'
-                  }}
-                >
-                  {o.currentStatus === 'PENDING_MR' ? 'Pending MR' :
-                   o.currentStatus === 'MR_UNDER_REVIEW' ? 'MR Under Review' :
-                   o.currentStatus === 'REFERRED_BACK' ? 'Referred Back' :
-                   o.currentStatus === 'OBSERVATION_FINALISED' ? 'Observation Finalised' :
-                   o.currentStatus === 'RESOLVED' ? 'Resolved' :
-                   o.currentStatus}
-                </span>
-              )}
+              <select
+                className="px-2 py-1 rounded text-xs border-0 cursor-pointer"
+                style={{
+                  background:
+                    draft.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel100)' :
+                    draft.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu100)' :
+                    draft.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed100)' :
+                    draft.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre100)' :
+                    draft.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre100)' :
+                    'var(--c-palUiBlu100)',
+                  color:
+                    draft.currentStatus === 'PENDING_MR' ? 'var(--c-palUiYel700)' :
+                    draft.currentStatus === 'MR_UNDER_REVIEW' ? 'var(--c-palUiBlu700)' :
+                    draft.currentStatus === 'REFERRED_BACK' ? 'var(--c-palUiRed700)' :
+                    draft.currentStatus === 'OBSERVATION_FINALISED' ? 'var(--c-palUiGre700)' :
+                    draft.currentStatus === 'RESOLVED' ? 'var(--c-palUiGre700)' :
+                    'var(--c-palUiBlu700)'
+                }}
+                value={draft.currentStatus || ""}
+                onChange={(e) => setField("currentStatus", e.target.value)}
+                disabled={isFieldDisabled("currentStatus")}
+              >
+                <option value="">Select Status</option>
+                <option value="PENDING_MR">Pending MR</option>
+                <option value="MR_UNDER_REVIEW">MR Under Review</option>
+                <option value="REFERRED_BACK">Referred Back</option>
+                <option value="OBSERVATION_FINALISED">Observation Finalised</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
             </div>
             <p className="text-sm" style={{ color: 'var(--c-texSec)' }}>
               OBS-{id} • Created on {new Date(o.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
