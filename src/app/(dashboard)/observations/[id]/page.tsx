@@ -252,17 +252,30 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
     }
   }
 
-  async function approve(isApprove: boolean) {
+  async function approve() {
     const res = await fetch(`/api/v1/observations/${id}/approve`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ approve: isApprove })
+      headers: { "content-type": "application/json" }
     });
     if (res.ok) {
       await load();
-      showSuccess(`Observation ${isApprove ? 'approved' : 'rejected'} successfully!`);
+      showSuccess('Observation approved successfully!');
     } else {
-      showError(`Failed to ${isApprove ? 'approve' : 'reject'} observation!`);
+      showError('Failed to approve observation!');
+    }
+  }
+
+  async function reject() {
+    const res = await fetch(`/api/v1/observations/${id}/reject`, {
+      method: "POST",
+      headers: { "content-type": "application/json" }
+    });
+    if (res.ok) {
+      await load();
+      showSuccess('Observation rejected successfully!');
+    } else {
+      const j = await res.json().catch(() => ({}));
+      showError(j.error || 'Failed to reject observation!');
     }
   }
 
@@ -795,7 +808,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 <Button
                   size="sm"
                   className="h-8 px-3"
-                  onClick={() => approve(true)}
+                  onClick={approve}
                   disabled={o.approvalStatus === 'APPROVED'}
                   style={{
                     background: o.approvalStatus === 'APPROVED' ? 'var(--c-palUiGre700)' : 'var(--c-palUiGre600)',
@@ -808,7 +821,7 @@ export default function ObservationDetailPage({ params }: { params: Promise<{ id
                 <Button
                   size="sm"
                   className="h-8 px-3"
-                  onClick={() => approve(false)}
+                  onClick={reject}
                   disabled={!(o.approvalStatus === 'SUBMITTED' || o.approvalStatus === 'APPROVED')}
                   title={o.approvalStatus === 'DRAFT'
                     ? 'Submit the observation before rejecting.'
