@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/server/db";
 import { z } from "zod";
 import { isAdminOrAuditor, isAuditee, isGuest } from "@/lib/rbac";
+import { getUserScope, isObservationInScope } from "@/lib/scope";
 import { writeAuditEvent } from "@/server/auditTrail";
 
 const createSchema = z.object({
